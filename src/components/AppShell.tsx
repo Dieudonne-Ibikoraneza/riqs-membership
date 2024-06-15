@@ -90,13 +90,19 @@ export function AppShell({
     }
   }, [role, kind, isTeacher, isStudent, isMentor, router]);
 
+  const actualIsMentor = isMentor || (profileData?.profile as any)?.systemRole === "Mentor";
+  const isProfessional = profileData?.profile?.membershipClass?.includes("Professional");
+  const needsMentorship = !isFirm && !isProfessional;
+  const canBeMentor = actualIsMentor;
+
   const memberLinks = [
     { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
     { href: "/dashboard/profile", label: "My Profile", icon: User2 },
     { href: "/dashboard/application", label: "Application", icon: FileText },
     { href: "/dashboard/certificate", label: "Certificate", icon: Award },
     { href: "/dashboard/payments", label: "Payments", icon: Wallet },
-    ...(isFirm ? [] : [{ href: "/dashboard/mentorship", label: isMentor ? "My Mentees" : "Mentorship", icon: GraduationCap }]),
+    ...(needsMentorship ? [{ href: "/dashboard/mentorship", label: "Mentorship", icon: FileText }] : []),
+    ...(canBeMentor ? [{ href: "/dashboard/mentees", label: "My Mentees", icon: GraduationCap }] : []),
     ...(isTeacher ? [{ href: "/teacher", label: "Teacher Workspace", icon: Users }] : []),
     { href: "/dashboard/documents", label: "Documents", icon: Folder },
   ];

@@ -223,8 +223,11 @@ export async function scheduleApc(payload: {
   applicationId: string;
   assessmentDate: string;
   panelChair?: string;
+  panelChairEmail?: string;
   examiner1?: string;
+  examiner1Email?: string;
   examiner2?: string;
+  examiner2Email?: string;
 }): Promise<any> {
   const { data } = await axiosClient.post(`/progression/apc/register`, payload);
   return data;

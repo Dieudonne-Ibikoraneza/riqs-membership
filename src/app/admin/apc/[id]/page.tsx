@@ -195,9 +195,15 @@ export default function ApcDetailPage({ params }: PageProps) {
   };
 
   const handleGrade = async () => {
-    if (["Passed", "Failed"].includes(gradeForm.status) && !gradeForm.score) {
-      toast.error("Score percentage is required.");
-      return;
+    if (["Passed", "Failed"].includes(gradeForm.status)) {
+      if (gradeForm.score === "" || gradeForm.score === null || gradeForm.score === undefined) {
+        toast.error("Score percentage is required.");
+        return;
+      }
+      if (!gradeForm.notes || gradeForm.notes.trim() === "") {
+        toast.error("Panel feedback / notes are required.");
+        return;
+      }
     }
     setIsSubmitting(true);
     try {

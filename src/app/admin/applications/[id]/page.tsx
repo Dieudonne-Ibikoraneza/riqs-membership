@@ -548,7 +548,7 @@ export default function Review({ params }: PageProps) {
                     {app.processingFeeStatus?.replace(/_/g, " ")}
                   </span>
                 </div>
-                {!app.processingFeeCleared && role !== "Approver" && (
+                {!app.processingFeeCleared && (
                   <div className="flex items-center gap-2">
                     <Button 
                       size="sm" 

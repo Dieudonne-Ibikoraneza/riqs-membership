@@ -206,7 +206,7 @@ export default function Application() {
                   )}
                 >
                   <div className={cn(
-                    "flex h-9 w-9 items-center justify-center text-xs font-bold transition-all duration-300 rounded-full",
+                    "flex h-9 w-9 items-center justify-center text-xs font-bold transition-all duration-300",
                     done && "bg-gold text-[#1a1a1a] shadow-gold",
                     active && "bg-navy text-white scale-110 ring-4 ring-navy/15 animate-pulse-gold",
                     !done && !active && "bg-zinc-100 dark:bg-zinc-800 text-muted-foreground border border-zinc-200 dark:border-zinc-700",

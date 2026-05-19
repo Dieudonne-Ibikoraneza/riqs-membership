@@ -214,7 +214,7 @@ export default function Application() {
                     {done ? <Check className="h-4 w-4" /> : i + 1}
                   </div>
                   <span className={cn(
-                    "text-[10px] text-center leading-tight transition-colors block max-w-[90px] truncate mt-1",
+                    "text-[10px] text-center leading-tight transition-colors block mt-1 max-w-[110px] break-words whitespace-normal font-sans",
                     active ? "text-navy font-bold" : "text-muted-foreground",
                   )}>
                     {s}

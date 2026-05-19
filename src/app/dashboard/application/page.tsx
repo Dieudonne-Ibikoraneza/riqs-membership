@@ -192,8 +192,7 @@ export default function Application() {
               style={{ width: `${pct}%` }}
             />
           </div>
-          {/* Stepper pills grid */}
-          <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-8">
+          <div className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-4 lg:flex-nowrap lg:justify-between">
             {STEPS.map((s, i) => {
               const done = i < step, active = i === step;
               return (
@@ -202,6 +201,7 @@ export default function Application() {
                   onClick={() => i <= step && setStep(i)}
                   className={cn(
                     "group flex flex-col items-center gap-1.5 transition-all outline-none",
+                    "w-[calc(33.333%-1rem)] md:w-[calc(25%-1rem)] lg:w-auto lg:flex-1",
                     i > step && "cursor-default opacity-60",
                   )}
                 >
@@ -214,8 +214,8 @@ export default function Application() {
                     {done ? <Check className="h-4 w-4" /> : i + 1}
                   </div>
                   <span className={cn(
-                    "text-[10px] text-center leading-tight transition-colors hidden md:block max-w-[90px] truncate",
-                    active ? "font-semibold text-navy" : "text-muted-foreground",
+                    "text-[10px] text-center leading-tight transition-colors block max-w-[90px] truncate",
+                    active ? "font-semibold text-navy font-bold" : "text-muted-foreground",
                   )}>
                     {s}
                   </span>

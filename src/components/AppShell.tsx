@@ -6,9 +6,24 @@ import { type ReactNode, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Building2, LayoutDashboard, User2, FileText, Award, Wallet, GraduationCap,
-  Folder, Mail, LogOut, Menu, X, ClipboardList, Users, Send, Shield,
-  ChevronsLeft, ChevronsRight,
+  Building2,
+  LayoutDashboard,
+  User2,
+  FileText,
+  Award,
+  Wallet,
+  GraduationCap,
+  Folder,
+  Mail,
+  LogOut,
+  Menu,
+  X,
+  ClipboardList,
+  Users,
+  Send,
+  Shield,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -33,7 +48,13 @@ const adminLinks = [
   { href: "/admin/audit", label: "Audit Log", icon: Shield },
 ];
 
-export function AppShell({ children, kind }: { children: ReactNode; kind: "member" | "admin" }) {
+export function AppShell({
+  children,
+  kind,
+}: {
+  children: ReactNode;
+  kind: "member" | "admin";
+}) {
   const { name, email, role, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -49,14 +70,16 @@ export function AppShell({ children, kind }: { children: ReactNode; kind: "membe
   if (!role) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-black">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, ease: "easeOut" }}
           className="text-center"
         >
           <h2 className="text-lg font-bold text-navy">Please sign in</h2>
-          <p className="mt-1 text-sm text-muted-foreground">You need to be logged in to view this area.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            You need to be logged in to view this area.
+          </p>
           <Link href="/login" passHref>
             <Button className="mt-4 bg-gold text-[#1a1a1a] hover:bg-gold/90 transition-transform hover:scale-[1.02] active:scale-[0.98]">
               Sign in
@@ -67,10 +90,15 @@ export function AppShell({ children, kind }: { children: ReactNode; kind: "membe
     );
   }
 
-  const initials = (name || "U").split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase();
+  const initials = (name || "U")
+    .split(" ")
+    .map((s) => s[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-muted/40 font-sans">
+    <div className="flex h-screen overflow-hidden bg-white font-sans">
       {/* Mobile Drawer Overlay */}
       <AnimatePresence>
         {mobileOpen && (
@@ -89,55 +117,67 @@ export function AppShell({ children, kind }: { children: ReactNode; kind: "membe
         animate={{ width: collapsed ? 76 : 256 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col brand-gradient text-white shadow-navy md:relative md:translate-x-0",
-          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+          "fixed inset-y-0 left-0 z-50 flex flex-col brand-gradient text-white  md:relative md:translate-x-0",
+          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
         {/* Brand */}
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 px-4">
-          <Link href="/" className="flex items-center gap-2 overflow-hidden">
-            <motion.div 
-              whileHover={{ rotate: 10 }}
-              className="flex h-9 w-9 shrink-0 items-center justify-center bg-gold text-[#1a1a1a] shadow-gold"
-            >
-              <Building2 className="h-5 w-5" />
-            </motion.div>
-            {!collapsed && (
-              <motion.div 
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="leading-tight"
-              >
-                <div className="text-sm font-bold tracking-wide">RIQS</div>
-                <div className="text-[10px] uppercase tracking-[0.18em] text-white/60">
-                  {kind === "admin" ? "Admin" : "Member"}
-                </div>
-              </motion.div>
-            )}
+        <div
+          className={cn(
+            "relative h-20 shrink-0 bg-white flex items-center justify-center overflow-hidden",
+            collapsed && "hidden",
+          )}
+        >
+          <Link
+            href="/"
+            className="w-full h-full flex items-center justify-center p-3"
+          >
+            <motion.img
+              whileHover={{ scale: 1.03 }}
+              src="/riqs-logo.png"
+              alt="RIQS Logo"
+              className="w-full h-full object-contain shrink-0"
+            />
           </Link>
-          <button className="md:hidden text-white/80 hover:text-white" onClick={() => setMobileOpen(false)} aria-label="Close menu">
+          <button
+            className="absolute right-4 md:hidden text-zinc-500 hover:text-zinc-800"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close menu"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Nav (Staggered spring loading & interactive hovers) */}
-        <nav className="flex-1 overflow-y-auto scrollbar-thin px-3 py-4">
+        <nav
+          className={cn(
+            "flex-1 px-3 py-4",
+            collapsed ? "overflow-visible" : "overflow-y-auto scrollbar-thin",
+          )}
+        >
           <div className="space-y-1">
             {links.map((l, index) => {
-              const active = l.exact ? pathname === l.href : pathname.startsWith(l.href);
+              const active = l.exact
+                ? pathname === l.href
+                : pathname.startsWith(l.href);
               return (
                 <motion.div
                   key={l.href}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05, type: "spring", stiffness: 260, damping: 25 }}
+                  transition={{
+                    delay: index * 0.05,
+                    type: "spring",
+                    stiffness: 260,
+                    damping: 25,
+                  }}
                 >
                   <Link
                     href={l.href}
                     onClick={() => setMobileOpen(false)}
-                    title={collapsed ? l.label : undefined}
+                    title={undefined}
                     className={cn(
-                      "group relative flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                      "group relative flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-all duration-200 rounded-md",
                       "before:absolute before:left-0 before:top-1/2 before:h-0 before:w-[3px] before:-translate-y-1/2 before:bg-gold before:transition-all",
                       active
                         ? "bg-white/10 text-white before:h-6"
@@ -145,13 +185,23 @@ export function AppShell({ children, kind }: { children: ReactNode; kind: "membe
                       collapsed && "justify-center px-2",
                     )}
                   >
-                    <l.icon className={cn("h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-110", active && "text-gold")} />
+                    <l.icon
+                      className={cn(
+                        "h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-110",
+                        active && "text-gold",
+                      )}
+                    />
                     {!collapsed && <span className="truncate">{l.label}</span>}
                     {!collapsed && active && (
-                      <motion.span 
+                      <motion.span
                         layoutId="activeDot"
-                        className="ml-auto h-1.5 w-1.5 rounded-full bg-gold animate-pulse-gold" 
+                        className="ml-auto h-1.5 w-1.5 rounded-full bg-gold animate-pulse-gold"
                       />
+                    )}
+                    {collapsed && (
+                      <span className="absolute left-full ml-4 px-2.5 py-1.5 bg-[#082649]/95 text-white text-xs font-semibold rounded-md border border-white/10 opacity-0 translate-x-[-10px] pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 shadow-xl whitespace-nowrap z-50">
+                        {l.label}
+                      </span>
                     )}
                   </Link>
                 </motion.div>
@@ -163,42 +213,52 @@ export function AppShell({ children, kind }: { children: ReactNode; kind: "membe
         {/* Footer Area with smooth dynamic collapse transitions */}
         <div className="shrink-0 border-t border-white/10 p-3 space-y-2">
           <button
-            onClick={() => setCollapsed(c => !c)}
-            className="hidden md:flex w-full items-center justify-center gap-2 bg-white/5 px-2 py-2 text-xs text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            onClick={() => setCollapsed((c) => !c)}
+            className="hidden md:flex w-full items-center justify-center gap-2 bg-white/5 px-2 py-2 text-xs text-white/70 transition-colors hover:bg-white/10 hover:text-white rounded-md"
           >
-            {collapsed ? <ChevronsRight className="h-4 w-4" /> : <><ChevronsLeft className="h-4 w-4" /> Collapse</>}
+            {collapsed ? (
+              <ChevronsRight className="h-4 w-4" />
+            ) : (
+              <>
+                <ChevronsLeft className="h-4 w-4" /> Collapse
+              </>
+            )}
           </button>
           {!collapsed ? (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="bg-white/5 p-3"
+              className="bg-white/5 p-3 rounded-lg"
             >
               <div className="flex items-center gap-2">
-                <motion.div 
+                <motion.div
                   whileHover={{ scale: 1.05 }}
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-gold text-[11px] font-bold text-[#1a1a1a]"
                 >
                   {initials}
                 </motion.div>
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold">{name}</div>
-                  <div className="truncate text-[11px] text-white/60">{email}</div>
+                  <div className="truncate text-sm font-semibold text-white">
+                    {name}
+                  </div>
+                  <div className="truncate text-[11px] text-white/60">
+                    {email}
+                  </div>
                 </div>
               </div>
-              <Button 
-                onClick={doLogout} 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                onClick={doLogout}
+                variant="ghost"
+                size="sm"
                 className="mt-2 w-full justify-start text-white hover:bg-white/10 transition-colors"
               >
                 <LogOut className="mr-2 h-4 w-4" /> Sign out
               </Button>
             </motion.div>
           ) : (
-            <button 
-              onClick={doLogout} 
-              className="flex w-full items-center justify-center bg-white/5 py-2 text-white/70 hover:bg-white/10 hover:text-white"
+            <button
+              onClick={doLogout}
+              className="flex w-full items-center justify-center bg-white/5 py-2 text-white/70 hover:bg-white/10 hover:text-white rounded-md"
             >
               <LogOut className="h-4 w-4" />
             </button>
@@ -207,17 +267,23 @@ export function AppShell({ children, kind }: { children: ReactNode; kind: "membe
       </motion.aside>
 
       {/* Main column */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b bg-white/80 px-4 backdrop-blur md:px-6">
+      <div className="relative flex flex-1 flex-col overflow-hidden">
+        <header className="absolute top-0 left-0 right-0 z-30 flex h-20 items-center justify-between bg-white px-4 md:px-6">
           <div className="flex items-center gap-3">
-            <button onClick={() => setMobileOpen(true)} className="md:hidden" aria-label="Open menu">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="md:hidden"
+              aria-label="Open menu"
+            >
               <Menu className="h-6 w-6" />
             </button>
             <div className="text-sm">
               <div className="font-semibold text-navy">
                 {kind === "admin" ? "Administrator Workspace" : "Member Portal"}
               </div>
-              <div className="text-[11px] text-muted-foreground">{pathname}</div>
+              <div className="text-[11px] text-muted-foreground">
+                {pathname}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -227,7 +293,7 @@ export function AppShell({ children, kind }: { children: ReactNode; kind: "membe
                 {kind === "admin" ? "Reviewer / Approver" : "Active Member"}
               </div>
             </div>
-            <motion.div 
+            <motion.div
               whileHover={{ scale: 1.05 }}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-gold to-[#d18a00] text-sm font-semibold text-[#1a1a1a] shadow-gold cursor-pointer"
             >
@@ -235,11 +301,11 @@ export function AppShell({ children, kind }: { children: ReactNode; kind: "membe
             </motion.div>
           </div>
         </header>
-        
+
         {/* Content scrolls independently */}
-        <main className="flex-1 overflow-y-auto">
-          <motion.div 
-            key={pathname} 
+        <main className="flex-1 overflow-y-auto pt-20">
+          <motion.div
+            key={pathname}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: "easeOut" }}

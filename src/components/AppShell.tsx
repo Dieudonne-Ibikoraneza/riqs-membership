@@ -41,7 +41,12 @@ const memberLinks = [
 
 const adminLinks = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
-  { href: "/admin/applications", label: "Applications", icon: ClipboardList, aliases: ["/admin/review"] },
+  {
+    href: "/admin/applications",
+    label: "Applications",
+    icon: ClipboardList,
+    aliases: ["/admin/applications"],
+  },
   { href: "/admin/members", label: "Members", icon: Users },
   { href: "/admin/email", label: "Email System", icon: Send },
   { href: "/admin/export", label: "Export Tool", icon: Folder },
@@ -118,6 +123,7 @@ export function AppShell({
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col brand-gradient text-white  md:relative md:translate-x-0",
+          "transition-transform duration-300 ease-in-out md:transition-none",
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
@@ -157,7 +163,10 @@ export function AppShell({
         >
           <div className="space-y-1">
             {links.map((l, index) => {
-              const aliasMatch = (l as any).aliases?.some((a: string) => pathname.startsWith(a)) ?? false;
+              const aliasMatch =
+                (l as any).aliases?.some((a: string) =>
+                  pathname.startsWith(a),
+                ) ?? false;
               const active = l.exact
                 ? pathname === l.href
                 : pathname.startsWith(l.href) || aliasMatch;

@@ -473,15 +473,15 @@ export default function Application() {
                   {data.employment.map((em: any, i: number) => (
                     <div key={i} className="relative grid gap-3 border border-zinc-150 dark:border-zinc-800 p-4 rounded-md md:grid-cols-12 bg-zinc-50/50 dark:bg-zinc-950/20">
                       <div className="md:col-span-3 space-y-1">
-                        <Label htmlFor={`emp-co-${i}`}>Company / Firm Name</Label>
+                        <Label htmlFor={`emp-co-${i}`} className="whitespace-nowrap truncate">Company / Firm Name</Label>
                         <Input id={`emp-co-${i}`} value={em.company} onChange={e => { const v = [...data.employment]; v[i].company = e.target.value; setData({ ...data, employment: v }); }} />
                       </div>
-                      <div className="md:col-span-3 space-y-1">
-                        <Label htmlFor={`emp-ro-${i}`}>Job Title / Role</Label>
+                      <div className="md:col-span-2 space-y-1">
+                        <Label htmlFor={`emp-ro-${i}`} className="whitespace-nowrap truncate">Job Title / Role</Label>
                         <Input id={`emp-ro-${i}`} value={em.role} onChange={e => { const v = [...data.employment]; v[i].role = e.target.value; setData({ ...data, employment: v }); }} />
                       </div>
-                      <div className="md:col-span-2 space-y-1">
-                        <Label htmlFor={`emp-fr-${i}`}>From (Month/Year)</Label>
+                      <div className="md:col-span-3 space-y-1">
+                        <Label htmlFor={`emp-fr-${i}`} className="whitespace-nowrap truncate">From (Month/Year)</Label>
                         <MonthYearPicker
                           id={`emp-fr-${i}`}
                           value={em.from}
@@ -493,7 +493,7 @@ export default function Application() {
                         />
                       </div>
                       <div className="md:col-span-3 space-y-1">
-                        <Label htmlFor={`emp-to-${i}`}>To (Month/Year)</Label>
+                        <Label htmlFor={`emp-to-${i}`} className="whitespace-nowrap truncate">To (Month/Year)</Label>
                         <MonthYearPicker
                           id={`emp-to-${i}`}
                           value={em.to}
@@ -539,11 +539,11 @@ export default function Application() {
                   {data.education.map((ed: any, i: number) => (
                     <div key={i} className="relative grid gap-3 border border-zinc-150 dark:border-zinc-800 p-4 rounded-md md:grid-cols-12 bg-zinc-50/50 dark:bg-zinc-950/20">
                       <div className="md:col-span-3 space-y-1">
-                        <Label htmlFor={`inst-${i}`}>University / Polytechnic</Label>
+                        <Label htmlFor={`inst-${i}`} className="whitespace-nowrap truncate">University / Polytechnic</Label>
                         <Input id={`inst-${i}`} value={ed.institution} onChange={e => { const v = [...data.education]; v[i].institution = e.target.value; setData({ ...data, education: v }); }} />
                       </div>
-                      <div className="md:col-span-3 space-y-1">
-                        <Label htmlFor={`deg-${i}`}>Degree Type</Label>
+                      <div className="md:col-span-2 space-y-1">
+                        <Label htmlFor={`deg-${i}`} className="whitespace-nowrap truncate">Degree Type</Label>
                         <Select value={ed.degree} onValueChange={val => { const v = [...data.education]; v[i].degree = val; setData({ ...data, education: v }); }}>
                           <SelectTrigger id={`deg-${i}`} className="h-10 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
                             <SelectValue />
@@ -556,11 +556,11 @@ export default function Application() {
                         </Select>
                       </div>
                       <div className="md:col-span-3 space-y-1">
-                        <Label htmlFor={`field-${i}`}>Field Of Study</Label>
+                        <Label htmlFor={`field-${i}`} className="whitespace-nowrap truncate">Field Of Study</Label>
                         <Input id={`field-${i}`} placeholder="e.g. Quantity Surveying" value={ed.studyField} onChange={e => { const v = [...data.education]; v[i].studyField = e.target.value; setData({ ...data, education: v }); }} />
                       </div>
-                      <div className="md:col-span-2 space-y-1">
-                        <Label htmlFor={`yr-${i}`}>End Date (Month/Year)</Label>
+                      <div className="md:col-span-3 space-y-1">
+                        <Label htmlFor={`yr-${i}`} className="whitespace-nowrap truncate">End Date (Month/Year)</Label>
                         <MonthYearPicker
                           id={`yr-${i}`}
                           value={ed.startMonthYear}

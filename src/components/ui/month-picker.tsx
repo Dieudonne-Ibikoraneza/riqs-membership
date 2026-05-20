@@ -38,6 +38,7 @@ export function MonthYearPicker({
   className,
 }: MonthYearPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [position, setPosition] = useState<"bottom" | "top">("bottom");
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Parse current year/month from value or default to current date
@@ -58,6 +59,35 @@ export function MonthYearPicker({
     const { year } = parseValue();
     setActiveYear(year);
   }, [value]);
+
+  // Measure space and decide popover position (above/below)
+  useEffect(() => {
+    const updatePosition = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        
+        // The popover height is around 290px
+        if (spaceBelow < 290 && spaceAbove > spaceBelow) {
+          setPosition("top");
+        } else {
+          setPosition("bottom");
+        }
+      }
+    };
+
+    if (isOpen) {
+      updatePosition();
+      window.addEventListener("scroll", updatePosition, { passive: true });
+      window.addEventListener("resize", updatePosition);
+    }
+
+    return () => {
+      window.removeEventListener("scroll", updatePosition);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [isOpen]);
 
   // Click away listener to close popover
   useEffect(() => {
@@ -135,11 +165,14 @@ export function MonthYearPicker({
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+            initial={{ opacity: 0, y: position === "top" ? -8 : 8, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.96 }}
+            exit={{ opacity: 0, y: position === "top" ? -8 : 8, scale: 0.96 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute left-0 z-50 mt-1.5 w-[280px] rounded-none border border-input bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+            className={cn(
+              "absolute left-0 z-50 w-[280px] rounded-none border border-input bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-950",
+              position === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5"
+            )}
           >
             {/* Header: Year Selector */}
             <div className="flex items-center justify-between pb-2.5 border-b border-zinc-100 dark:border-zinc-800/80">

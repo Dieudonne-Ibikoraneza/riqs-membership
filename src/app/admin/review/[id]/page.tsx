@@ -81,7 +81,7 @@ export default function Review({ params }: PageProps) {
           </Link>
           <div>
             <h1 className="text-xl font-bold text-navy">{app.applicantName}</h1>
-            <div className="text-xs text-muted-foreground font-mono">
+            <div className="text-xs text-muted-foreground">
               {app.id} · Submitted {app.submittedAt}
             </div>
           </div>
@@ -192,7 +192,7 @@ export default function Review({ params }: PageProps) {
             <CardTitle className="text-sm font-bold text-navy">Documents Workbench</CardTitle>
             <div className="flex items-center gap-1">
               <Button size="icon" variant="ghost" onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}><ZoomOut className="h-4 w-4" /></Button>
-              <span className="text-xs w-12 text-center font-medium font-mono">{Math.round(zoom * 100)}%</span>
+              <span className="text-xs w-12 text-center font-medium">{Math.round(zoom * 100)}%</span>
               <Button size="icon" variant="ghost" onClick={() => setZoom(z => Math.min(2, z + 0.1))}><ZoomIn className="h-4 w-4" /></Button>
               <Button size="icon" variant="ghost" onClick={() => setRot(r => (r + 90) % 360)}><RotateCw className="h-4 w-4" /></Button>
               <Button size="icon" variant="ghost" onClick={() => toast.success("FullScreen preview enabled")}><Maximize2 className="h-4 w-4" /></Button>

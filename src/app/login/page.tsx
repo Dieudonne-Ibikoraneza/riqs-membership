@@ -61,7 +61,7 @@ export default function Login() {
             <form onSubmit={submit} className="mt-6 space-y-4">
               <div className="space-y-1">
                 <Label htmlFor="em">Email address</Label>
-                <Input id="em" type="email" value={email} onChange={e => setEmail(e.target.value)} />
+                <Input id="em" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="e.g. member@riqs.rw" />
               </div>
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
@@ -70,7 +70,7 @@ export default function Login() {
                     Forgot password?
                   </Link>
                 </div>
-                <Input id="pw" type="password" value={pw} onChange={e => setPw(e.target.value)} />
+                <Input id="pw" type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="••••••••" />
               </div>
               <Button type="submit" className="w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-semibold border-none">
                 Sign in

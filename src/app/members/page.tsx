@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Search, Download, Mail, Phone, MapPin, BadgeCheck, LayoutGrid, List,
-  ArrowUpDown, Filter, X, ChevronLeft, ChevronRight, Users,
+  ArrowUpDown, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +26,7 @@ export default function MembersPage() {
   const [loc, setLoc] = useState<string>("all");
   const [sort, setSort] = useState<SortKey>("name");
   const [dir, setDir] = useState<"asc" | "desc">("asc");
-  const [view, setView] = useState<View>("cards");
+  const [view, setView] = useState<View>("table");
   const [page, setPage] = useState(1);
   const pageSize = 9;
 
@@ -164,16 +164,16 @@ export default function MembersPage() {
                 {/* View toggle */}
                 <div className="inline-flex border border-zinc-150 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-0.5">
                   <button
-                    onClick={() => setView("cards")}
-                    className={cn("flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all", view === "cards" ? "bg-navy text-white shadow-sm" : "text-muted-foreground hover:text-foreground")}
-                  >
-                    <LayoutGrid className="h-3.5 w-3.5" /> Cards
-                  </button>
-                  <button
                     onClick={() => setView("table")}
                     className={cn("flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all", view === "table" ? "bg-navy text-white shadow-sm" : "text-muted-foreground hover:text-foreground")}
                   >
                     <List className="h-3.5 w-3.5" /> Table
+                  </button>
+                  <button
+                    onClick={() => setView("cards")}
+                    className={cn("flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all", view === "cards" ? "bg-navy text-white shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" /> Cards
                   </button>
                 </div>
               </div>
@@ -306,15 +306,104 @@ function MemberCard({ m }: { m: any }) {
 }
 
 function Pagination({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (n: number) => void }) {
+  const range = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const arr: (number | string)[] = [];
+    if (page <= 4) {
+      arr.push(1, 2, 3, 4, 5, "...", totalPages);
+    } else if (page >= totalPages - 3) {
+      arr.push(1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+    } else {
+      arr.push(1, "...", page - 1, page, page + 1, "...", totalPages);
+    }
+    return arr;
+  }, [page, totalPages]);
+
   return (
-    <div className="mt-6 flex items-center justify-between text-sm">
-      <div className="text-muted-foreground font-sans">Page <span className="font-bold text-navy dark:text-gold">{page}</span> of {totalPages}</div>
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" disabled={page === 1} onClick={() => onChange(page - 1)} className="border-zinc-200 dark:border-zinc-800">
-          <ChevronLeft className="mr-1 h-3.5 w-3.5 text-gold" /> Previous
+    <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-100 dark:border-zinc-800 pt-6">
+      <div className="text-sm text-muted-foreground font-sans">
+        Showing page <span className="font-semibold text-navy dark:text-gold">{page}</span> of <span className="font-semibold text-zinc-900 dark:text-zinc-100">{totalPages}</span>
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap justify-center">
+        {/* First Page */}
+        <Button
+          variant="outline"
+          size="icon"
+          disabled={page === 1}
+          onClick={() => onChange(1)}
+          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
+          title="First Page"
+        >
+          <ChevronsLeft className="h-4 w-4 text-gold" />
         </Button>
-        <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => onChange(page + 1)} className="border-zinc-200 dark:border-zinc-800">
-          Next <ChevronRight className="ml-1 h-3.5 w-3.5 text-gold" />
+
+        {/* Previous Page */}
+        <Button
+          variant="outline"
+          size="icon"
+          disabled={page === 1}
+          onClick={() => onChange(page - 1)}
+          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
+          title="Previous Page"
+        >
+          <ChevronLeft className="h-4 w-4 text-gold" />
+        </Button>
+
+        {/* Page Numbers */}
+        {range.map((p, index) => {
+          if (p === "...") {
+            return (
+              <span
+                key={`dots-${index}`}
+                className="px-2 text-zinc-450 dark:text-zinc-550 text-sm select-none font-bold"
+              >
+                ...
+              </span>
+            );
+          }
+
+          const isActive = p === page;
+          return (
+            <Button
+              key={`page-${p}`}
+              variant={isActive ? "default" : "outline"}
+              onClick={() => onChange(p as number)}
+              className={cn(
+                "h-9 w-9 font-semibold text-sm transition-all duration-200 hover:scale-105 active:scale-95",
+                isActive
+                  ? "bg-navy dark:bg-gold text-white dark:text-[#1a1a1a] shadow-md border-transparent cursor-default"
+                  : "border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              )}
+            >
+              {p}
+            </Button>
+          );
+        })}
+
+        {/* Next Page */}
+        <Button
+          variant="outline"
+          size="icon"
+          disabled={page === totalPages}
+          onClick={() => onChange(page + 1)}
+          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
+          title="Next Page"
+        >
+          <ChevronRight className="h-4 w-4 text-gold" />
+        </Button>
+
+        {/* Last Page */}
+        <Button
+          variant="outline"
+          size="icon"
+          disabled={page === totalPages}
+          onClick={() => onChange(totalPages)}
+          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
+          title="Last Page"
+        >
+          <ChevronsRight className="h-4 w-4 text-gold" />
         </Button>
       </div>
     </div>

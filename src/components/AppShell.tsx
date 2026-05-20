@@ -41,7 +41,7 @@ const memberLinks = [
 
 const adminLinks = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
-  { href: "/admin/applications", label: "Applications", icon: ClipboardList },
+  { href: "/admin/applications", label: "Applications", icon: ClipboardList, aliases: ["/admin/review"] },
   { href: "/admin/members", label: "Members", icon: Users },
   { href: "/admin/email", label: "Email System", icon: Send },
   { href: "/admin/export", label: "Export Tool", icon: Folder },
@@ -157,9 +157,10 @@ export function AppShell({
         >
           <div className="space-y-1">
             {links.map((l, index) => {
+              const aliasMatch = (l as any).aliases?.some((a: string) => pathname.startsWith(a)) ?? false;
               const active = l.exact
                 ? pathname === l.href
-                : pathname.startsWith(l.href);
+                : pathname.startsWith(l.href) || aliasMatch;
               return (
                 <motion.div
                   key={l.href}

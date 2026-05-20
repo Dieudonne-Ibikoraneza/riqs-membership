@@ -38,20 +38,20 @@ export default function Register() {
             <form onSubmit={submit} className="mt-6 space-y-4">
               <div className="space-y-1">
                 <Label htmlFor="reg-name">Full name</Label>
-                <Input id="reg-name" value={form.name} onChange={e => upd("name", e.target.value)} placeholder="As on national ID" />
+                <Input id="reg-name" value={form.name} onChange={e => upd("name", e.target.value)} placeholder="e.g. John Doe (as on national ID)" />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="reg-em">Email</Label>
-                <Input id="reg-em" type="email" value={form.email} onChange={e => upd("email", e.target.value)} />
+                <Input id="reg-em" type="email" value={form.email} onChange={e => upd("email", e.target.value)} placeholder="e.g. john.doe@example.com" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="reg-pw">Password</Label>
-                  <Input id="reg-pw" type="password" value={form.pw} onChange={e => upd("pw", e.target.value)} />
+                  <Input id="reg-pw" type="password" value={form.pw} onChange={e => upd("pw", e.target.value)} placeholder="••••••••" />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="reg-pw2">Confirm</Label>
-                  <Input id="reg-pw2" type="password" value={form.pw2} onChange={e => upd("pw2", e.target.value)} />
+                  <Input id="reg-pw2" type="password" value={form.pw2} onChange={e => upd("pw2", e.target.value)} placeholder="••••••••" />
                 </div>
               </div>
               <Button type="submit" className="w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-semibold border-none mt-2">

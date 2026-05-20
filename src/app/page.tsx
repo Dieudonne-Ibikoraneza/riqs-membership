@@ -102,7 +102,7 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
-                  <div className="mt-6 border-t border-white/10 pt-4 font-mono text-xs text-white/60 space-y-1">
+                  <div className="mt-6 border-t border-white/10 pt-4 text-xs text-white/60 space-y-1">
                     <div className="flex items-center justify-between">
                       <span>Issued on</span><span>14 May 2026</span>
                     </div>

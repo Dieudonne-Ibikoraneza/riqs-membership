@@ -53,7 +53,7 @@ export default function Profile() {
         <CardContent className="grid gap-4 md:grid-cols-2 p-6">
           <div className="space-y-1">
             <Label htmlFor="prof-name">Full Name</Label>
-            <Input id="prof-name" value={name} onChange={e => setName(e.target.value)} />
+            <Input id="prof-name" placeholder="e.g. Demo Member" value={name} onChange={e => setName(e.target.value)} />
             <p className="text-xs text-muted-foreground">Editable. Change is audit-logged.</p>
           </div>
           <LockedField label="National ID / Passport" value="1 1990 8 0123456 7 89" />
@@ -99,15 +99,15 @@ export default function Profile() {
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="space-y-1">
                   <Label htmlFor="edu-deg">Degree/Diploma</Label>
-                  <Input id="edu-deg" value={draft.degree} onChange={e => setDraft({ ...draft, degree: e.target.value })} />
+                  <Input id="edu-deg" placeholder="e.g. BSc Quantity Surveying" value={draft.degree} onChange={e => setDraft({ ...draft, degree: e.target.value })} />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="edu-inst">Institution</Label>
-                  <Input id="edu-inst" value={draft.institution} onChange={e => setDraft({ ...draft, institution: e.target.value })} />
+                  <Input id="edu-inst" placeholder="e.g. University of Rwanda" value={draft.institution} onChange={e => setDraft({ ...draft, institution: e.target.value })} />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="edu-yr">Graduation Year</Label>
-                  <Input id="edu-yr" type="number" value={draft.year} onChange={e => setDraft({ ...draft, year: +e.target.value })} />
+                  <Input id="edu-yr" type="number" placeholder="e.g. 2026" value={draft.year} onChange={e => setDraft({ ...draft, year: +e.target.value })} />
                 </div>
               </div>
               <div className="flex gap-2 pt-1">

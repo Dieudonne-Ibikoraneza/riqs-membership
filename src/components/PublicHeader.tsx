@@ -7,11 +7,12 @@ import { Building2, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-
+import { motion } from "framer-motion";
 export function PublicHeader() {
   const [open, setOpen] = useState(false);
   const { role } = useAuth();
   const pathname = usePathname();
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const links = [
     { href: "/", label: "Home" },
@@ -30,22 +31,43 @@ export function PublicHeader() {
           />
         </Link>
         
-        {/* Navigation links with active path highlighter */}
-        <nav className="hidden items-center gap-6 md:flex">
-          {links.map(l => {
+        {/* Navigation links with active path highlighter and gliding hover backdrop */}
+        <nav 
+          className="hidden items-center gap-1 md:flex"
+          onMouseLeave={() => setHoveredIndex(null)}
+        >
+          {links.map((l, index) => {
             const active = pathname === l.href;
             return (
               <Link 
                 key={l.href} 
                 href={l.href} 
+                onMouseEnter={() => setHoveredIndex(index)}
                 className={cn(
-                  "text-sm font-medium transition-colors duration-200",
+                  "relative px-4 py-2 text-sm font-medium transition-colors duration-200 rounded-md",
                   active 
                     ? "text-navy font-semibold dark:text-gold" 
                     : "text-foreground/80 hover:text-navy dark:hover:text-gold"
                 )}
               >
-                {l.label}
+                {hoveredIndex === index && (
+                  <motion.span
+                    layoutId="headerHoverBackdrop"
+                    className="absolute inset-0 rounded-md bg-zinc-100/70 dark:bg-zinc-800/40 backdrop-blur-sm -z-10"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <span>{l.label}</span>
+                {active && (
+                  <motion.span
+                    layoutId="publicActiveNav"
+                    className="absolute bottom-1.5 left-4 right-4 h-0.5 bg-gold rounded-full"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
               </Link>
             );
           })}
@@ -91,13 +113,20 @@ export function PublicHeader() {
                   href={l.href} 
                   onClick={() => setOpen(false)} 
                   className={cn(
-                    "block rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "relative block rounded-md px-3 py-2 text-sm font-medium transition-colors overflow-hidden",
                     active 
-                      ? "bg-navy/5 text-navy dark:bg-gold/10 dark:text-gold" 
+                      ? "text-navy font-semibold dark:text-gold" 
                       : "hover:bg-accent text-foreground/80"
                   )}
                 >
-                  {l.label}
+                  {active && (
+                    <motion.span
+                      layoutId="publicActiveNavMobile"
+                      className="absolute inset-0 bg-navy/5 dark:bg-gold/10 -z-10"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-10">{l.label}</span>
                 </Link>
               );
             })}

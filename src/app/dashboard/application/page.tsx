@@ -321,11 +321,11 @@ export default function Application() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-1">
                       <Label htmlFor="app-name">Full Names</Label>
-                      <Input id="app-name" value={data.personal.fullName} onChange={e => setData({ ...data, personal: { ...data.personal, fullName: e.target.value } })} />
+                      <Input id="app-name" placeholder="e.g. John Doe" value={data.personal.fullName} onChange={e => setData({ ...data, personal: { ...data.personal, fullName: e.target.value } })} />
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="app-nid">National ID / Passport Number</Label>
-                      <Input id="app-nid" value={data.personal.nationalId} onChange={e => setData({ ...data, personal: { ...data.personal, nationalId: e.target.value } })} />
+                      <Input id="app-nid" placeholder="e.g. 1199080012345678" value={data.personal.nationalId} onChange={e => setData({ ...data, personal: { ...data.personal, nationalId: e.target.value } })} />
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="app-dob">Date of Birth</Label>
@@ -333,24 +333,24 @@ export default function Application() {
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="app-phone">Mobile Phone (with country code)</Label>
-                      <Input id="app-phone" placeholder="+250..." value={data.personal.phone} onChange={e => setData({ ...data, personal: { ...data.personal, phone: e.target.value } })} />
+                      <Input id="app-phone" placeholder="e.g. +250 788 000 000" value={data.personal.phone} onChange={e => setData({ ...data, personal: { ...data.personal, phone: e.target.value } })} />
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="app-email">Primary Email Address</Label>
-                      <Input id="app-email" type="email" value={data.personal.email} onChange={e => setData({ ...data, personal: { ...data.personal, email: e.target.value } })} />
+                      <Input id="app-email" placeholder="e.g. john.doe@example.com" type="email" value={data.personal.email} onChange={e => setData({ ...data, personal: { ...data.personal, email: e.target.value } })} />
                     </div>
                     
                     {data.practiceLocation === "Foreign" && (
                       <div className="space-y-1">
                         <Label htmlFor="app-origin">Country of Origin</Label>
-                        <Input id="app-origin" value={data.personal.countryOfOrigin} onChange={e => setData({ ...data, personal: { ...data.personal, countryOfOrigin: e.target.value } })} />
+                        <Input id="app-origin" placeholder="e.g. Kenya" value={data.personal.countryOfOrigin} onChange={e => setData({ ...data, personal: { ...data.personal, countryOfOrigin: e.target.value } })} />
                       </div>
                     )}
 
                     {(data.category === "Technologist" || data.category === "Professional") && (
                       <div className="space-y-1">
                         <Label htmlFor="app-years">Years in Profession</Label>
-                        <Input id="app-years" type="number" min={0} value={data.personal.yearsInProfession} onChange={e => setData({ ...data, personal: { ...data.personal, yearsInProfession: e.target.value } })} />
+                        <Input id="app-years" type="number" min={0} placeholder="e.g. 5" value={data.personal.yearsInProfession} onChange={e => setData({ ...data, personal: { ...data.personal, yearsInProfession: e.target.value } })} />
                       </div>
                     )}
 
@@ -360,19 +360,19 @@ export default function Application() {
                         <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
                           <div className="space-y-1">
                             <Label htmlFor="addr-dist">District</Label>
-                            <Input id="addr-dist" value={data.personal.residentAddress.district} onChange={e => setData({ ...data, personal: { ...data.personal, residentAddress: { ...data.personal.residentAddress, district: e.target.value } } })} />
+                            <Input id="addr-dist" placeholder="e.g. Gasabo" value={data.personal.residentAddress.district} onChange={e => setData({ ...data, personal: { ...data.personal, residentAddress: { ...data.personal.residentAddress, district: e.target.value } } })} />
                           </div>
                           <div className="space-y-1">
                             <Label htmlFor="addr-sect">Sector</Label>
-                            <Input id="addr-sect" value={data.personal.residentAddress.sector} onChange={e => setData({ ...data, personal: { ...data.personal, residentAddress: { ...data.personal.residentAddress, sector: e.target.value } } })} />
+                            <Input id="addr-sect" placeholder="e.g. Kimihurura" value={data.personal.residentAddress.sector} onChange={e => setData({ ...data, personal: { ...data.personal, residentAddress: { ...data.personal.residentAddress, sector: e.target.value } } })} />
                           </div>
                           <div className="space-y-1">
                             <Label htmlFor="addr-cell">Cell</Label>
-                            <Input id="addr-cell" value={data.personal.residentAddress.cell} onChange={e => setData({ ...data, personal: { ...data.personal, residentAddress: { ...data.personal.residentAddress, cell: e.target.value } } })} />
+                            <Input id="addr-cell" placeholder="e.g. Rugando" value={data.personal.residentAddress.cell} onChange={e => setData({ ...data, personal: { ...data.personal, residentAddress: { ...data.personal.residentAddress, cell: e.target.value } } })} />
                           </div>
                           <div className="space-y-1">
                             <Label htmlFor="addr-vill">Village</Label>
-                            <Input id="addr-vill" value={data.personal.residentAddress.village} onChange={e => setData({ ...data, personal: { ...data.personal, residentAddress: { ...data.personal.residentAddress, village: e.target.value } } })} />
+                            <Input id="addr-vill" placeholder="e.g. Altena" value={data.personal.residentAddress.village} onChange={e => setData({ ...data, personal: { ...data.personal, residentAddress: { ...data.personal.residentAddress, village: e.target.value } } })} />
                           </div>
                         </div>
                       </div>
@@ -386,15 +386,15 @@ export default function Application() {
                       <div className="grid gap-3 md:grid-cols-3">
                         <div className="space-y-1">
                           <Label htmlFor="rep-name">Full Names</Label>
-                          <Input id="rep-name" value={data.personal.fullName} onChange={e => setData({ ...data, personal: { ...data.personal, fullName: e.target.value } })} />
+                          <Input id="rep-name" placeholder="e.g. Jane Doe" value={data.personal.fullName} onChange={e => setData({ ...data, personal: { ...data.personal, fullName: e.target.value } })} />
                         </div>
                         <div className="space-y-1">
                           <Label htmlFor="rep-email">Representative Email</Label>
-                          <Input id="rep-email" type="email" value={data.personal.email} onChange={e => setData({ ...data, personal: { ...data.personal, email: e.target.value } })} />
+                          <Input id="rep-email" placeholder="e.g. representative@firm.com" type="email" value={data.personal.email} onChange={e => setData({ ...data, personal: { ...data.personal, email: e.target.value } })} />
                         </div>
                         <div className="space-y-1">
                           <Label htmlFor="rep-phone">Representative Phone</Label>
-                          <Input id="rep-phone" placeholder="+250..." value={data.personal.phone} onChange={e => setData({ ...data, personal: { ...data.personal, phone: e.target.value } })} />
+                          <Input id="rep-phone" placeholder="e.g. +250 788 000 000" value={data.personal.phone} onChange={e => setData({ ...data, personal: { ...data.personal, phone: e.target.value } })} />
                         </div>
                       </div>
                     </div>
@@ -405,11 +405,11 @@ export default function Application() {
                       <div className="grid gap-3 md:grid-cols-2">
                         <div className="space-y-1">
                           <Label htmlFor="firm-name">Registered Firm Name</Label>
-                          <Input id="firm-name" value={data.personal.firmName} onChange={e => setData({ ...data, personal: { ...data.personal, firmName: e.target.value } })} />
+                          <Input id="firm-name" placeholder="e.g. Apex Surveyors Ltd" value={data.personal.firmName} onChange={e => setData({ ...data, personal: { ...data.personal, firmName: e.target.value } })} />
                         </div>
                         <div className="space-y-1">
                           <Label htmlFor="firm-addr">Firm Office Address</Label>
-                          <Input id="firm-addr" value={data.personal.firmAddress} onChange={e => setData({ ...data, personal: { ...data.personal, firmAddress: e.target.value } })} />
+                          <Input id="firm-addr" placeholder="e.g. KN 3 Rd, Kigali" value={data.personal.firmAddress} onChange={e => setData({ ...data, personal: { ...data.personal, firmAddress: e.target.value } })} />
                         </div>
                       </div>
                     </div>
@@ -421,19 +421,19 @@ export default function Application() {
                         <div key={i} className="relative grid gap-3 border border-zinc-100 dark:border-zinc-800 p-4 rounded-md md:grid-cols-12 bg-white dark:bg-zinc-900 shadow-sm">
                           <div className="md:col-span-3 space-y-1">
                             <Label htmlFor={`sh-name-${i}`}>Shareholder Name</Label>
-                            <Input id={`sh-name-${i}`} value={sh.fullName} onChange={e => { const v = [...data.personal.shareholders]; v[i].fullName = e.target.value; setData({ ...data, personal: { ...data.personal, shareholders: v } }); }} />
+                            <Input id={`sh-name-${i}`} placeholder="e.g. Alice Umuhoza" value={sh.fullName} onChange={e => { const v = [...data.personal.shareholders]; v[i].fullName = e.target.value; setData({ ...data, personal: { ...data.personal, shareholders: v } }); }} />
                           </div>
                           <div className="md:col-span-3 space-y-1">
                             <Label htmlFor={`sh-email-${i}`}>Email Address</Label>
-                            <Input id={`sh-email-${i}`} type="email" value={sh.email} onChange={e => { const v = [...data.personal.shareholders]; v[i].email = e.target.value; setData({ ...data, personal: { ...data.personal, shareholders: v } }); }} />
+                            <Input id={`sh-email-${i}`} placeholder="e.g. alice@example.com" type="email" value={sh.email} onChange={e => { const v = [...data.personal.shareholders]; v[i].email = e.target.value; setData({ ...data, personal: { ...data.personal, shareholders: v } }); }} />
                           </div>
                           <div className="md:col-span-3 space-y-1">
                             <Label htmlFor={`sh-phone-${i}`}>Phone Number</Label>
-                            <Input id={`sh-phone-${i}`} value={sh.phone} onChange={e => { const v = [...data.personal.shareholders]; v[i].phone = e.target.value; setData({ ...data, personal: { ...data.personal, shareholders: v } }); }} />
+                            <Input id={`sh-phone-${i}`} placeholder="e.g. +250 788 000 000" value={sh.phone} onChange={e => { const v = [...data.personal.shareholders]; v[i].phone = e.target.value; setData({ ...data, personal: { ...data.personal, shareholders: v } }); }} />
                           </div>
                           <div className="md:col-span-2 space-y-1">
                             <Label htmlFor={`sh-id-${i}`}>RIQS ID (Optional)</Label>
-                            <Input id={`sh-id-${i}`} placeholder="RIQS-..." value={sh.membershipId} onChange={e => { const v = [...data.personal.shareholders]; v[i].membershipId = e.target.value; setData({ ...data, personal: { ...data.personal, shareholders: v } }); }} />
+                            <Input id={`sh-id-${i}`} placeholder="e.g. RIQS-2026-M-045" value={sh.membershipId} onChange={e => { const v = [...data.personal.shareholders]; v[i].membershipId = e.target.value; setData({ ...data, personal: { ...data.personal, shareholders: v } }); }} />
                           </div>
                           <div className="md:col-span-1 flex items-end justify-center pb-0.5">
                             {data.personal.shareholders.length > 1 && (
@@ -474,13 +474,13 @@ export default function Application() {
                     <div key={i} className="relative grid gap-3 border border-zinc-150 dark:border-zinc-800 p-4 rounded-md md:grid-cols-12 bg-zinc-50/50 dark:bg-zinc-950/20">
                       <div className="md:col-span-3 space-y-1">
                         <Label htmlFor={`emp-co-${i}`} className="whitespace-nowrap truncate">Company / Firm Name</Label>
-                        <Input id={`emp-co-${i}`} value={em.company} onChange={e => { const v = [...data.employment]; v[i].company = e.target.value; setData({ ...data, employment: v }); }} />
+                        <Input id={`emp-co-${i}`} placeholder="e.g. Horizon Construction" value={em.company} onChange={e => { const v = [...data.employment]; v[i].company = e.target.value; setData({ ...data, employment: v }); }} />
+                      </div>
+                      <div className="md:col-span-4 space-y-1">
+                        <Label htmlFor={`emp-ro-${i}`} className="whitespace-nowrap truncate">Job Title / Role</Label>
+                        <Input id={`emp-ro-${i}`} placeholder="e.g. Senior Quantity Surveyor" value={em.role} onChange={e => { const v = [...data.employment]; v[i].role = e.target.value; setData({ ...data, employment: v }); }} />
                       </div>
                       <div className="md:col-span-2 space-y-1">
-                        <Label htmlFor={`emp-ro-${i}`} className="whitespace-nowrap truncate">Job Title / Role</Label>
-                        <Input id={`emp-ro-${i}`} value={em.role} onChange={e => { const v = [...data.employment]; v[i].role = e.target.value; setData({ ...data, employment: v }); }} />
-                      </div>
-                      <div className="md:col-span-3 space-y-1">
                         <Label htmlFor={`emp-fr-${i}`} className="whitespace-nowrap truncate">From (Month/Year)</Label>
                         <MonthYearPicker
                           id={`emp-fr-${i}`}
@@ -492,7 +492,7 @@ export default function Application() {
                           }}
                         />
                       </div>
-                      <div className="md:col-span-3 space-y-1">
+                      <div className="md:col-span-2 space-y-1">
                         <Label htmlFor={`emp-to-${i}`} className="whitespace-nowrap truncate">To (Month/Year)</Label>
                         <MonthYearPicker
                           id={`emp-to-${i}`}
@@ -540,9 +540,9 @@ export default function Application() {
                     <div key={i} className="relative grid gap-3 border border-zinc-150 dark:border-zinc-800 p-4 rounded-md md:grid-cols-12 bg-zinc-50/50 dark:bg-zinc-950/20">
                       <div className="md:col-span-3 space-y-1">
                         <Label htmlFor={`inst-${i}`} className="whitespace-nowrap truncate">University / Polytechnic</Label>
-                        <Input id={`inst-${i}`} value={ed.institution} onChange={e => { const v = [...data.education]; v[i].institution = e.target.value; setData({ ...data, education: v }); }} />
+                        <Input id={`inst-${i}`} placeholder="e.g. University of Rwanda" value={ed.institution} onChange={e => { const v = [...data.education]; v[i].institution = e.target.value; setData({ ...data, education: v }); }} />
                       </div>
-                      <div className="md:col-span-2 space-y-1">
+                      <div className="md:col-span-4 space-y-1">
                         <Label htmlFor={`deg-${i}`} className="whitespace-nowrap truncate">Degree Type</Label>
                         <Select value={ed.degree} onValueChange={val => { const v = [...data.education]; v[i].degree = val; setData({ ...data, education: v }); }}>
                           <SelectTrigger id={`deg-${i}`} className="h-10 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
@@ -555,11 +555,11 @@ export default function Application() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="md:col-span-3 space-y-1">
+                      <div className="md:col-span-2 space-y-1">
                         <Label htmlFor={`field-${i}`} className="whitespace-nowrap truncate">Field Of Study</Label>
                         <Input id={`field-${i}`} placeholder="e.g. Quantity Surveying" value={ed.studyField} onChange={e => { const v = [...data.education]; v[i].studyField = e.target.value; setData({ ...data, education: v }); }} />
                       </div>
-                      <div className="md:col-span-3 space-y-1">
+                      <div className="md:col-span-2 space-y-1">
                         <Label htmlFor={`yr-${i}`} className="whitespace-nowrap truncate">End Date (Month/Year)</Label>
                         <MonthYearPicker
                           id={`yr-${i}`}

@@ -14,6 +14,16 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { motion } from "framer-motion";
 
+function formatMonthYear(val?: string) {
+  if (!val) return "";
+  if (val.toLowerCase() === "present") return "Present";
+  const [y, m] = val.split("-");
+  if (!y || !m) return val;
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const mIdx = parseInt(m, 10) - 1;
+  return months[mIdx] ? `${months[mIdx]} ${y}` : val;
+}
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -129,10 +139,12 @@ export default function Review({ params }: PageProps) {
                 <CardTitle className="text-sm font-bold text-navy">Education Background</CardTitle>
               </CardHeader>
               <CardContent className="p-4 space-y-2 text-sm">
-                {app.education.map((e, i) => (
+                {app.education.map((e: any, i: number) => (
                   <div key={i} className="rounded border border-zinc-100 dark:border-zinc-800 p-2.5 bg-zinc-50/55">
                     <div className="font-semibold text-zinc-850 dark:text-zinc-200">{e.degree}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{e.institution} · {e.year}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {e.institution} · {e.startMonthYear ? formatMonthYear(e.startMonthYear) : e.year}
+                    </div>
                   </div>
                 ))}
               </CardContent>
@@ -145,10 +157,12 @@ export default function Review({ params }: PageProps) {
                 <CardTitle className="text-sm font-bold text-navy">Employment History</CardTitle>
               </CardHeader>
               <CardContent className="p-4 space-y-2 text-sm">
-                {app.employment.map((e, i) => (
+                {app.employment.map((e: any, i: number) => (
                   <div key={i} className="rounded border border-zinc-100 dark:border-zinc-800 p-2.5 bg-zinc-50/55">
                     <div className="font-semibold text-zinc-850 dark:text-zinc-200">{e.role}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{e.company} · From {e.from}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {e.company} · {formatMonthYear(e.from)} — {formatMonthYear(e.to) || "Present"}
+                    </div>
                   </div>
                 ))}
               </CardContent>

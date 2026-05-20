@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, ChevronLeft, ChevronRight, Upload, FileText, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { MonthYearPicker } from "@/components/ui/month-picker";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -481,11 +482,29 @@ export default function Application() {
                       </div>
                       <div className="md:col-span-2 space-y-1">
                         <Label htmlFor={`emp-fr-${i}`}>From (Month/Year)</Label>
-                        <Input id={`emp-fr-${i}`} type="month" value={em.from} onChange={e => { const v = [...data.employment]; v[i].from = e.target.value; setData({ ...data, employment: v }); }} />
+                        <MonthYearPicker
+                          id={`emp-fr-${i}`}
+                          value={em.from}
+                          onChange={val => {
+                            const v = [...data.employment];
+                            v[i].from = val;
+                            setData({ ...data, employment: v });
+                          }}
+                        />
                       </div>
                       <div className="md:col-span-3 space-y-1">
                         <Label htmlFor={`emp-to-${i}`}>To (Month/Year)</Label>
-                        <Input id={`emp-to-${i}`} type="month" value={em.to} onChange={e => { const v = [...data.employment]; v[i].to = e.target.value; setData({ ...data, employment: v }); }} />
+                        <MonthYearPicker
+                          id={`emp-to-${i}`}
+                          value={em.to}
+                          allowPresent={true}
+                          placeholder="Select or 'Present'"
+                          onChange={val => {
+                            const v = [...data.employment];
+                            v[i].to = val;
+                            setData({ ...data, employment: v });
+                          }}
+                        />
                       </div>
                       <div className="md:col-span-1 flex items-end justify-center pb-0.5">
                         {data.employment.length > 1 && (
@@ -542,7 +561,23 @@ export default function Application() {
                       </div>
                       <div className="md:col-span-2 space-y-1">
                         <Label htmlFor={`yr-${i}`}>End Date (Month/Year)</Label>
-                        <Input id={`yr-${i}`} placeholder="e.g. 07/2024" value={ed.startMonthYear} onChange={e => { const v = [...data.education]; v[i].startMonthYear = e.target.value; setData({ ...data, education: v }); }} />
+                        <MonthYearPicker
+                          id={`yr-${i}`}
+                          value={ed.startMonthYear}
+                          allowPresent={true}
+                          placeholder="Select or 'Present'"
+                          onChange={val => {
+                            const v = [...data.education];
+                            v[i].startMonthYear = val;
+                            if (val && val.toLowerCase() !== "present") {
+                              const parsedYear = parseInt(val.split("-")[0], 10);
+                              if (!isNaN(parsedYear)) {
+                                v[i].year = parsedYear;
+                              }
+                            }
+                            setData({ ...data, education: v });
+                          }}
+                        />
                       </div>
                       <div className="md:col-span-1 flex items-end justify-center pb-0.5">
                         {data.education.length > 1 && (

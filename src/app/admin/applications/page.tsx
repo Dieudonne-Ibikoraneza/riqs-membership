@@ -458,7 +458,7 @@ export default function AdminApps() {
                       <StatusBadge status={a.status} />
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <Link href={`/admin/review/${a.id}`}>
+                      <Link href={`/admin/applications/${a.id}`}>
                         <Button
                           size="sm"
                           variant="ghost"

@@ -21,15 +21,13 @@ export function PublicHeader() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-100 bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-black/90">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-navy text-white">
-            <Building2 className="h-5 w-5" />
-          </div>
-          <div className="leading-tight">
-            <div className="text-sm font-bold text-navy">RIQS</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Rwanda Institute of QS</div>
-          </div>
+      <div className="mx-auto flex h-20 md:h-24 max-w-7xl items-center justify-between px-4">
+        <Link href="/" className="flex items-center py-1">
+          <img 
+            src="/riqs-logo.png" 
+            alt="RIQS Logo" 
+            className="h-16 md:h-20 w-auto object-contain transition-transform duration-200 hover:scale-[1.03]" 
+          />
         </Link>
         
         {/* Navigation links with active path highlighter */}
@@ -127,11 +125,12 @@ export function PublicFooter() {
     <footer className="mt-16 border-t border-zinc-100 bg-navy text-white dark:border-zinc-800">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:grid-cols-2 md:grid-cols-4">
         <div>
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gold text-[#1a1a1a]">
-              <Building2 className="h-5 w-5" />
-            </div>
-            <span className="text-lg font-bold">RIQS</span>
+          <div className="flex items-center">
+            <img 
+              src="/riqs-logo.png" 
+              alt="RIQS Logo" 
+              className="h-12 w-auto object-contain bg-white rounded-md p-1.5 transition-transform duration-200 hover:scale-[1.03]" 
+            />
           </div>
           <p className="mt-3 text-sm text-white/70 leading-relaxed">
             Rwanda Institute of Quantity Surveyors — the professional regulatory body for QS practice in Rwanda.

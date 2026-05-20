@@ -71,10 +71,18 @@ export default function Review({ params }: PageProps) {
 
   return (
     <div className="space-y-4 font-sans">
+      {/* Back to queue (mobile only) */}
+      <div className="sm:hidden">
+        <Link href="/admin/applications">
+          <Button variant="ghost" size="sm" className="text-navy dark:text-gold hover:bg-navy/5">
+            <ArrowLeft className="mr-2 h-4 w-4" />Queue
+          </Button>
+        </Link>
+      </div>
       {/* Header controls bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-zinc-100 dark:border-zinc-800">
         <div className="flex items-center gap-3">
-          <Link href="/admin/applications">
+          <Link href="/admin/applications" className="hidden sm:inline-flex">
             <Button variant="ghost" size="sm" className="text-navy dark:text-gold hover:bg-navy/5">
               <ArrowLeft className="mr-2 h-4 w-4" />Queue
             </Button>

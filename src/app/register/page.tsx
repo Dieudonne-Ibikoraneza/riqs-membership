@@ -21,7 +21,7 @@ export default function Register() {
     e.preventDefault();
     if (!form.name || !form.email || !form.pw) return toast.error("Please complete all fields");
     if (form.pw !== form.pw2) return toast.error("Passwords do not match");
-    login(form.email, form.pw);
+    login(form.email, "member");
     toast.success("Account created — start your application");
     router.push("/dashboard/application");
   };

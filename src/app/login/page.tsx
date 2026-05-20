@@ -20,7 +20,7 @@ export default function Login() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !pw) return toast.error("Enter your email and password");
-    login(email, pw);
+    login(email, email.includes("admin") ? "admin" : "member");
     toast.success("Welcome back");
     router.push(email.includes("admin") ? "/admin" : "/dashboard");
   };

@@ -3,7 +3,7 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Printer, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ME_APPLICATION } from "@/lib/mock-data";
 
@@ -203,14 +203,62 @@ function CertificateContent() {
     }
   }, [me.applicantName]);
 
+  const handlePrint = useCallback(() => {
+    window.print();
+  }, []);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      {/* Print styles: isolate the certificate card only */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: landscape;
+            margin: 0;
+          }
+
+          /* Hide everything by default */
+          body * {
+            visibility: hidden;
+          }
+
+          /* Show only the certificate card and its contents */
+          #certificate-card,
+          #certificate-card * {
+            visibility: visible;
+          }
+
+          /* Position the certificate to fill the printed page */
+          #certificate-card {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            transform: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            z-index: 99999 !important;
+            background-size: cover !important;
+            background-position: center !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+        }
+      `}} />
+
+      <div className="flex flex-wrap items-end justify-between gap-3 no-print">
         <div>
           <h1 className="text-2xl font-bold text-navy">Annual Practicing License</h1>
           <p className="text-sm text-muted-foreground">Your official, digitally signed RIQS certificate.</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={handlePrint}>
+            <Printer className="mr-2 h-4 w-4" />Print
+          </Button>
           <Button
             onClick={handleDownloadPDF}
             disabled={downloading}

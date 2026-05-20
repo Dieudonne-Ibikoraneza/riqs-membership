@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { APPLICATIONS } from "@/lib/mock-data";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
   Check,
@@ -29,7 +29,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 function formatMonthYear(val?: string) {
   if (!val) return "";
@@ -70,6 +70,9 @@ export default function Review({ params }: PageProps) {
     null | "approve" | "reject" | "correction"
   >(null);
   const [note, setNote] = useState("");
+
+  const prevDoc = useRef(activeDoc);
+  const [direction, setDirection] = useState(0);
 
   if (!app) {
     return (
@@ -340,13 +343,20 @@ export default function Review({ params }: PageProps) {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="p-4 flex-1 flex flex-col">
+          <CardContent className="p-4 flex-1 flex flex-col overflow-hidden">
             <Tabs
               value={String(activeDoc)}
-              onValueChange={(v) => setActiveDoc(+v)}
+              onValueChange={(v) => {
+                const idx = +v;
+                const dir =
+                  idx === prevDoc.current ? 0 : idx > prevDoc.current ? 1 : -1;
+                setDirection(dir);
+                setActiveDoc(idx);
+                prevDoc.current = idx;
+              }}
               className="flex-1 flex flex-col"
             >
-              <TabsList className="flex h-auto flex-wrap bg-zinc-100 dark:bg-zinc-800 p-1 rounded-md mb-4 self-start">
+              <TabsList className="flex h-auto flex-wrap bg-zinc-100 dark:bg-zinc-800 p-2 rounded-md mb-4 self-start">
                 {app.documents.map((d, i) => (
                   <TabsTrigger
                     key={i}
@@ -357,36 +367,58 @@ export default function Review({ params }: PageProps) {
                   </TabsTrigger>
                 ))}
               </TabsList>
-              {app.documents.map((d, i) => (
-                <TabsContent
-                  key={i}
-                  value={String(i)}
-                  className="flex-1 flex items-center justify-center mt-0 outline-none"
-                >
-                  <div className="relative flex h-[500px] w-full items-center justify-center overflow-auto rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4">
-                    <div
-                      style={{
-                        transform: `scale(${zoom}) rotate(${rot}deg)`,
-                        transition: "transform 0.15s ease-out",
-                      }}
-                      className="flex h-[400px] w-[300px] shrink-0 flex-col items-center justify-center rounded-md border bg-white p-6 shadow-md"
-                    >
-                      <FileText className="h-14 w-14 text-navy/20 dark:text-zinc-400/25" />
-                      <div className="mt-4 font-semibold text-navy text-center">
-                        {d.name}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground uppercase tracking-wide">
-                        {d.type} PREVIEW STATE
-                      </div>
-                      <div className="mt-6 w-full space-y-2">
-                        <div className="h-1.5 w-full rounded bg-zinc-100" />
-                        <div className="h-1.5 w-4/5 rounded bg-zinc-100" />
-                        <div className="h-1.5 w-3/5 rounded bg-zinc-100" />
+              {/* Single animated preview keyed by activeDoc so we can slide by direction */}
+              <div className="relative flex-1 mt-0 overflow-hidden">
+                <AnimatePresence initial={false} custom={direction}>
+                  <motion.div
+                    key={activeDoc}
+                    custom={direction}
+                    variants={{
+                      enter: (dir: number) => ({
+                        x: dir === 1 ? "100%" : dir === -1 ? "-100%" : "0%",
+                        opacity: 0,
+                      }),
+                      center: {
+                        x: "0%",
+                        opacity: 1,
+                        transition: { duration: 0.32, ease: "easeOut" },
+                      },
+                      exit: (dir: number) => ({
+                        x: dir === 1 ? "-100%" : dir === -1 ? "100%" : "0%",
+                        opacity: 0,
+                        transition: { duration: 0.22, ease: "easeIn" },
+                      }),
+                    }}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    className="absolute inset-0 flex items-center justify-center"
+                  >
+                    <div className="relative flex h-[500px] w-full items-center justify-center overflow-auto rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4">
+                      <div
+                        style={{
+                          transform: `scale(${zoom}) rotate(${rot}deg)`,
+                          transition: "transform 0.15s ease-out",
+                        }}
+                        className="flex h-[400px] w-[300px] shrink-0 flex-col items-center justify-center rounded-md border bg-white p-6 shadow-md"
+                      >
+                        <FileText className="h-14 w-14 text-navy/20 dark:text-zinc-400/25" />
+                        <div className="mt-4 font-semibold text-navy text-center">
+                          {app.documents[activeDoc]?.name}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground uppercase tracking-wide">
+                          {app.documents[activeDoc]?.type} PREVIEW STATE
+                        </div>
+                        <div className="mt-6 w-full space-y-2">
+                          <div className="h-1.5 w-full rounded bg-zinc-100" />
+                          <div className="h-1.5 w-4/5 rounded bg-zinc-100" />
+                          <div className="h-1.5 w-3/5 rounded bg-zinc-100" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </TabsContent>
-              ))}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
             </Tabs>
           </CardContent>
         </Card>

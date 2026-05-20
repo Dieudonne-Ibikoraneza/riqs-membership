@@ -84,7 +84,7 @@ export default function Home() {
                     </div>
                     <div>
                       <div className="text-[10px] uppercase tracking-wider text-white/60 font-sans">Latest Certificate Issued</div>
-                      <div className="font-mono font-semibold text-sm">RIQS-2025-047</div>
+                      <div className="font-semibold text-sm">RIQS-2025-047</div>
                     </div>
                     <Badge className="ml-auto bg-emerald-500/20 text-emerald-200 border-emerald-400/30 font-semibold">
                       Verified

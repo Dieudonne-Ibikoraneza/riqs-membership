@@ -28,7 +28,7 @@ export default function MembersPage() {
   const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [view, setView] = useState<View>("table");
   const [page, setPage] = useState(1);
-  const pageSize = 9;
+  const pageSize = 15;
 
   const filtered = useMemo(() => {
     const arr = APPROVED.filter(m => {
@@ -221,7 +221,7 @@ export default function MembersPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-5 py-4 font-mono text-xs font-semibold text-navy dark:text-gold">{m.membershipId}</td>
+                        <td className="px-5 py-4 text-xs font-semibold text-navy dark:text-gold">{m.membershipId}</td>
                         <td className="px-5 py-4">
                           <Badge variant="outline" className="border-navy/20 bg-navy/5 text-navy dark:border-zinc-700 dark:text-zinc-300 font-semibold">{m.category}</Badge>
                         </td>
@@ -231,7 +231,7 @@ export default function MembersPage() {
                             {m.practiceLocation}{m.country && m.practiceLocation === "Foreign" && ` · ${m.country}`}
                           </div>
                         </td>
-                        <td className="px-5 py-4 font-mono text-xs text-zinc-600 dark:text-zinc-400">{m.phone}</td>
+                        <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400">{m.phone}</td>
                         <td className="px-5 py-4">
                           <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none font-semibold">
                             <BadgeCheck className="mr-1 h-3.5 w-3.5 text-emerald-600 inline shrink-0" /> Approved
@@ -290,7 +290,7 @@ function MemberCard({ m }: { m: any }) {
         </Badge>
       </div>
       <CardContent className="pt-10 pb-5 px-5">
-        <div className="font-mono text-[10px] uppercase tracking-wider gold-text font-bold">{m.membershipId}</div>
+        <div className="text-[10px] uppercase tracking-wider gold-text font-bold">{m.membershipId}</div>
         <div className="mt-1 text-base font-bold text-navy dark:text-white leading-tight">{m.fullName}</div>
         <div className="mt-1.5">
           <Badge variant="outline" className="border-navy/15 bg-navy/5 text-navy dark:border-zinc-800 dark:text-zinc-350 text-[10px] font-semibold">{m.category}</Badge>

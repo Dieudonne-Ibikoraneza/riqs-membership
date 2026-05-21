@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 const STATUSES = [
   "Pending",
@@ -53,6 +54,7 @@ type SortKey =
   | "reviewer";
 
 export default function AdminApps() {
+  const { role } = useAuth();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [loc, setLoc] = useState<string>("all");
@@ -291,7 +293,9 @@ export default function AdminApps() {
                     </SelectItem>
                     <SelectItem value="status-asc">Status</SelectItem>
                     <SelectItem value="category-asc">Category</SelectItem>
-                    <SelectItem value="reviewer-asc">Reviewer</SelectItem>
+                    {role === "admin" && (
+                      <SelectItem value="reviewer-asc">Reviewer</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -385,7 +389,7 @@ export default function AdminApps() {
                     "Category",
                     "Location",
                     "Submitted",
-                    "Reviewer",
+                    ...(role === "admin" ? ["Reviewer"] : []),
                     "Status",
                     "",
                   ].map((h, idx) => (
@@ -451,9 +455,11 @@ export default function AdminApps() {
                     <td className="px-5 py-4 text-xs text-zinc-650 dark:text-zinc-400">
                       {a.submittedAt}
                     </td>
-                    <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400 font-semibold">
-                      {a.reviewer}
-                    </td>
+                    {role === "admin" && (
+                      <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400 font-semibold">
+                        {a.reviewer}
+                      </td>
+                    )}
                     <td className="px-5 py-4">
                       <StatusBadge status={a.status} />
                     </td>

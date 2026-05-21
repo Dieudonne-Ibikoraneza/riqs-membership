@@ -46,10 +46,10 @@ export default function Register() {
                 <p className="mt-1 text-sm text-muted-foreground">After verifying your email you'll start your membership application.</p>
                 <form onSubmit={submit} className="mt-6 space-y-4">
                   <div><Label>Full name</Label><Input value={form.name} onChange={e => upd("name", e.target.value)} placeholder="As on national ID" /></div>
-                  <div><Label>Email</Label><Input type="email" value={form.email} onChange={e => upd("email", e.target.value)} /></div>
+                  <div><Label>Email</Label><Input type="email" value={form.email} onChange={e => upd("email", e.target.value)} placeholder="e.g. john@example.com" /></div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Password</Label><Input type="password" value={form.pw} onChange={e => upd("pw", e.target.value)} /></div>
-                    <div><Label>Confirm</Label><Input type="password" value={form.pw2} onChange={e => upd("pw2", e.target.value)} /></div>
+                    <div><Label>Password</Label><Input type="password" value={form.pw} onChange={e => upd("pw", e.target.value)} placeholder="Create a password" /></div>
+                    <div><Label>Confirm</Label><Input type="password" value={form.pw2} onChange={e => upd("pw2", e.target.value)} placeholder="Confirm password" /></div>
                   </div>
                   <Button type="submit" className="w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold font-semibold">Send verification code</Button>
                 </form>

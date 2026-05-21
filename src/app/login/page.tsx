@@ -62,14 +62,14 @@ export default function Login() {
                 <form onSubmit={submit} className="mt-6 space-y-4">
                   <div>
                     <Label htmlFor="em">Email address</Label>
-                    <Input id="em" type="email" value={email} onChange={e => setEmail(e.target.value)} />
+                    <Input id="em" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="e.g. name@example.com" />
                   </div>
                   <div>
                     <div className="flex items-center justify-between">
                       <Label htmlFor="pw">Password</Label>
                       <Link href="/login" className="text-xs text-navy hover:underline">Forgot password?</Link>
                     </div>
-                    <Input id="pw" type="password" value={pw} onChange={e => setPw(e.target.value)} />
+                    <Input id="pw" type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="Enter your password" />
                   </div>
                   <Button type="submit" className="w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-semibold">Continue</Button>
                 </form>

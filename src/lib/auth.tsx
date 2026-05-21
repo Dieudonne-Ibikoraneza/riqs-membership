@@ -11,7 +11,7 @@ interface Pending {
   isMentor: boolean;
   isTeacher: boolean;
   isStudent: boolean;
-  mode: "login" | "signup";
+  mode: "login" | "signup" | "forgot_password";
 }
 
 interface AuthState {
@@ -25,6 +25,8 @@ interface AuthState {
   startLogin: (email: string, password: string) => string; // returns mock OTP for dev hint
   startSignup: (name: string, email: string, password: string) => string;
   verifyOtp: (code: string) => boolean;
+  startForgotPassword: (email: string) => string;
+  resetPassword: (password: string) => boolean;
   cancelPending: () => void;
   logout: () => void;
 }
@@ -69,24 +71,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const startLogin = (em: string, _pw: string) => {
     const d = deriveRole(em);
     setPending({ email: em, name: d.name, role: d.role, isMentor: d.isMentor, isTeacher: d.isTeacher, isStudent: d.isStudent, mode: "login" });
-    return "1234"; // mock OTP
+    return "123456"; // mock OTP
   };
 
   const startSignup = (nm: string, em: string, _pw: string) => {
     const d = deriveRole(em);
     setPending({ email: em, name: nm || d.name, role: d.role, isMentor: d.isMentor, isTeacher: d.isTeacher, isStudent: d.isStudent, mode: "signup" });
-    return "1234";
+    return "123456";
   };
 
   const verifyOtp = (code: string) => {
     if (!pending) return false;
-    if (code !== "1234") return false;
+    
+    if (pending.mode === "forgot_password") {
+      if (code !== "123456") return false;
+      return true; // Just verify, don't login yet
+    }
+
+    if (code !== "123456") return false;
     setRole(pending.role); setName(pending.name); setEmail(pending.email);
     setIsMentor(pending.isMentor); setIsTeacher(pending.isTeacher); setIsStudent(pending.isStudent);
     localStorage.setItem(KEY, JSON.stringify({
       role: pending.role, name: pending.name, email: pending.email,
       isMentor: pending.isMentor, isTeacher: pending.isTeacher, isStudent: pending.isStudent,
     }));
+    setPending(null);
+    return true;
+  };
+
+  const startForgotPassword = (em: string) => {
+    const d = deriveRole(em);
+    setPending({ email: em, name: d.name, role: d.role, isMentor: d.isMentor, isTeacher: d.isTeacher, isStudent: d.isStudent, mode: "forgot_password" });
+    return "123456";
+  };
+
+  const resetPassword = (pw: string) => {
+    if (!pending || pending.mode !== "forgot_password") return false;
+    // Mock password reset successful
     setPending(null);
     return true;
   };
@@ -100,7 +121,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ role, name, email, isMentor, isTeacher, isStudent, pending, startLogin, startSignup, verifyOtp, cancelPending, logout }}>
+    <Ctx.Provider value={{
+      role, name, email, isMentor, isTeacher, isStudent, pending,
+      startLogin, startSignup, verifyOtp, startForgotPassword, resetPassword, cancelPending, logout
+    }}>
       {children}
     </Ctx.Provider>
   );

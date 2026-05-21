@@ -29,12 +29,12 @@ export default function Login() {
     if (!email || !pw) return toast.error("Enter your email and password");
     const code = startLogin(email, pw);
     setDevCode(code);
-    toast.success(`We sent a 4-digit code to ${email}`);
+    toast.success(`We sent a 6-digit code to ${email}`);
   };
 
   const verify = () => {
-    if (otp.length !== 4) return toast.error("Enter the 4-digit code");
-    if (!verifyOtp(otp)) return toast.error("Invalid code — try 1234");
+    if (otp.length !== 6) return toast.error("Enter the 6-digit code");
+    if (!verifyOtp(otp)) return toast.error("Invalid code — try 123456");
     toast.success("Welcome back");
     if (email.toLowerCase().includes("admin") || email.toLowerCase().includes("reviewer") || email.toLowerCase().includes("approver")) {
       router.push("/admin");
@@ -92,7 +92,7 @@ export default function Login() {
                     <div className="flex items-center justify-between">
                       <Label htmlFor="pw">Password</Label>
                       <Link
-                        href="/login"
+                        href="/forgot-password"
                         className="text-xs text-navy hover:underline"
                       >
                         Forgot password?
@@ -129,7 +129,7 @@ export default function Login() {
                   Verify your email
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Enter the 4-digit code sent to{" "}
+                  Enter the 6-digit code sent to{" "}
                   <strong>{pending.email}</strong>.
                 </p>
                 {devCode && (
@@ -138,12 +138,14 @@ export default function Login() {
                   </div>
                 )}
                 <div className="mt-6 flex justify-center">
-                  <InputOTP maxLength={4} value={otp} onChange={setOtp}>
-                    <InputOTPGroup>
-                      <InputOTPSlot index={0} className="h-14 w-14 text-xl" />
-                      <InputOTPSlot index={1} className="h-14 w-14 text-xl" />
-                      <InputOTPSlot index={2} className="h-14 w-14 text-xl" />
-                      <InputOTPSlot index={3} className="h-14 w-14 text-xl" />
+                  <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+                    <InputOTPGroup className="gap-2">
+                      <InputOTPSlot index={0} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />
+                      <InputOTPSlot index={1} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />
+                      <InputOTPSlot index={2} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />
+                      <InputOTPSlot index={3} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />
+                      <InputOTPSlot index={4} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />
+                      <InputOTPSlot index={5} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />
                     </InputOTPGroup>
                   </InputOTP>
                 </div>

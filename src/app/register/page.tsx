@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/input-otp";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { PasswordStrength } from "@/components/ui/PasswordStrength";
 
 export default function Register() {
   const { startSignup, verifyOtp, pending, cancelPending } = useAuth();
@@ -27,15 +28,29 @@ export default function Register() {
     e.preventDefault();
     if (!form.name || !form.email || !form.pw)
       return toast.error("Please complete all fields");
+
+    // Check password rules
+    const passedRules = [
+      form.pw.length >= 8,
+      /[A-Z]/.test(form.pw),
+      /[a-z]/.test(form.pw),
+      /[0-9]/.test(form.pw),
+      /[^A-Za-z0-9]/.test(form.pw)
+    ].filter(Boolean).length;
+
+    if (passedRules < 5) {
+      return toast.error("Please meet all password strength requirements");
+    }
+
     if (form.pw !== form.pw2) return toast.error("Passwords do not match");
     const code = startSignup(form.name, form.email, form.pw);
     setDevCode(code);
-    toast.success(`We sent a 4-digit code to ${form.email}`);
+    toast.success(`We sent a 6-digit code to ${form.email}`);
   };
 
   const verify = () => {
-    if (otp.length !== 4) return toast.error("Enter the 4-digit code");
-    if (!verifyOtp(otp)) return toast.error("Invalid code — try 1234");
+    if (otp.length !== 6) return toast.error("Enter the 6-digit code");
+    if (!verifyOtp(otp)) return toast.error("Invalid code — try 123456");
     toast.success("Account created — start your application");
     router.push("/dashboard/application");
   };
@@ -90,6 +105,12 @@ export default function Register() {
                       />
                     </div>
                   </div>
+                  
+                  <div className="mt-2">
+                    <PasswordStrength password={form.pw} confirmPassword={form.pw2} />
+                  </div>
+
+                  <div className="h-2" />
                   <Button
                     type="submit"
                     className="w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold font-semibold"
@@ -113,7 +134,7 @@ export default function Register() {
                   Verify your email
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Enter the 4-digit code we sent to{" "}
+                  Enter the 6-digit code we sent to{" "}
                   <strong>{pending.email}</strong>.
                 </p>
                 {devCode && (
@@ -122,12 +143,14 @@ export default function Register() {
                   </div>
                 )}
                 <div className="mt-6 flex justify-center">
-                  <InputOTP maxLength={4} value={otp} onChange={setOtp}>
-                    <InputOTPGroup>
-                      <InputOTPSlot index={0} className="h-14 w-14 text-xl" />
-                      <InputOTPSlot index={1} className="h-14 w-14 text-xl" />
-                      <InputOTPSlot index={2} className="h-14 w-14 text-xl" />
-                      <InputOTPSlot index={3} className="h-14 w-14 text-xl" />
+                  <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+                    <InputOTPGroup className="gap-2">
+                      <InputOTPSlot index={0} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />
+                      <InputOTPSlot index={1} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />
+                      <InputOTPSlot index={2} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />
+                      <InputOTPSlot index={3} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />
+                      <InputOTPSlot index={4} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />
+                      <InputOTPSlot index={5} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />
                     </InputOTPGroup>
                   </InputOTP>
                 </div>

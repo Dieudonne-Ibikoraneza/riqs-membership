@@ -75,7 +75,7 @@ export function PublicHeader() {
 
         <div className="hidden items-center gap-2 md:flex">
           {role ? (
-            <Link href={role === "admin" ? "/admin" : "/dashboard"}>
+            <Link href={role === "admin" || role === "reviewer" ? "/admin" : "/dashboard"}>
               <Button className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-0">
                 Go to dashboard
               </Button>

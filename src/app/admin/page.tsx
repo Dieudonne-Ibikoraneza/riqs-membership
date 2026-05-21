@@ -116,7 +116,7 @@ export default function AdminOverview() {
                   <div className="font-semibold text-zinc-800 dark:text-zinc-200">
                     {a.applicantName}
                   </div>
-                  <div className="text-xs text-muted-foreground font-mono">
+                  <div className="text-xs text-muted-foreground">
                     {a.id} · {a.category} · {a.practiceLocation}
                   </div>
                 </div>

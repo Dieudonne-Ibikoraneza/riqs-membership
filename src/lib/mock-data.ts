@@ -1,10 +1,4 @@
-export type MemberCategory =
-  | "Graduate"
-  | "Technologist"
-  | "Professional"
-  | "Fellow"
-  | "Firm"
-  | "Student";
+export type MemberCategory = string;
 
 export type ApplicationStatus =
   | "Draft"
@@ -19,8 +13,8 @@ export interface Member {
   membershipId: string;
   fullName: string;
   category: MemberCategory;
-  practiceLocation: "Local" | "Foreign";
-  entityType: "Individual" | "Firm";
+  practiceLocation: string;
+  entityType: string;
   phone: string;
   email: string;
   status: "Active" | "In Mentorship" | "Suspended" | "Expired";
@@ -38,8 +32,8 @@ export interface Application {
   email: string;
   phone: string;
   category: MemberCategory;
-  entityType: "Individual" | "Firm";
-  practiceLocation: "Local" | "Foreign";
+  entityType: string;
+  practiceLocation: string;
   submittedAt: string;
   status: ApplicationStatus;
   reviewer?: string;

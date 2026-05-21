@@ -145,76 +145,185 @@ export default function Application() {
   };
 
   const addMentor = () => {
-    if (data.mentors.length >= 5) return toast.error("Maximum 5 mentors allowed");
-    setData({ ...data, mentors: [...data.mentors, { name: "", contact: "", category: "Professional" }] });
+    if (data.mentors.length >= 5)
+      return toast.error("Maximum 5 mentors allowed");
+    setData({
+      ...data,
+      mentors: [
+        ...data.mentors,
+        { name: "", contact: "", category: "Professional" },
+      ],
+    });
   };
-  const removeMentor = (i: number) => setData({ ...data, mentors: data.mentors.filter((_: any, idx: number) => idx !== i) });
+  const removeMentor = (i: number) =>
+    setData({
+      ...data,
+      mentors: data.mentors.filter((_: any, idx: number) => idx !== i),
+    });
 
   const documentChecklist = useMemo(() => {
     const list = [];
     if (data.entityType === "Individual") {
       if (data.practiceLocation === "Local") {
         if (data.category === "Graduate") {
-          list.push({ k: "degree", l: "Notarized Degree/Diploma (HEC equivalency if foreign)", r: true });
-          list.push({ k: "transcripts", l: "Notarized Academic Transcripts showing subjects", r: false });
-          list.push({ k: "rqssa", l: "Certificate of RQSSA (or equivalent student membership proof)", r: true });
+          list.push({
+            k: "degree",
+            l: "Notarized Degree/Diploma (HEC equivalency if foreign)",
+            r: true,
+          });
+          list.push({
+            k: "transcripts",
+            l: "Notarized Academic Transcripts showing subjects",
+            r: false,
+          });
+          list.push({
+            k: "rqssa",
+            l: "Certificate of RQSSA (or equivalent student membership proof)",
+            r: true,
+          });
           list.push({ k: "letter", l: "Application Letter", r: true });
           list.push({ k: "id", l: "Copy of ID / Passport", r: true });
           list.push({ k: "photo", l: "Passport Photo", r: true });
           list.push({ k: "cv", l: "Curriculum Vitae (CV)", r: false });
-          list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: false });
+          list.push({
+            k: "payment",
+            l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)",
+            r: false,
+          });
         } else if (data.category === "Technologist") {
-          list.push({ k: "degree", l: "Diploma Certificate (HEC equivalency if foreign)", r: true });
-          list.push({ k: "transcripts", l: "Notarized Academic Transcripts showing subjects", r: true });
-          list.push({ k: "rqssa", l: "Certificate of RQSSA (not foreign)", r: false });
-          list.push({ k: "cpd", l: "At least 2 CPD Activities certificate copies", r: false });
+          list.push({
+            k: "degree",
+            l: "Diploma Certificate (HEC equivalency if foreign)",
+            r: true,
+          });
+          list.push({
+            k: "transcripts",
+            l: "Notarized Academic Transcripts showing subjects",
+            r: true,
+          });
+          list.push({
+            k: "rqssa",
+            l: "Certificate of RQSSA (not foreign)",
+            r: false,
+          });
+          list.push({
+            k: "cpd",
+            l: "At least 2 CPD Activities certificate copies",
+            r: false,
+          });
           list.push({ k: "logbook", l: "Logbook of records", r: false });
           list.push({ k: "letter", l: "Application Letter", r: true });
           list.push({ k: "id", l: "Copy of ID / Passport", r: true });
           list.push({ k: "photo", l: "Passport Photo", r: true });
           list.push({ k: "cv", l: "Curriculum Vitae (CV)", r: false });
-          list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: false });
+          list.push({
+            k: "payment",
+            l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)",
+            r: false,
+          });
         } else {
-          list.push({ k: "degree", l: "Notarized Degree Certificate (HEC equivalent if foreign)", r: true });
-          list.push({ k: "transcripts", l: "Notarized Academic Transcripts showing subjects", r: true });
-          list.push({ k: "rqssa", l: "Certificate of RQSSA (not foreign)", r: false });
-          list.push({ k: "cpd", l: "At least 2 CPD Activities certificate copies", r: false });
+          list.push({
+            k: "degree",
+            l: "Notarized Degree Certificate (HEC equivalent if foreign)",
+            r: true,
+          });
+          list.push({
+            k: "transcripts",
+            l: "Notarized Academic Transcripts showing subjects",
+            r: true,
+          });
+          list.push({
+            k: "rqssa",
+            l: "Certificate of RQSSA (not foreign)",
+            r: false,
+          });
+          list.push({
+            k: "cpd",
+            l: "At least 2 CPD Activities certificate copies",
+            r: false,
+          });
           list.push({ k: "logbook", l: "Logbook of records", r: false });
           list.push({ k: "letter", l: "Application Letter", r: true });
           list.push({ k: "id", l: "Copy of ID / Passport", r: true });
           list.push({ k: "photo", l: "Passport Photo", r: true });
           list.push({ k: "cv", l: "Curriculum Vitae (CV)", r: false });
-          list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: false });
+          list.push({
+            k: "payment",
+            l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)",
+            r: false,
+          });
         }
       } else {
         const isProf = data.category === "Professional";
-        list.push({ k: "degree", l: isProf ? "Notarized Degree Certificate" : "Notarized Diploma Certificate", r: true });
-        list.push({ k: "membershipOrigin", l: "Valid Membership Certificate from country of origin", r: true });
+        list.push({
+          k: "degree",
+          l: isProf
+            ? "Notarized Degree Certificate"
+            : "Notarized Diploma Certificate",
+          r: true,
+        });
+        list.push({
+          k: "membershipOrigin",
+          l: "Valid Membership Certificate from country of origin",
+          r: true,
+        });
         list.push({ k: "permit", l: "Visa & Work Permit (PDF)", r: true });
         list.push({ k: "photo", l: "Passport Photo (JPG/PNG)", r: true });
         list.push({ k: "cv", l: "CV & References (PDF)", r: false });
-        list.push({ k: "payment", l: `Proof of Payment (${isProf ? "50 USD" : "30 USD"} Application Fee)`, r: false });
+        list.push({
+          k: "payment",
+          l: `Proof of Payment (${isProf ? "50 USD" : "30 USD"} Application Fee)`,
+          r: false,
+        });
       }
     } else {
       const isLocal = data.practiceLocation === "Local";
-      list.push({ k: "firmCert", l: isLocal ? "Firm Business Registration Certificate by RDB" : "Firm Business Registration Certificate", r: true });
+      list.push({
+        k: "firmCert",
+        l: isLocal
+          ? "Firm Business Registration Certificate by RDB"
+          : "Firm Business Registration Certificate",
+        r: true,
+      });
       list.push({ k: "taxClearance", l: "Tax Clearance Certificate", r: true });
-      list.push({ k: "socialSecurity", l: isLocal ? "RSSB Tax Clearance Certificate" : "Social Security Clearance Certificate", r: false });
+      list.push({
+        k: "socialSecurity",
+        l: isLocal
+          ? "RSSB Tax Clearance Certificate"
+          : "Social Security Clearance Certificate",
+        r: false,
+      });
       if (isLocal) {
-        list.push({ k: "staffCertificates", l: "RIQS Members working in the firm (Certificates)", r: false });
+        list.push({
+          k: "staffCertificates",
+          l: "RIQS Members working in the firm (Certificates)",
+          r: false,
+        });
       }
       const fee = data.category.includes("Small")
-        ? isLocal ? "100,000 RWF" : "100 USD"
+        ? isLocal
+          ? "100,000 RWF"
+          : "100 USD"
         : data.category.includes("Medium")
-          ? isLocal ? "200,000 RWF" : "200 USD"
-          : isLocal ? "300,000 RWF" : "300 USD";
-      list.push({ k: "payment", l: `Proof of Payment (${fee} Application Fee)`, r: false });
+          ? isLocal
+            ? "200,000 RWF"
+            : "200 USD"
+          : isLocal
+            ? "300,000 RWF"
+            : "300 USD";
+      list.push({
+        k: "payment",
+        l: `Proof of Payment (${fee} Application Fee)`,
+        r: false,
+      });
     }
     return list;
   }, [data.practiceLocation, data.entityType, data.category]);
 
   const submit = () => {
-    toast.success("Application successfully submitted! You will receive confirmation updates via email.");
+    toast.success(
+      "Application successfully submitted! You will receive confirmation updates via email.",
+    );
   };
 
   const currentStepName = STEPS[step];
@@ -224,12 +333,17 @@ export default function Application() {
       {/* Header title */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-navy">Membership Application</h1>
+          <h1 className="text-3xl font-bold text-navy">
+            Membership Application
+          </h1>
           <p className="text-sm text-muted-foreground font-sans">
             Complete the steps below — your progress is saved automatically.
           </p>
         </div>
-        <Badge variant="outline" className="border-gold/40 bg-gold/10 text-gold font-bold">
+        <Badge
+          variant="outline"
+          className="border-gold/40 bg-gold/10 text-gold font-bold"
+        >
           <Sparkles className="mr-1.5 h-3.5 w-3.5 text-gold fill-gold" /> Draft
         </Badge>
       </div>
@@ -238,7 +352,9 @@ export default function Application() {
       <Card className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 overflow-hidden">
         <CardContent className="p-6">
           <div className="flex items-center justify-between text-xs font-semibold">
-            <span className="text-navy font-bold">Step {step + 1} of {STEPS.length}</span>
+            <span className="text-navy font-bold">
+              Step {step + 1} of {STEPS.length}
+            </span>
             <span className="text-muted-foreground">{pct}% complete</span>
           </div>
           {/* Progress bar */}
@@ -250,7 +366,8 @@ export default function Application() {
           </div>
           <div className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-4 lg:flex-nowrap lg:justify-between">
             {STEPS.map((s, i) => {
-              const done = i < step, active = i === step;
+              const done = i < step,
+                active = i === step;
               return (
                 <button
                   key={s}
@@ -265,8 +382,11 @@ export default function Application() {
                     className={cn(
                       "flex h-9 w-9 items-center justify-center text-xs font-bold transition-all duration-300",
                       done && "bg-gold text-[#1a1a1a] shadow-gold",
-                      active && "bg-navy text-white scale-110 ring-4 ring-navy/15 animate-pulse-gold",
-                      !done && !active && "bg-zinc-100 dark:bg-zinc-800 text-muted-foreground border border-zinc-200 dark:border-zinc-700",
+                      active &&
+                        "bg-navy text-white scale-110 ring-4 ring-navy/15 animate-pulse-gold",
+                      !done &&
+                        !active &&
+                        "bg-zinc-100 dark:bg-zinc-800 text-muted-foreground border border-zinc-200 dark:border-zinc-700",
                     )}
                   >
                     {done ? <Check className="h-4 w-4" /> : i + 1}
@@ -301,7 +421,11 @@ export default function Application() {
               transition={{ duration: 0.15 }}
             >
               {currentStepName === "Practice Location" && (
-                <RadioGroup value={data.practiceLocation} onValueChange={updateLocation} className="grid gap-3 md:grid-cols-2">
+                <RadioGroup
+                  value={data.practiceLocation}
+                  onValueChange={updateLocation}
+                  className="grid gap-3 md:grid-cols-2"
+                >
                   {["Local", "Foreign"].map((o) => (
                     <label
                       key={o}
@@ -314,9 +438,13 @@ export default function Application() {
                     >
                       <RadioGroupItem value={o} className="mt-0.5" />
                       <div>
-                        <div className="font-semibold text-navy">{o} Practitioner</div>
+                        <div className="font-semibold text-navy">
+                          {o} Practitioner
+                        </div>
                         <div className="text-sm text-muted-foreground mt-0.5 font-sans">
-                          {o === "Local" ? "Practicing Quantity Surveying inside Rwanda" : "Practicing/based outside Rwanda"}
+                          {o === "Local"
+                            ? "Practicing Quantity Surveying inside Rwanda"
+                            : "Practicing/based outside Rwanda"}
                         </div>
                       </div>
                     </label>
@@ -325,7 +453,11 @@ export default function Application() {
               )}
 
               {currentStepName === "Entity Type" && (
-                <RadioGroup value={data.entityType} onValueChange={updateEntity} className="grid gap-3 md:grid-cols-2">
+                <RadioGroup
+                  value={data.entityType}
+                  onValueChange={updateEntity}
+                  className="grid gap-3 md:grid-cols-2"
+                >
                   {["Individual", "Firm"].map((o) => (
                     <label
                       key={o}
@@ -338,9 +470,13 @@ export default function Application() {
                     >
                       <RadioGroupItem value={o} className="mt-0.5" />
                       <div>
-                        <div className="font-semibold text-navy">{o} Application</div>
+                        <div className="font-semibold text-navy">
+                          {o} Application
+                        </div>
                         <div className="text-sm text-muted-foreground mt-0.5 font-sans">
-                          {o === "Individual" ? "Apply for individual Quantity Surveyor credentials" : "Apply as a corporate firm / practice group"}
+                          {o === "Individual"
+                            ? "Apply for individual Quantity Surveyor credentials"
+                            : "Apply as a corporate firm / practice group"}
                         </div>
                       </div>
                     </label>
@@ -351,18 +487,27 @@ export default function Application() {
               {currentStepName === "Category" && (
                 <div className="max-w-md space-y-1.5">
                   <Label htmlFor="app-cat">Membership Category Level</Label>
-                  <Select value={data.category} onValueChange={(v) => setData({ ...data, category: v })}>
-                    <SelectTrigger id="app-cat" className="mt-1 h-11 border-zinc-200 dark:border-zinc-800">
+                  <Select
+                    value={data.category}
+                    onValueChange={(v) => setData({ ...data, category: v })}
+                  >
+                    <SelectTrigger
+                      id="app-cat"
+                      className="mt-1 h-11 border-zinc-200 dark:border-zinc-800"
+                    >
                       <SelectValue placeholder="Select Category Level" />
                     </SelectTrigger>
                     <SelectContent>
                       {categoriesList.map((c) => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground pt-1 leading-normal font-sans">
-                    Required document checklist and assessment tiers vary based on candidate level.
+                    Required document checklist and assessment tiers vary based
+                    on candidate level.
                   </p>
                 </div>
               )}
@@ -372,55 +517,211 @@ export default function Application() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-1">
                       <Label htmlFor="app-name">Full Names</Label>
-                      <Input id="app-name" placeholder="e.g. John Doe" value={data.personal.fullName} onChange={(e) => setData({ ...data, personal: { ...data.personal, fullName: e.target.value } }) } />
+                      <Input
+                        id="app-name"
+                        placeholder="e.g. John Doe"
+                        value={data.personal.fullName}
+                        onChange={(e) =>
+                          setData({
+                            ...data,
+                            personal: {
+                              ...data.personal,
+                              fullName: e.target.value,
+                            },
+                          })
+                        }
+                      />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="app-nid">National ID / Passport Number</Label>
-                      <Input id="app-nid" placeholder="e.g. 1199080012345678" value={data.personal.nationalId} onChange={(e) => setData({ ...data, personal: { ...data.personal, nationalId: e.target.value } }) } />
+                      <Label htmlFor="app-nid">
+                        National ID / Passport Number
+                      </Label>
+                      <Input
+                        id="app-nid"
+                        placeholder="e.g. 1199080012345678"
+                        value={data.personal.nationalId}
+                        onChange={(e) =>
+                          setData({
+                            ...data,
+                            personal: {
+                              ...data.personal,
+                              nationalId: e.target.value,
+                            },
+                          })
+                        }
+                      />
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="app-dob">Date of Birth</Label>
-                      <Input id="app-dob" type="date" value={data.personal.dob} onChange={(e) => setData({ ...data, personal: { ...data.personal, dob: e.target.value } }) } />
+                      <Input
+                        id="app-dob"
+                        type="date"
+                        value={data.personal.dob}
+                        onChange={(e) =>
+                          setData({
+                            ...data,
+                            personal: { ...data.personal, dob: e.target.value },
+                          })
+                        }
+                      />
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="app-phone">Mobile Phone</Label>
-                      <Input id="app-phone" placeholder="e.g. +250 788 000 000" value={data.personal.phone} onChange={(e) => setData({ ...data, personal: { ...data.personal, phone: e.target.value } }) } />
+                      <Input
+                        id="app-phone"
+                        placeholder="e.g. +250 788 000 000"
+                        value={data.personal.phone}
+                        onChange={(e) =>
+                          setData({
+                            ...data,
+                            personal: {
+                              ...data.personal,
+                              phone: e.target.value,
+                            },
+                          })
+                        }
+                      />
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="app-email">Primary Email Address</Label>
-                      <Input id="app-email" type="email" placeholder="e.g. john.doe@example.com" value={data.personal.email} onChange={(e) => setData({ ...data, personal: { ...data.personal, email: e.target.value } }) } />
+                      <Input
+                        id="app-email"
+                        type="email"
+                        placeholder="e.g. john.doe@example.com"
+                        value={data.personal.email}
+                        onChange={(e) =>
+                          setData({
+                            ...data,
+                            personal: {
+                              ...data.personal,
+                              email: e.target.value,
+                            },
+                          })
+                        }
+                      />
                     </div>
                     {data.practiceLocation === "Foreign" && (
                       <div className="space-y-1">
                         <Label htmlFor="app-origin">Country of Origin</Label>
-                        <Input id="app-origin" placeholder="e.g. Kenya" value={data.personal.countryOfOrigin} onChange={(e) => setData({ ...data, personal: { ...data.personal, countryOfOrigin: e.target.value } }) } />
+                        <Input
+                          id="app-origin"
+                          placeholder="e.g. Kenya"
+                          value={data.personal.countryOfOrigin}
+                          onChange={(e) =>
+                            setData({
+                              ...data,
+                              personal: {
+                                ...data.personal,
+                                countryOfOrigin: e.target.value,
+                              },
+                            })
+                          }
+                        />
                       </div>
                     )}
-                    {(data.category === "Technologist" || data.category === "Professional") && (
+                    {(data.category === "Technologist" ||
+                      data.category === "Professional") && (
                       <div className="space-y-1">
                         <Label htmlFor="app-years">Years in Profession</Label>
-                        <Input id="app-years" type="number" min={0} placeholder="e.g. 5" value={data.personal.yearsInProfession} onChange={(e) => setData({ ...data, personal: { ...data.personal, yearsInProfession: e.target.value } }) } />
+                        <Input
+                          id="app-years"
+                          type="number"
+                          min={0}
+                          placeholder="e.g. 5"
+                          value={data.personal.yearsInProfession}
+                          onChange={(e) =>
+                            setData({
+                              ...data,
+                              personal: {
+                                ...data.personal,
+                                yearsInProfession: e.target.value,
+                              },
+                            })
+                          }
+                        />
                       </div>
                     )}
                     {data.practiceLocation === "Local" && (
                       <div className="md:col-span-2 border border-zinc-100 dark:border-zinc-800 p-4 rounded-md bg-zinc-50/50 dark:bg-zinc-950/20 space-y-3">
-                        <h4 className="font-semibold text-sm text-navy">Resident Address (Optional)</h4>
+                        <h4 className="font-semibold text-sm text-navy">
+                          Resident Address (Optional)
+                        </h4>
                         <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
                           <div className="space-y-1">
                             <Label>District</Label>
-                            <Input placeholder="e.g. Gasabo" value={data.personal.residentAddress.district} onChange={(e) => setData({ ...data, personal: { ...data.personal, residentAddress: { ...data.personal.residentAddress, district: e.target.value } } }) } />
+                            <Input
+                              placeholder="e.g. Gasabo"
+                              value={data.personal.residentAddress.district}
+                              onChange={(e) =>
+                                setData({
+                                  ...data,
+                                  personal: {
+                                    ...data.personal,
+                                    residentAddress: {
+                                      ...data.personal.residentAddress,
+                                      district: e.target.value,
+                                    },
+                                  },
+                                })
+                              }
+                            />
                           </div>
                           <div className="space-y-1">
                             <Label>Sector</Label>
-                            <Input placeholder="e.g. Kacyiru" value={data.personal.residentAddress.sector} onChange={(e) => setData({ ...data, personal: { ...data.personal, residentAddress: { ...data.personal.residentAddress, sector: e.target.value } } }) } />
+                            <Input
+                              placeholder="e.g. Kacyiru"
+                              value={data.personal.residentAddress.sector}
+                              onChange={(e) =>
+                                setData({
+                                  ...data,
+                                  personal: {
+                                    ...data.personal,
+                                    residentAddress: {
+                                      ...data.personal.residentAddress,
+                                      sector: e.target.value,
+                                    },
+                                  },
+                                })
+                              }
+                            />
                           </div>
                           <div className="space-y-1">
                             <Label>Cell</Label>
-                            <Input placeholder="e.g. Kamatamu" value={data.personal.residentAddress.cell} onChange={(e) => setData({ ...data, personal: { ...data.personal, residentAddress: { ...data.personal.residentAddress, cell: e.target.value } } }) } />
+                            <Input
+                              placeholder="e.g. Kamatamu"
+                              value={data.personal.residentAddress.cell}
+                              onChange={(e) =>
+                                setData({
+                                  ...data,
+                                  personal: {
+                                    ...data.personal,
+                                    residentAddress: {
+                                      ...data.personal.residentAddress,
+                                      cell: e.target.value,
+                                    },
+                                  },
+                                })
+                              }
+                            />
                           </div>
                           <div className="space-y-1">
                             <Label>Village</Label>
-                            <Input placeholder="e.g. Amahoro" value={data.personal.residentAddress.village} onChange={(e) => setData({ ...data, personal: { ...data.personal, residentAddress: { ...data.personal.residentAddress, village: e.target.value } } }) } />
+                            <Input
+                              placeholder="e.g. Amahoro"
+                              value={data.personal.residentAddress.village}
+                              onChange={(e) =>
+                                setData({
+                                  ...data,
+                                  personal: {
+                                    ...data.personal,
+                                    residentAddress: {
+                                      ...data.personal.residentAddress,
+                                      village: e.target.value,
+                                    },
+                                  },
+                                })
+                              }
+                            />
                           </div>
                         </div>
                       </div>
@@ -429,51 +730,231 @@ export default function Application() {
                 ) : (
                   <div className="space-y-6">
                     <div className="border border-zinc-100 dark:border-zinc-800 p-4 rounded-md bg-zinc-50/50 dark:bg-zinc-950/20 space-y-4">
-                      <h3 className="font-semibold text-base text-navy">Representative Information</h3>
+                      <h3 className="font-semibold text-base text-navy">
+                        Representative Information
+                      </h3>
                       <div className="grid gap-3 md:grid-cols-3">
                         <div className="space-y-1">
                           <Label>Full Names</Label>
-                          <Input placeholder="e.g. John Doe" value={data.personal.fullName} onChange={(e) => setData({ ...data, personal: { ...data.personal, fullName: e.target.value } }) } />
+                          <Input
+                            placeholder="e.g. John Doe"
+                            value={data.personal.fullName}
+                            onChange={(e) =>
+                              setData({
+                                ...data,
+                                personal: {
+                                  ...data.personal,
+                                  fullName: e.target.value,
+                                },
+                              })
+                            }
+                          />
                         </div>
                         <div className="space-y-1">
                           <Label>Representative Email</Label>
-                          <Input type="email" placeholder="e.g. representative@firm.com" value={data.personal.email} onChange={(e) => setData({ ...data, personal: { ...data.personal, email: e.target.value } }) } />
+                          <Input
+                            type="email"
+                            placeholder="e.g. representative@firm.com"
+                            value={data.personal.email}
+                            onChange={(e) =>
+                              setData({
+                                ...data,
+                                personal: {
+                                  ...data.personal,
+                                  email: e.target.value,
+                                },
+                              })
+                            }
+                          />
                         </div>
                         <div className="space-y-1">
                           <Label>Representative Phone</Label>
-                          <Input placeholder="e.g. +250 788 000 000" value={data.personal.phone} onChange={(e) => setData({ ...data, personal: { ...data.personal, phone: e.target.value } }) } />
+                          <Input
+                            placeholder="e.g. +250 788 000 000"
+                            value={data.personal.phone}
+                            onChange={(e) =>
+                              setData({
+                                ...data,
+                                personal: {
+                                  ...data.personal,
+                                  phone: e.target.value,
+                                },
+                              })
+                            }
+                          />
                         </div>
                       </div>
                     </div>
                     <div className="border border-zinc-100 dark:border-zinc-800 p-4 rounded-md bg-zinc-50/50 dark:bg-zinc-950/20 space-y-4">
-                      <h3 className="font-semibold text-base text-navy">Firm Information</h3>
+                      <h3 className="font-semibold text-base text-navy">
+                        Firm Information
+                      </h3>
                       <div className="grid gap-3 md:grid-cols-2">
                         <div className="space-y-1">
                           <Label>Registered Firm Name</Label>
-                          <Input placeholder="e.g. Apex Surveyors Ltd" value={data.personal.firmName} onChange={(e) => setData({ ...data, personal: { ...data.personal, firmName: e.target.value } }) } />
+                          <Input
+                            placeholder="e.g. Apex Surveyors Ltd"
+                            value={data.personal.firmName}
+                            onChange={(e) =>
+                              setData({
+                                ...data,
+                                personal: {
+                                  ...data.personal,
+                                  firmName: e.target.value,
+                                },
+                              })
+                            }
+                          />
                         </div>
                         <div className="space-y-1">
                           <Label>Firm Office Address</Label>
-                          <Input placeholder="e.g. KN 3 Rd, Kigali" value={data.personal.firmAddress} onChange={(e) => setData({ ...data, personal: { ...data.personal, firmAddress: e.target.value } }) } />
+                          <Input
+                            placeholder="e.g. KN 3 Rd, Kigali"
+                            value={data.personal.firmAddress}
+                            onChange={(e) =>
+                              setData({
+                                ...data,
+                                personal: {
+                                  ...data.personal,
+                                  firmAddress: e.target.value,
+                                },
+                              })
+                            }
+                          />
                         </div>
                       </div>
                     </div>
                     <div className="border border-zinc-100 dark:border-zinc-800 p-4 rounded-md bg-zinc-50/50 dark:bg-zinc-950/20 space-y-4">
-                      <h3 className="font-semibold text-base text-navy">Firm Shareholders</h3>
+                      <h3 className="font-semibold text-base text-navy">
+                        Firm Shareholders
+                      </h3>
                       {data.personal.shareholders.map((sh: any, i: number) => (
-                        <div key={i} className="relative grid gap-3 border border-zinc-100 dark:border-zinc-800 p-4 rounded-md md:grid-cols-12 bg-white dark:bg-zinc-900 shadow-sm">
-                          <div className="md:col-span-3 space-y-1"><Label>Shareholder Name</Label><Input placeholder="e.g. Alice Umuhoza" value={sh.fullName} onChange={e => { const v = [...data.personal.shareholders]; v[i].fullName = e.target.value; setData({ ...data, personal: { ...data.personal, shareholders: v } }); }} /></div>
-                          <div className="md:col-span-3 space-y-1"><Label>Email Address</Label><Input type="email" placeholder="e.g. alice@example.com" value={sh.email} onChange={e => { const v = [...data.personal.shareholders]; v[i].email = e.target.value; setData({ ...data, personal: { ...data.personal, shareholders: v } }); }} /></div>
-                          <div className="md:col-span-3 space-y-1"><Label>Phone Number</Label><Input placeholder="e.g. +250 788 000 000" value={sh.phone} onChange={e => { const v = [...data.personal.shareholders]; v[i].phone = e.target.value; setData({ ...data, personal: { ...data.personal, shareholders: v } }); }} /></div>
-                          <div className="md:col-span-2 space-y-1"><Label>RIQS ID (Optional)</Label><Input placeholder="e.g. RIQS-2026-M-045" value={sh.membershipId} onChange={e => { const v = [...data.personal.shareholders]; v[i].membershipId = e.target.value; setData({ ...data, personal: { ...data.personal, shareholders: v } }); }} /></div>
+                        <div
+                          key={i}
+                          className="relative grid gap-3 border border-zinc-100 dark:border-zinc-800 p-4 rounded-md md:grid-cols-12 bg-white dark:bg-zinc-900 shadow-sm"
+                        >
+                          <div className="md:col-span-3 space-y-1">
+                            <Label>Shareholder Name</Label>
+                            <Input
+                              placeholder="e.g. Alice Umuhoza"
+                              value={sh.fullName}
+                              onChange={(e) => {
+                                const v = [...data.personal.shareholders];
+                                v[i].fullName = e.target.value;
+                                setData({
+                                  ...data,
+                                  personal: {
+                                    ...data.personal,
+                                    shareholders: v,
+                                  },
+                                });
+                              }}
+                            />
+                          </div>
+                          <div className="md:col-span-3 space-y-1">
+                            <Label>Email Address</Label>
+                            <Input
+                              type="email"
+                              placeholder="e.g. alice@example.com"
+                              value={sh.email}
+                              onChange={(e) => {
+                                const v = [...data.personal.shareholders];
+                                v[i].email = e.target.value;
+                                setData({
+                                  ...data,
+                                  personal: {
+                                    ...data.personal,
+                                    shareholders: v,
+                                  },
+                                });
+                              }}
+                            />
+                          </div>
+                          <div className="md:col-span-3 space-y-1">
+                            <Label>Phone Number</Label>
+                            <Input
+                              placeholder="e.g. +250 788 000 000"
+                              value={sh.phone}
+                              onChange={(e) => {
+                                const v = [...data.personal.shareholders];
+                                v[i].phone = e.target.value;
+                                setData({
+                                  ...data,
+                                  personal: {
+                                    ...data.personal,
+                                    shareholders: v,
+                                  },
+                                });
+                              }}
+                            />
+                          </div>
+                          <div className="md:col-span-2 space-y-1">
+                            <Label>RIQS ID (Optional)</Label>
+                            <Input
+                              placeholder="e.g. RIQS-2026-M-045"
+                              value={sh.membershipId}
+                              onChange={(e) => {
+                                const v = [...data.personal.shareholders];
+                                v[i].membershipId = e.target.value;
+                                setData({
+                                  ...data,
+                                  personal: {
+                                    ...data.personal,
+                                    shareholders: v,
+                                  },
+                                });
+                              }}
+                            />
+                          </div>
                           <div className="md:col-span-1 flex items-end justify-center pb-0.5">
                             {data.personal.shareholders.length > 1 && (
-                              <Button variant="ghost" size="icon" onClick={() => { const v = data.personal.shareholders.filter((_: any, idx: number) => idx !== i); setData({ ...data, personal: { ...data.personal, shareholders: v } }); }} className="text-red-500 hover:text-red-650 hover:bg-red-50 h-10 w-10 shrink-0"><Trash2 className="h-4.5 w-4.5" /></Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  const v = data.personal.shareholders.filter(
+                                    (_: any, idx: number) => idx !== i,
+                                  );
+                                  setData({
+                                    ...data,
+                                    personal: {
+                                      ...data.personal,
+                                      shareholders: v,
+                                    },
+                                  });
+                                }}
+                                className="text-red-500 hover:text-red-650 hover:bg-red-50 h-10 w-10 shrink-0"
+                              >
+                                <Trash2 className="h-4.5 w-4.5" />
+                              </Button>
                             )}
                           </div>
                         </div>
                       ))}
-                      <Button variant="outline" size="sm" onClick={() => setData({ ...data, personal: { ...data.personal, shareholders: [...data.personal.shareholders, { fullName: "", email: "", phone: "", membershipId: "" }] } })} className="border-zinc-200 dark:border-zinc-800">+ Add Shareholder</Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setData({
+                            ...data,
+                            personal: {
+                              ...data.personal,
+                              shareholders: [
+                                ...data.personal.shareholders,
+                                {
+                                  fullName: "",
+                                  email: "",
+                                  phone: "",
+                                  membershipId: "",
+                                },
+                              ],
+                            },
+                          })
+                        }
+                        className="border-zinc-200 dark:border-zinc-800"
+                      >
+                        + Add Shareholder
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -481,26 +962,115 @@ export default function Application() {
               {currentStepName === "Employment Record" && (
                 <div className="space-y-4">
                   <div className="border border-zinc-150 dark:border-zinc-800 bg-amber-50/20 text-amber-900 p-4 text-xs rounded-md">
-                    Please provide employment details. If currently not employed, you can provide previously active employment history.
+                    Please provide employment details. If currently not
+                    employed, you can provide previously active employment
+                    history.
                   </div>
                   <div className="flex items-center space-x-2 mb-4">
-                    <Checkbox id="no-employment" checked={data.hasNoEmployment} onCheckedChange={(checked) => setData({ ...data, hasNoEmployment: checked === true })} />
-                    <Label htmlFor="no-employment" className="text-sm font-medium leading-none cursor-pointer">I have never been employed</Label>
+                    <Checkbox
+                      id="no-employment"
+                      checked={data.hasNoEmployment}
+                      onCheckedChange={(checked) =>
+                        setData({ ...data, hasNoEmployment: checked === true })
+                      }
+                    />
+                    <Label
+                      htmlFor="no-employment"
+                      className="text-sm font-medium leading-none cursor-pointer"
+                    >
+                      I have never been employed
+                    </Label>
                   </div>
                   {!data.hasNoEmployment && (
                     <>
                       {data.employment.map((em: any, i: number) => (
-                        <div key={i} className="relative grid gap-4 border border-zinc-150 p-4 rounded-md md:grid-cols-12 bg-zinc-50/50">
-                          <div className="md:col-span-6 space-y-1"><Label>Company / Firm Name</Label><Input placeholder="e.g. Apex Construction" value={em.company} onChange={e => { const v = [...data.employment]; v[i].company = e.target.value; setData({ ...data, employment: v }); }} /></div>
-                          <div className="md:col-span-6 space-y-1"><Label>Job Title / Role</Label><Input placeholder="e.g. Senior Quantity Surveyor" value={em.role} onChange={e => { const v = [...data.employment]; v[i].role = e.target.value; setData({ ...data, employment: v }); }} /></div>
-                          <div className="md:col-span-5 space-y-1"><Label>From (Month/Year)</Label><MonthYearPicker value={em.from} placeholder="Select start date" onChange={(val) => { const v = [...data.employment]; v[i].from = val; setData({ ...data, employment: v }); }} /></div>
-                          <div className="md:col-span-6 space-y-1"><Label>To (Month/Year)</Label><MonthYearPicker value={em.to} allowPresent={true} placeholder="Select end date or 'Present'" onChange={(val) => { const v = [...data.employment]; v[i].to = val; setData({ ...data, employment: v }); }} /></div>
+                        <div
+                          key={i}
+                          className="relative grid gap-4 border border-zinc-150 p-4 rounded-md md:grid-cols-12 bg-zinc-50/50"
+                        >
+                          <div className="md:col-span-6 space-y-1">
+                            <Label>Company / Firm Name</Label>
+                            <Input
+                              placeholder="e.g. Apex Construction"
+                              value={em.company}
+                              onChange={(e) => {
+                                const v = [...data.employment];
+                                v[i].company = e.target.value;
+                                setData({ ...data, employment: v });
+                              }}
+                            />
+                          </div>
+                          <div className="md:col-span-6 space-y-1">
+                            <Label>Job Title / Role</Label>
+                            <Input
+                              placeholder="e.g. Senior Quantity Surveyor"
+                              value={em.role}
+                              onChange={(e) => {
+                                const v = [...data.employment];
+                                v[i].role = e.target.value;
+                                setData({ ...data, employment: v });
+                              }}
+                            />
+                          </div>
+                          <div className="md:col-span-5 space-y-1">
+                            <Label>From (Month/Year)</Label>
+                            <MonthYearPicker
+                              value={em.from}
+                              placeholder="Select start date"
+                              onChange={(val) => {
+                                const v = [...data.employment];
+                                v[i].from = val;
+                                setData({ ...data, employment: v });
+                              }}
+                            />
+                          </div>
+                          <div className="md:col-span-6 space-y-1">
+                            <Label>To (Month/Year)</Label>
+                            <MonthYearPicker
+                              value={em.to}
+                              allowPresent={true}
+                              placeholder="Select end date or 'Present'"
+                              onChange={(val) => {
+                                const v = [...data.employment];
+                                v[i].to = val;
+                                setData({ ...data, employment: v });
+                              }}
+                            />
+                          </div>
                           <div className="md:col-span-1 flex items-end justify-center pb-0.5">
-                            {data.employment.length > 1 && <Button variant="ghost" size="icon" onClick={() => { const v = data.employment.filter((_: any, idx: number) => idx !== i); setData({ ...data, employment: v }); }} className="text-red-500 hover:bg-red-50 h-10 w-10 shrink-0"><Trash2 className="h-4.5 w-4.5" /></Button>}
+                            {data.employment.length > 1 && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  const v = data.employment.filter(
+                                    (_: any, idx: number) => idx !== i,
+                                  );
+                                  setData({ ...data, employment: v });
+                                }}
+                                className="text-red-500 hover:bg-red-50 h-10 w-10 shrink-0"
+                              >
+                                <Trash2 className="h-4.5 w-4.5" />
+                              </Button>
+                            )}
                           </div>
                         </div>
                       ))}
-                      <Button variant="outline" size="sm" onClick={() => setData({ ...data, employment: [...data.employment, { company: "", role: "", from: "", to: "" }] })}>+ Add employment record</Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setData({
+                            ...data,
+                            employment: [
+                              ...data.employment,
+                              { company: "", role: "", from: "", to: "" },
+                            ],
+                          })
+                        }
+                      >
+                        + Add employment record
+                      </Button>
                     </>
                   )}
                 </div>
@@ -509,66 +1079,226 @@ export default function Application() {
               {currentStepName === "Education History" && (
                 <div className="space-y-4">
                   {data.education.map((ed: any, i: number) => (
-                    <div key={i} className="relative grid gap-4 border border-zinc-150 p-4 rounded-md md:grid-cols-12 bg-zinc-50/50">
-                      <div className="md:col-span-6 space-y-1"><Label>University / Polytechnic</Label><Input placeholder="e.g. University of Rwanda" value={ed.institution} onChange={e => { const v = [...data.education]; v[i].institution = e.target.value; setData({ ...data, education: v }); }} /></div>
-                      <div className="md:col-span-6 space-y-1"><Label>Field Of Study</Label><Input placeholder="e.g. Quantity Surveying" value={ed.studyField} onChange={e => { const v = [...data.education]; v[i].studyField = e.target.value; setData({ ...data, education: v }); }} /></div>
+                    <div
+                      key={i}
+                      className="relative grid gap-4 border border-zinc-150 p-4 rounded-md md:grid-cols-12 bg-zinc-50/50"
+                    >
+                      <div className="md:col-span-6 space-y-1">
+                        <Label>University / Polytechnic</Label>
+                        <Input
+                          placeholder="e.g. University of Rwanda"
+                          value={ed.institution}
+                          onChange={(e) => {
+                            const v = [...data.education];
+                            v[i].institution = e.target.value;
+                            setData({ ...data, education: v });
+                          }}
+                        />
+                      </div>
+                      <div className="md:col-span-6 space-y-1">
+                        <Label>Field Of Study</Label>
+                        <Input
+                          placeholder="e.g. Quantity Surveying"
+                          value={ed.studyField}
+                          onChange={(e) => {
+                            const v = [...data.education];
+                            v[i].studyField = e.target.value;
+                            setData({ ...data, education: v });
+                          }}
+                        />
+                      </div>
                       <div className="md:col-span-6 space-y-1">
                         <Label>Degree Type</Label>
-                        <Select value={ed.degree} onValueChange={(val) => { const v = [...data.education]; v[i].degree = val; setData({ ...data, education: v }); }}>
-                          <SelectTrigger className="h-10 border-zinc-200 bg-white"><SelectValue placeholder="Select Degree Type" /></SelectTrigger>
+                        <Select
+                          value={ed.degree}
+                          onValueChange={(val) => {
+                            const v = [...data.education];
+                            v[i].degree = val;
+                            setData({ ...data, education: v });
+                          }}
+                        >
+                          <SelectTrigger className="h-10 border-zinc-200 bg-white">
+                            <SelectValue placeholder="Select Degree Type" />
+                          </SelectTrigger>
                           <SelectContent>
-                            {["Diploma", "Bachelor’s Degree", "Master's Degree", "Doctoral Degree (PhD)"].map(opt => (
-                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                            {[
+                              "Diploma",
+                              "Bachelor’s Degree",
+                              "Master's Degree",
+                              "Doctoral Degree (PhD)",
+                            ].map((opt) => (
+                              <SelectItem key={opt} value={opt}>
+                                {opt}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="md:col-span-5 space-y-1">
                         <Label>End Date (Month/Year)</Label>
-                        <MonthYearPicker value={ed.startMonthYear} allowPresent={true} placeholder="Select end date or 'Present'" onChange={(val) => { const v = [...data.education]; v[i].startMonthYear = val; if (val && val.toLowerCase() !== "present") { const parsedYear = parseInt(val.split("-")[0], 10); if (!isNaN(parsedYear)) { v[i].year = parsedYear; } } setData({ ...data, education: v }); }} />
+                        <MonthYearPicker
+                          value={ed.startMonthYear}
+                          allowPresent={true}
+                          placeholder="Select end date or 'Present'"
+                          onChange={(val) => {
+                            const v = [...data.education];
+                            v[i].startMonthYear = val;
+                            if (val && val.toLowerCase() !== "present") {
+                              const parsedYear = parseInt(
+                                val.split("-")[0],
+                                10,
+                              );
+                              if (!isNaN(parsedYear)) {
+                                v[i].year = parsedYear;
+                              }
+                            }
+                            setData({ ...data, education: v });
+                          }}
+                        />
                       </div>
                       <div className="md:col-span-1 flex items-end justify-center pb-0.5">
-                        {data.education.length > 1 && <Button variant="ghost" size="icon" onClick={() => { const v = data.education.filter((_: any, idx: number) => idx !== i); setData({ ...data, education: v }); }} className="text-red-500 hover:bg-red-50 h-10 w-10 shrink-0"><Trash2 className="h-4.5 w-4.5" /></Button>}
+                        {data.education.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              const v = data.education.filter(
+                                (_: any, idx: number) => idx !== i,
+                              );
+                              setData({ ...data, education: v });
+                            }}
+                            className="text-red-500 hover:bg-red-50 h-10 w-10 shrink-0"
+                          >
+                            <Trash2 className="h-4.5 w-4.5" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
-                  <Button variant="outline" size="sm" onClick={() => setData({ ...data, education: [...data.education, { degree: "Bachelor’s Degree", institution: "", year: 2026, studyField: "", startMonthYear: "" }] })}>+ Add Academic Record</Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setData({
+                        ...data,
+                        education: [
+                          ...data.education,
+                          {
+                            degree: "Bachelor’s Degree",
+                            institution: "",
+                            year: 2026,
+                            studyField: "",
+                            startMonthYear: "",
+                          },
+                        ],
+                      })
+                    }
+                  >
+                    + Add Academic Record
+                  </Button>
                 </div>
               )}
 
               {currentStepName === "Mentorship Plan" && (
                 <div className="space-y-4">
                   <div className="border-l-4 border-gold bg-gold/10 p-4 text-sm text-[#8a5c00]">
-                    As a Graduate applicant, you must be assigned to a registered Mentor (a Professional or Technologist) for promotion to Technologist or Professional standing. Each Mentor can supervise <strong>up to 5 graduates</strong>. Nominate your preferred mentor below — the secretariat will confirm availability.
+                    As a Graduate applicant, you must be assigned to a
+                    registered Mentor (a Professional or Technologist) for
+                    promotion to Technologist or Professional standing. Each
+                    Mentor can supervise <strong>up to 5 graduates</strong>.
+                    Nominate your preferred mentor below — the secretariat will
+                    confirm availability.
                   </div>
                   {data.mentors.map((m: any, i: number) => (
-                    <div key={i} className="grid gap-3 border p-4 rounded-md md:grid-cols-[1fr_1fr_180px_auto] bg-zinc-50/50">
-                      <div><Label>Mentor's full name</Label><Input placeholder="e.g. Jane Smith" value={m.name} onChange={e => { const v = [...data.mentors]; v[i].name = e.target.value; setData({ ...data, mentors: v }); }} /></div>
-                      <div><Label>Contact (email/phone)</Label><Input placeholder="e.g. +250 788 000 000" value={m.contact} onChange={e => { const v = [...data.mentors]; v[i].contact = e.target.value; setData({ ...data, mentors: v }); }} /></div>
+                    <div
+                      key={i}
+                      className="grid gap-3 border p-4 rounded-md md:grid-cols-[1fr_1fr_180px_auto] bg-zinc-50/50"
+                    >
+                      <div>
+                        <Label>Mentor's full name</Label>
+                        <Input
+                          placeholder="e.g. Jane Smith"
+                          value={m.name}
+                          onChange={(e) => {
+                            const v = [...data.mentors];
+                            v[i].name = e.target.value;
+                            setData({ ...data, mentors: v });
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label>Contact (email/phone)</Label>
+                        <Input
+                          placeholder="e.g. +250 788 000 000"
+                          value={m.contact}
+                          onChange={(e) => {
+                            const v = [...data.mentors];
+                            v[i].contact = e.target.value;
+                            setData({ ...data, mentors: v });
+                          }}
+                        />
+                      </div>
                       <div>
                         <Label>Mentor category</Label>
-                        <Select value={m.category} onValueChange={val => { const v = [...data.mentors]; v[i].category = val; setData({ ...data, mentors: v }); }}>
-                          <SelectTrigger className="mt-1 bg-white"><SelectValue /></SelectTrigger>
+                        <Select
+                          value={m.category}
+                          onValueChange={(val) => {
+                            const v = [...data.mentors];
+                            v[i].category = val;
+                            setData({ ...data, mentors: v });
+                          }}
+                        >
+                          <SelectTrigger className="mt-1 bg-white">
+                            <SelectValue />
+                          </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Professional">Professional</SelectItem>
-                            <SelectItem value="Technologist">Technologist</SelectItem>
+                            <SelectItem value="Professional">
+                              Professional
+                            </SelectItem>
+                            <SelectItem value="Technologist">
+                              Technologist
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="flex items-end pb-0.5">
                         {data.mentors.length > 1 && (
-                          <Button variant="ghost" size="icon" onClick={() => removeMentor(i)} className="text-red-500 hover:bg-red-50 shrink-0"><Trash2 className="h-4.5 w-4.5" /></Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeMentor(i)}
+                            className="text-red-500 hover:bg-red-50 shrink-0"
+                          >
+                            <Trash2 className="h-4.5 w-4.5" />
+                          </Button>
                         )}
                       </div>
                     </div>
                   ))}
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">{data.mentors.length} / 5 mentor nominations</p>
-                    <Button variant="outline" size="sm" onClick={addMentor} disabled={data.mentors.length >= 5}><Plus className="mr-1 h-3 w-3" /> Add another mentor option</Button>
+                    <p className="text-xs text-muted-foreground">
+                      {data.mentors.length} / 5 mentor nominations
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={addMentor}
+                      disabled={data.mentors.length >= 5}
+                    >
+                      <Plus className="mr-1 h-3 w-3" /> Add another mentor
+                      option
+                    </Button>
                   </div>
                   <div>
                     <Label>Mentorship plan</Label>
-                    <Textarea rows={4} value={data.mentorPlan} onChange={(e) => setData({ ...data, mentorPlan: e.target.value })} placeholder="Briefly describe your mentorship plan and learning goals..." />
+                    <Textarea
+                      rows={4}
+                      value={data.mentorPlan}
+                      onChange={(e) =>
+                        setData({ ...data, mentorPlan: e.target.value })
+                      }
+                      placeholder="Briefly describe your mentorship plan and learning goals..."
+                    />
                   </div>
                 </div>
               )}
@@ -583,20 +1313,51 @@ export default function Application() {
                           key={d.k}
                           className={cn(
                             "flex cursor-pointer items-center gap-3 border border-dashed p-4 transition-all rounded-md",
-                            done ? "border-emerald-300 bg-emerald-50/40" : "border-zinc-200 hover:border-gold hover:bg-gold/5",
+                            done
+                              ? "border-emerald-300 bg-emerald-50/40"
+                              : "border-zinc-200 hover:border-gold hover:bg-gold/5",
                           )}
                         >
-                          <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center transition-colors rounded-md", done ? "bg-emerald-500 text-white" : "bg-gold/15 text-navy")}>
-                            {done ? <Check className="h-5 w-5 text-white" /> : <Upload className="h-5 w-5 text-gold" />}
+                          <div
+                            className={cn(
+                              "flex h-10 w-10 shrink-0 items-center justify-center transition-colors rounded-md",
+                              done
+                                ? "bg-emerald-500 text-white"
+                                : "bg-gold/15 text-navy",
+                            )}
+                          >
+                            {done ? (
+                              <Check className="h-5 w-5 text-white" />
+                            ) : (
+                              <Upload className="h-5 w-5 text-gold" />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold truncate flex items-center gap-1.5">
                               {d.l}
-                              {d.r && <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider scale-90">Required</span>}
+                              {d.r && (
+                                <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider scale-90">
+                                  Required
+                                </span>
+                              )}
                             </div>
-                            <div className="text-xs text-muted-foreground mt-0.5">{done ? "File uploaded · click to replace" : "Click to select and upload file"}</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {done
+                                ? "File uploaded · click to replace"
+                                : "Click to select and upload file"}
+                            </div>
                           </div>
-                          <input type="file" className="hidden" onChange={() => { setData({ ...data, docs: { ...data.docs, [d.k]: true } }); toast.success("Document uploaded successfully!"); }} />
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={() => {
+                              setData({
+                                ...data,
+                                docs: { ...data.docs, [d.k]: true },
+                              });
+                              toast.success("Document uploaded successfully!");
+                            }}
+                          />
                         </label>
                       );
                     })}
@@ -611,35 +1372,87 @@ export default function Application() {
                       ["Practice Location Status", data.practiceLocation],
                       ["Entity Registration Mode", data.entityType],
                       ["Assessment Category", data.category],
-                      ["Full Name on Application", data.personal.fullName || "Not Entered"],
-                      ["Contact Phone Number", data.personal.phone || "Not Entered"],
-                      ["Primary Contact Email", data.personal.email || "Not Entered"],
-                      ...(data.entityType === "Individual" ? [
-                        ["Academic Credentials Added", `${data.education.filter((x: any) => x.institution).length} items`],
-                        ["Employment Record Rows", data.hasNoEmployment ? "None (Never Employed)" : `${data.employment.filter((x: any) => x.company).length} items`],
-                      ] : [
-                        ["Registered Shareholders", `${data.personal.shareholders.filter((x: any) => x.fullName).length} items`],
-                        ["Firm Office Location", data.personal.firmAddress || "Not Entered"],
-                      ]),
-                      ["Attached Document Safe Files", `${Object.values(data.docs).filter(Boolean).length} uploads completed`],
+                      [
+                        "Full Name on Application",
+                        data.personal.fullName || "Not Entered",
+                      ],
+                      [
+                        "Contact Phone Number",
+                        data.personal.phone || "Not Entered",
+                      ],
+                      [
+                        "Primary Contact Email",
+                        data.personal.email || "Not Entered",
+                      ],
+                      ...(data.entityType === "Individual"
+                        ? [
+                            [
+                              "Academic Credentials Added",
+                              `${data.education.filter((x: any) => x.institution).length} items`,
+                            ],
+                            [
+                              "Employment Record Rows",
+                              data.hasNoEmployment
+                                ? "None (Never Employed)"
+                                : `${data.employment.filter((x: any) => x.company).length} items`,
+                            ],
+                          ]
+                        : [
+                            [
+                              "Registered Shareholders",
+                              `${data.personal.shareholders.filter((x: any) => x.fullName).length} items`,
+                            ],
+                            [
+                              "Firm Office Location",
+                              data.personal.firmAddress || "Not Entered",
+                            ],
+                          ]),
+                      [
+                        "Attached Document Safe Files",
+                        `${Object.values(data.docs).filter(Boolean).length} uploads completed`,
+                      ],
                     ].map(([k, v]) => (
-                      <div key={k as string} className="grid grid-cols-2 gap-2 pb-2 border-b border-zinc-100 last:border-0 last:pb-0">
+                      <div
+                        key={k as string}
+                        className="grid grid-cols-2 gap-2 pb-2 border-b border-zinc-100 last:border-0 last:pb-0"
+                      >
                         <span className="text-muted-foreground">{k}</span>
-                        <span className="font-semibold text-navy text-right truncate">{v as any}</span>
+                        <span className="font-semibold text-navy text-right truncate">
+                          {v as any}
+                        </span>
                       </div>
                     ))}
                   </div>
                   <div className="border-l-4 border-gold bg-gold/10 p-4 text-sm text-[#8a5c00] rounded-r-md leading-relaxed">
                     <FileText className="mr-2 inline h-4 w-4 text-gold" />
-                    By submitting this application, you declare that all uploaded certifications and declarations represent legal facts. RIQS Councils will complete the review queue within 5–10 working days.
+                    By submitting this application, you declare that all
+                    uploaded certifications and declarations represent legal
+                    facts. RIQS Councils will complete the review queue within
+                    5–10 working days.
                   </div>
                   <div className="flex items-start space-x-3 mt-4 mb-2">
-                    <Checkbox id="terms" checked={data.agreedToTerms} onCheckedChange={(checked) => setData({ ...data, agreedToTerms: checked === true })} />
-                    <Label htmlFor="terms" className="text-sm leading-snug cursor-pointer -mt-0.5 text-navy">
-                      I agree to the terms and conditions of RIQS. I declare that all provided information is true. I understand that submitting false information will lead to application rejection and potential legal action.
+                    <Checkbox
+                      id="terms"
+                      checked={data.agreedToTerms}
+                      onCheckedChange={(checked) =>
+                        setData({ ...data, agreedToTerms: checked === true })
+                      }
+                    />
+                    <Label
+                      htmlFor="terms"
+                      className="text-sm leading-snug cursor-pointer -mt-0.5 text-navy"
+                    >
+                      I agree to the terms and conditions of RIQS. I declare
+                      that all provided information is true. I understand that
+                      submitting false information will lead to application
+                      rejection and potential legal action.
                     </Label>
                   </div>
-                  <Button disabled={!data.agreedToTerms} onClick={submit} className="w-full h-12 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-bold border-none disabled:opacity-50 disabled:cursor-not-allowed">
+                  <Button
+                    disabled={!data.agreedToTerms}
+                    onClick={submit}
+                    className="w-full h-12 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-bold border-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Submit final application
                   </Button>
                 </div>
@@ -651,11 +1464,19 @@ export default function Application() {
 
       {/* Navigation buttons */}
       <div className="flex justify-between items-center pt-2">
-        <Button variant="outline" onClick={back} disabled={step === 0} className="border-zinc-200">
+        <Button
+          variant="outline"
+          onClick={back}
+          disabled={step === 0}
+          className="border-zinc-200"
+        >
           <ChevronLeft className="mr-2 h-4 w-4" /> Back
         </Button>
         {step < STEPS.length - 1 && (
-          <Button onClick={next} className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none font-semibold">
+          <Button
+            onClick={next}
+            className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none font-semibold"
+          >
             Next <ChevronRight className="ml-2 h-4 w-4" />
           </Button>
         )}

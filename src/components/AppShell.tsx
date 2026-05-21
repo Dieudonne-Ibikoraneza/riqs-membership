@@ -37,7 +37,7 @@ export function AppShell({
   children: ReactNode;
   kind: "member" | "admin";
 }) {
-  const { name, email, role, isMentor, logout } = useAuth();
+  const { name, email, role, isMentor, isTeacher, isStudent, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -50,6 +50,7 @@ export function AppShell({
     { href: "/dashboard/certificate", label: "Certificate", icon: Award },
     { href: "/dashboard/payments", label: "Payments", icon: Wallet },
     { href: "/dashboard/mentorship", label: isMentor ? "My Mentees" : "Mentorship", icon: GraduationCap },
+    ...(isTeacher ? [{ href: "/dashboard/students", label: "My Students", icon: Users }] : []),
     { href: "/dashboard/documents", label: "Documents", icon: Folder },
     { href: "/dashboard/communications", label: "Messages", icon: Mail },
   ];
@@ -71,7 +72,7 @@ export function AppShell({
         ]
       : []),
     { href: "/admin/export", label: "Export Tool", icon: Folder },
-    { href: "/admin/audit", label: "Audit Log", icon: Shield },
+    ...(role === "admin" ? [{ href: "/admin/audit", label: "Audit Log", icon: Shield }] : []),
   ];
 
   const links = kind === "admin" ? adminLinks : memberLinks;
@@ -131,7 +132,7 @@ export function AppShell({
         animate={{ width: collapsed ? 76 : 256 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col brand-gradient text-white shadow-navy md:relative md:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex flex-col brand-gradient text-white md:relative md:translate-x-0",
           "transition-transform duration-300 ease-in-out md:transition-none",
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
@@ -309,7 +310,9 @@ export function AppShell({
             <div className="hidden text-right sm:block">
               <div className="text-sm font-semibold">{name}</div>
               <div className="text-[11px] text-muted-foreground">
-                {kind === "admin" ? "Reviewer / Approver" : isMentor ? "Mentor" : "Active Member"}
+                {kind === "admin"
+                  ? role === "admin" ? "System Administrator" : "Reviewer / Approver"
+                  : isTeacher ? "Teacher" : isMentor ? "Mentor" : isStudent ? "Student" : "Active Member"}
               </div>
             </div>
             <motion.div

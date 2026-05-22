@@ -1428,18 +1428,7 @@ function WizardContent({
         </CardContent>
       </Card>
 
-      {/* Navigation */}
-      <div className="flex justify-between items-center pt-4 mt-4 border-t border-zinc-200/50 dark:border-zinc-800/50">
-        <Button variant="outline" onClick={back} disabled={step === 0} className="border-zinc-200">
-          <ChevronLeft className="mr-2 h-4 w-4" /> Back
-        </Button>
-        {step < STEPS.length - 1 && (
-          <Button onClick={next} disabled={isSaving}
-            className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none font-semibold">
-            {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <>Next <ChevronRight className="ml-2 h-4 w-4" /></>}
-          </Button>
-        )}
-      </div>
+
 
       </div>
       </div>
@@ -1527,6 +1516,19 @@ function WizardContent({
       </div>
     )}
     </div>
+
+      {/* Navigation */}
+      <div className="flex justify-between items-center pt-4 mt-4 border-t border-zinc-200/50 dark:border-zinc-800/50">
+        <Button variant="outline" onClick={back} disabled={step === 0} className="border-zinc-200 bg-white dark:bg-zinc-900">
+          <ChevronLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+        {step < STEPS.length - 1 && (
+          <Button onClick={next} disabled={isSaving}
+            className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none font-semibold">
+            {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <>Next <ChevronRight className="ml-2 h-4 w-4" /></>}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

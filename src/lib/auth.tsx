@@ -1,8 +1,10 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { authServices } from "@/services/auth.services";
+import { toast } from "sonner";
 
-export type Role = "member" | "reviewer" | "admin" | null;
+export type Role = "Admin" | "Reviewer" | "Approver" | "Teacher" | "Mentor" | "Standard" | "Student" | null;
 
 interface Pending {
   email: string;
@@ -22,11 +24,11 @@ interface AuthState {
   isTeacher: boolean;
   isStudent: boolean;
   pending: Pending | null;
-  startLogin: (email: string, password: string) => string; // returns mock OTP for dev hint
-  startSignup: (name: string, email: string, password: string) => string;
-  verifyOtp: (code: string) => boolean;
-  startForgotPassword: (email: string) => string;
-  resetPassword: (password: string) => boolean;
+  startLogin: (email: string, password: string) => Promise<boolean>;
+  startSignup: (name: string, email: string, password: string) => Promise<boolean>;
+  verifyOtp: (code: string) => Promise<boolean>;
+  startForgotPassword: (email: string) => Promise<boolean>;
+  resetPassword: (password: string) => Promise<boolean>;
   cancelPending: () => void;
   logout: () => void;
 }
@@ -34,19 +36,7 @@ interface AuthState {
 const Ctx = createContext<AuthState | null>(null);
 const KEY = "riqs.auth";
 
-function deriveRole(em: string): { role: Exclude<Role, null>; name: string; isMentor: boolean; isTeacher: boolean; isStudent: boolean } {
-  const e = em.toLowerCase();
-  if (e.includes("admin")) return { role: "admin", name: "System Administrator", isMentor: false, isTeacher: false, isStudent: false };
-  if (e.includes("reviewer") || e.includes("approver"))
-    return { role: "reviewer", name: "Eng. Reviewer", isMentor: false, isTeacher: false, isStudent: false };
-  if (e.includes("teacher"))
-    return { role: "member", name: "Prof. Teacher QS", isMentor: true, isTeacher: true, isStudent: false };
-  if (e.includes("mentor"))
-    return { role: "member", name: "QS. Mentor Pro", isMentor: true, isTeacher: false, isStudent: false };
-  if (e.includes("student"))
-    return { role: "member", name: "Student Member", isMentor: false, isTeacher: false, isStudent: true };
-  return { role: "member", name: "Demo Member", isMentor: false, isTeacher: false, isStudent: false };
-}
+const TOKEN_KEY = "riqs.auth.token";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>(null);
@@ -68,56 +58,101 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
-  const startLogin = (em: string, _pw: string) => {
-    const d = deriveRole(em);
-    setPending({ email: em, name: d.name, role: d.role, isMentor: d.isMentor, isTeacher: d.isTeacher, isStudent: d.isStudent, mode: "login" });
-    return "123456"; // mock OTP
+  const startLogin = async (em: string, pw: string) => {
+    try {
+      await authServices.login({ email: em, password: pw });
+      setPending({ email: em, name: null, role: "Standard", isMentor: false, isTeacher: false, isStudent: false, mode: "login" });
+      return true;
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Login failed");
+      return false;
+    }
   };
 
-  const startSignup = (nm: string, em: string, _pw: string) => {
-    const d = deriveRole(em);
-    setPending({ email: em, name: nm || d.name, role: d.role, isMentor: d.isMentor, isTeacher: d.isTeacher, isStudent: d.isStudent, mode: "signup" });
-    return "123456";
+  const startSignup = async (nm: string, em: string, pw: string) => {
+    try {
+      await authServices.register({ fullName: nm, email: em, password: pw });
+      setPending({ email: em, name: nm, role: "Standard", isMentor: false, isTeacher: false, isStudent: false, mode: "signup" });
+      return true;
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Registration failed");
+      return false;
+    }
   };
 
-  const verifyOtp = (code: string) => {
+  const verifyOtp = async (code: string) => {
     if (!pending) return false;
     
     if (pending.mode === "forgot_password") {
-      if (code !== "123456") return false;
-      return true; // Just verify, don't login yet
+      // Just temporarily store the OTP for the reset step later
+      setPending({ ...pending, name: code }); // hijacking name to store the otp code for the next step
+      return true;
     }
 
-    if (code !== "123456") return false;
-    setRole(pending.role); setName(pending.name); setEmail(pending.email);
-    setIsMentor(pending.isMentor); setIsTeacher(pending.isTeacher); setIsStudent(pending.isStudent);
-    localStorage.setItem(KEY, JSON.stringify({
-      role: pending.role, name: pending.name, email: pending.email,
-      isMentor: pending.isMentor, isTeacher: pending.isTeacher, isStudent: pending.isStudent,
-    }));
-    setPending(null);
-    return true;
+    try {
+      const res = await authServices.verifyOtp({ email: pending.email, otp: code });
+      
+      const member = res.member;
+      const tkn = res.token;
+      
+      if (tkn) localStorage.setItem(TOKEN_KEY, tkn);
+      
+      setRole(member.systemRole);
+      setName(member.fullName);
+      setEmail(member.email);
+      
+      // Determine capabilities from systemRole and membershipClass
+      const isMentor = member.systemRole === "Mentor";
+      const isTeacher = member.systemRole === "Teacher";
+      const isStudent = member.membershipClass === "Student" || member.systemRole === "Student";
+      
+      setIsMentor(isMentor);
+      setIsTeacher(isTeacher);
+      setIsStudent(isStudent);
+
+      localStorage.setItem(KEY, JSON.stringify({
+        role: member.systemRole, name: member.fullName, email: member.email,
+        isMentor, isTeacher, isStudent,
+      }));
+      setPending(null);
+      return true;
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Invalid OTP");
+      return false;
+    }
   };
 
-  const startForgotPassword = (em: string) => {
-    const d = deriveRole(em);
-    setPending({ email: em, name: d.name, role: d.role, isMentor: d.isMentor, isTeacher: d.isTeacher, isStudent: d.isStudent, mode: "forgot_password" });
-    return "123456";
+  const startForgotPassword = async (em: string) => {
+    try {
+      await authServices.forgotPassword({ email: em });
+      setPending({ email: em, name: null, role: "Standard", isMentor: false, isTeacher: false, isStudent: false, mode: "forgot_password" });
+      return true;
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to process request");
+      return false;
+    }
   };
 
-  const resetPassword = (pw: string) => {
+  const resetPassword = async (pw: string) => {
     if (!pending || pending.mode !== "forgot_password") return false;
-    // Mock password reset successful
-    setPending(null);
-    return true;
+    try {
+      await authServices.resetPassword({ email: pending.email, otp: pending.name, newPassword: pw });
+      setPending(null);
+      toast.success("Password has been successfully reset. You can now log in.");
+      return true;
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to reset password");
+      return false;
+    }
   };
 
   const cancelPending = () => setPending(null);
-
+  
   const logout = () => {
     setRole(null); setName(null); setEmail(null);
     setIsMentor(false); setIsTeacher(false); setIsStudent(false);
     localStorage.removeItem(KEY);
+    localStorage.removeItem(TOKEN_KEY);
   };
 
   return (

@@ -293,7 +293,7 @@ export default function AdminApps() {
                     </SelectItem>
                     <SelectItem value="status-asc">Status</SelectItem>
                     <SelectItem value="category-asc">Category</SelectItem>
-                    {role === "admin" && (
+                    {role === "Admin" && (
                       <SelectItem value="reviewer-asc">Reviewer</SelectItem>
                     )}
                   </SelectContent>
@@ -389,7 +389,7 @@ export default function AdminApps() {
                     "Category",
                     "Location",
                     "Submitted",
-                    ...(role === "admin" ? ["Reviewer"] : []),
+                    ...(role === "Admin" ? ["Reviewer"] : []),
                     "Status",
                     "",
                   ].map((h, idx) => (
@@ -455,7 +455,7 @@ export default function AdminApps() {
                     <td className="px-5 py-4 text-xs text-zinc-650 dark:text-zinc-400">
                       {a.submittedAt}
                     </td>
-                    {role === "admin" && (
+                    {role === "Admin" && (
                       <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400 font-semibold">
                         {a.reviewer}
                       </td>

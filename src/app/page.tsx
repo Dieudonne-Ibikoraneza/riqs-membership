@@ -10,8 +10,20 @@ import {
   ChevronRight, Quote, Sparkles, TrendingUp, Globe2, Calendar,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { publicServices } from "@/services/public.services";
+import { queryKeys } from "@/services/queryKeys";
+import { cn } from "@/lib/utils";
 
 export default function Home() {
+  const [location, setLocation] = useState<"Local" | "Foreign">("Local");
+  const [entityType, setEntityType] = useState<"Individual" | "Firm">("Individual");
+
+  const { data: categories, isLoading: isLoadingCategories } = useQuery({
+    queryKey: queryKeys.public.categories({ location, entityType }),
+    queryFn: () => publicServices.getCategories({ location, entityType }),
+  });
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <PublicHeader />
@@ -151,26 +163,63 @@ export default function Home() {
             <p className="mt-3 text-muted-foreground font-sans leading-relaxed">
               Whether you are a student, a graduate, or a registered firm — there is a place for you at RIQS.
             </p>
+
+            {/* Filters */}
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-6">
+              <div className="flex items-center gap-2 border border-zinc-200 dark:border-zinc-800 p-1 rounded-md bg-white dark:bg-zinc-950 shadow-sm">
+                <button
+                  onClick={() => setLocation("Local")}
+                  className={cn("px-4 py-1.5 text-sm font-semibold transition-colors rounded", location === "Local" ? "bg-navy text-white shadow" : "text-muted-foreground hover:text-navy dark:hover:text-white")}
+                >
+                  Local
+                </button>
+                <button
+                  onClick={() => setLocation("Foreign")}
+                  className={cn("px-4 py-1.5 text-sm font-semibold transition-colors rounded", location === "Foreign" ? "bg-navy text-white shadow" : "text-muted-foreground hover:text-navy dark:hover:text-white")}
+                >
+                  Foreign
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 border border-zinc-200 dark:border-zinc-800 p-1 rounded-md bg-white dark:bg-zinc-950 shadow-sm">
+                <button
+                  onClick={() => setEntityType("Individual")}
+                  className={cn("px-4 py-1.5 text-sm font-semibold transition-colors rounded", entityType === "Individual" ? "bg-gold text-[#1a1a1a] shadow" : "text-muted-foreground hover:text-navy dark:hover:text-white")}
+                >
+                  Individual
+                </button>
+                <button
+                  onClick={() => setEntityType("Firm")}
+                  className={cn("px-4 py-1.5 text-sm font-semibold transition-colors rounded", entityType === "Firm" ? "bg-gold text-[#1a1a1a] shadow" : "text-muted-foreground hover:text-navy dark:hover:text-white")}
+                >
+                  Firm
+                </button>
+              </div>
+            </div>
           </div>
           <div className="mt-12 grid gap-4 md:grid-cols-3 lg:grid-cols-5 stagger">
-            {[
-              { c: "Student", d: "Enrolled in QS programs", fee: "RWF 10,000" },
-              { c: "Graduate", d: "Holds BSc QS or equivalent", fee: "RWF 25,000" },
-              { c: "Technologist", d: "Diploma / HND in QS", fee: "RWF 30,000" },
-              { c: "Professional", d: "Chartered practitioner", fee: "RWF 50,000" },
-              { c: "Firm", d: "Registered QS practice", fee: "RWF 200,000" },
-            ].map(x => (
-              <Card key={x.c} className="group hover-lift text-center bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
-                <CardContent className="p-6">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center bg-gold/15 text-navy dark:text-white transition-colors group-hover:bg-gold group-hover:text-[#1a1a1a] rounded-md">
-                    <Building2 className="h-6 w-6 text-gold group-hover:text-[#1a1a1a]" />
-                  </div>
-                  <h3 className="mt-4 font-bold text-navy dark:text-white">{x.c}</h3>
-                  <p className="mt-1 text-xs text-muted-foreground font-sans">{x.d}</p>
-                  <div className="mt-3 text-xs font-bold gold-text">{x.fee} / year</div>
-                </CardContent>
-              </Card>
-            ))}
+            {isLoadingCategories ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <Card key={i} className="animate-pulse bg-zinc-100 dark:bg-zinc-800 border-none h-[180px]" />
+              ))
+            ) : categories?.length ? (
+              categories.map(x => (
+                <Card key={x.id} className="group hover-lift text-center bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
+                  <CardContent className="p-6">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center bg-gold/15 text-navy dark:text-white transition-colors group-hover:bg-gold group-hover:text-[#1a1a1a] rounded-md">
+                      <Building2 className="h-6 w-6 text-gold group-hover:text-[#1a1a1a]" />
+                    </div>
+                    <h3 className="mt-4 font-bold text-navy dark:text-white">{x.category_name}</h3>
+                    <p className="mt-1 text-xs text-muted-foreground font-sans line-clamp-2">Code: {x.category_code}</p>
+                    <div className="mt-3 text-xs font-bold gold-text">RWF {Number(x.annual_renewal_fee).toLocaleString()} / year</div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <div className="col-span-full text-center text-muted-foreground font-sans text-sm py-10">
+                No categories available at the moment.
+              </div>
+            )}
           </div>
         </section>
 

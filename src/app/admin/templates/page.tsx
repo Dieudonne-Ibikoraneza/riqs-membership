@@ -28,12 +28,12 @@ export default function TemplatesPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (role !== "admin") {
+    if (role !== "Admin") {
       router.push("/admin");
     }
   }, [role, router]);
 
-  if (role !== "admin") return null;
+  if (role !== "Admin") return null;
 
   const templates = config.emailTemplates;
   const active = templates.find((t) => t.id === activeId);

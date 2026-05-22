@@ -21,10 +21,10 @@ export default function Register() {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", pw: "", pw2: "" });
   const [otp, setOtp] = useState("");
-  const [devCode, setDevCode] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const upd = (k: string, v: string) => setForm((s) => ({ ...s, [k]: v }));
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.pw)
       return toast.error("Please complete all fields");
@@ -43,22 +43,33 @@ export default function Register() {
     }
 
     if (form.pw !== form.pw2) return toast.error("Passwords do not match");
-    const code = startSignup(form.name, form.email, form.pw);
-    setDevCode(code);
-    toast.success(`We sent a 6-digit code to ${form.email}`);
+    
+    setIsLoading(true);
+    const success = await startSignup(form.name, form.email, form.pw);
+    setIsLoading(false);
+    
+    if (success) {
+      toast.success(`We sent a 6-digit code to ${form.email}`);
+    }
   };
 
-  const verify = () => {
+  const verify = async () => {
     if (otp.length !== 6) return toast.error("Enter the 6-digit code");
-    if (!verifyOtp(otp)) return toast.error("Invalid code — try 123456");
+    
+    setIsLoading(true);
+    const success = await verifyOtp(otp);
+    setIsLoading(false);
+    
+    if (!success) return;
+    
     toast.success("Account created — start your application");
     router.push("/dashboard/application");
   };
 
   return (
-    <div className="grid min-h-screen md:grid-cols-2">
-      <div className="flex items-center justify-center p-6 order-2 md:order-1">
-        <Card className="w-full max-w-md border-zinc-150 shadow-lg">
+    <div className="grid min-h-screen md:h-screen md:overflow-hidden md:grid-cols-2">
+      <div className="flex items-center justify-center p-6 h-full overflow-y-auto py-12 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <Card className="w-full max-w-md border-zinc-150 shadow-lg my-auto">
           <CardContent className="p-8">
             {!pending ? (
               <>
@@ -113,9 +124,18 @@ export default function Register() {
                   <div className="h-2" />
                   <Button
                     type="submit"
-                    className="w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold font-semibold"
+                    disabled={
+                      isLoading ||
+                      form.pw.length < 8 ||
+                      !/[A-Z]/.test(form.pw) ||
+                      !/[a-z]/.test(form.pw) ||
+                      !/[0-9]/.test(form.pw) ||
+                      !/[^A-Za-z0-9]/.test(form.pw) ||
+                      form.pw !== form.pw2
+                    }
+                    className="w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Send verification code
+                    {isLoading ? "Sending verification..." : "Send verification code"}
                   </Button>
                 </form>
                 <div className="mt-6 text-center text-sm text-muted-foreground">
@@ -137,11 +157,7 @@ export default function Register() {
                   Enter the 6-digit code we sent to{" "}
                   <strong>{pending.email}</strong>.
                 </p>
-                {devCode && (
-                  <div className="mt-3 border border-gold/40 bg-gold/10 p-2 text-xs text-[#8a5c00]">
-                    Demo code: <strong>{devCode}</strong>
-                  </div>
-                )}
+                {/* Dev Code Hint Removed */}
                 <div className="mt-6 flex justify-center">
                   <InputOTP maxLength={6} value={otp} onChange={setOtp}>
                     <InputOTPGroup className="gap-2">
@@ -156,9 +172,10 @@ export default function Register() {
                 </div>
                 <Button
                   onClick={verify}
+                  disabled={isLoading}
                   className="mt-6 w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold font-semibold"
                 >
-                  Verify & create account
+                  {isLoading ? "Verifying..." : "Verify & complete setup"}
                 </Button>
                 <Button
                   variant="ghost"
@@ -172,7 +189,8 @@ export default function Register() {
           </CardContent>
         </Card>
       </div>
-      <div className="hidden brand-gradient md:flex md:flex-col md:justify-between md:p-12 text-white order-1 md:order-2">
+
+      <div className="hidden brand-gradient md:flex md:flex-col md:justify-between md:p-12 text-white">
         <Link href="/" className="flex flex-col items-start gap-4">
           <div className="flex h-30 w-full items-center justify-center">
             <img

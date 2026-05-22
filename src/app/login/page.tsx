@@ -22,20 +22,29 @@ export default function Login() {
   const [email, setEmail] = useState("demo@riqs.rw");
   const [pw, setPw] = useState("password");
   const [otp, setOtp] = useState("");
-  const [devCode, setDevCode] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !pw) return toast.error("Enter your email and password");
-    const code = startLogin(email, pw);
-    setDevCode(code);
-    toast.success(`We sent a 6-digit code to ${email}`);
+    setIsLoading(true);
+    const success = await startLogin(email, pw);
+    setIsLoading(false);
+    if (success) {
+      toast.success(`We sent a 6-digit code to ${email}`);
+    }
   };
 
-  const verify = () => {
+  const verify = async () => {
     if (otp.length !== 6) return toast.error("Enter the 6-digit code");
-    if (!verifyOtp(otp)) return toast.error("Invalid code — try 123456");
+    setIsLoading(true);
+    const success = await verifyOtp(otp);
+    setIsLoading(false);
+    
+    if (!success) return;
+    
     toast.success("Welcome back");
+    // Redirect based on role or simple default dashboard
     if (email.toLowerCase().includes("admin") || email.toLowerCase().includes("reviewer") || email.toLowerCase().includes("approver")) {
       router.push("/admin");
     } else {
@@ -73,9 +82,7 @@ export default function Login() {
               <>
                 <h1 className="text-2xl font-bold text-navy">Sign in</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Tip: use <strong>admin@</strong>, <strong>reviewer@</strong>,
-                  <strong>mentor@</strong>, <strong>teacher@</strong>, or <strong>student@</strong> in your email to test different
-                  roles.
+                  Sign in with your registered email and password.
                 </p>
                 <form onSubmit={submit} className="mt-6 space-y-4">
                   <div>
@@ -108,9 +115,10 @@ export default function Login() {
                   </div>
                   <Button
                     type="submit"
+                    disabled={isLoading}
                     className="w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-semibold"
                   >
-                    Continue
+                    {isLoading ? "Signing in..." : "Continue"}
                   </Button>
                 </form>
                 <div className="mt-6 text-center text-sm text-muted-foreground">
@@ -132,11 +140,7 @@ export default function Login() {
                   Enter the 6-digit code sent to{" "}
                   <strong>{pending.email}</strong>.
                 </p>
-                {devCode && (
-                  <div className="mt-3 border border-gold/40 bg-gold/10 p-2 text-xs text-[#8a5c00]">
-                    Demo code: <strong>{devCode}</strong>
-                  </div>
-                )}
+                {/* Dev Code Hint Removed */}
                 <div className="mt-6 flex justify-center">
                   <InputOTP maxLength={6} value={otp} onChange={setOtp}>
                     <InputOTPGroup className="gap-2">
@@ -149,12 +153,13 @@ export default function Login() {
                     </InputOTPGroup>
                   </InputOTP>
                 </div>
-                <Button
-                  onClick={verify}
-                  className="mt-6 w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-semibold"
-                >
-                  Verify & sign in
-                </Button>
+                    <Button
+                      onClick={verify}
+                      disabled={isLoading}
+                      className="mt-6 w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-semibold"
+                    >
+                      {isLoading ? "Verifying..." : "Verify"}
+                    </Button>
                 <Button
                   variant="ghost"
                   onClick={cancelPending}

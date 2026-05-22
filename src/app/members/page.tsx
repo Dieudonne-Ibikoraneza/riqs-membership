@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { publicServices } from "@/services/public.services";
+import { queryKeys } from "@/services/queryKeys";
 import { PublicHeader, PublicFooter } from "@/components/PublicHeader";
-import { MEMBERS, type MemberCategory } from "@/lib/mock-data";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,48 +21,45 @@ type SortKey = "name" | "id" | "category";
 type View = "cards" | "table";
 
 export default function MembersPage() {
-  const APPROVED = useMemo(() => MEMBERS.filter(m => m.status === "Active"), []);
-
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [cat, setCat] = useState<string>("all");
-  const [loc, setLoc] = useState<string>("all");
-  const [sort, setSort] = useState<SortKey>("name");
-  const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [view, setView] = useState<View>("table");
   const [page, setPage] = useState(1);
-  const pageSize = 15;
+  const pageSize = 10;
 
-  const filtered = useMemo(() => {
-    const arr = APPROVED.filter(m => {
-      if (q && !`${m.fullName} ${m.membershipId} ${m.email}`.toLowerCase().includes(q.toLowerCase())) return false;
-      if (cat !== "all" && m.category !== cat) return false;
-      if (loc !== "all" && m.practiceLocation !== loc) return false;
-      return true;
-    });
-    arr.sort((a, b) => {
-      const k = sort;
-      const av = k === "name" ? a.fullName : k === "id" ? a.membershipId : a.category;
-      const bv = k === "name" ? b.fullName : k === "id" ? b.membershipId : b.category;
-      return dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
-    });
-    return arr;
-  }, [APPROVED, q, cat, loc, sort, dir]);
+  // Debounce search input
+  useMemo(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQ(q);
+      setPage(1); // Reset page on new search
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [q]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const { data, isLoading } = useQuery({
+    queryKey: queryKeys.public.members({ search: debouncedQ, category: cat, page, limit: pageSize }),
+    queryFn: () => publicServices.getPublicMembers({ search: debouncedQ, category: cat, page, limit: pageSize }),
+  });
+
+  const members = data?.members || [];
+  const pagination = data?.pagination;
+  const totalPages = pagination?.totalPages || 1;
   const safePage = Math.min(page, totalPages);
-  const pageData = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const totalCount = pagination?.totalCount || 0;
 
   const exportCsv = () => {
-    const rows = [["Membership ID", "Full Name", "Category", "Location", "Phone", "Email", "Status"]];
-    filtered.forEach(m => rows.push([m.membershipId, m.fullName, m.category, m.practiceLocation, m.phone, m.email, m.status]));
+    // In a real app, this should either hit a dedicated export endpoint or we alert the user that export only covers the current page.
+    const rows = [["Membership ID", "Full Name", "Category", "Phone", "Email"]];
+    members.forEach(m => rows.push([m.membership_id || m.id, m.full_name, m.membership_class, m.phone_number ? m.phone_number.replace(/^\+/, '') : "", m.email]));
     const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "riqs-members.csv"; a.click();
   };
 
-  const reset = () => { setQ(""); setCat("all"); setLoc("all"); setPage(1); };
-  const activeFilters = (q ? 1 : 0) + (cat !== "all" ? 1 : 0) + (loc !== "all" ? 1 : 0);
+  const reset = () => { setQ(""); setCat("all"); setPage(1); };
+  const activeFilters = (debouncedQ ? 1 : 0) + (cat !== "all" ? 1 : 0);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -84,7 +83,7 @@ export default function MembersPage() {
             <div className="mt-6 flex items-center gap-6 text-sm">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 gold-text" />
-                <span><span className="font-bold">{APPROVED.length}</span> active members</span>
+                <span><span className="font-bold">{totalCount}</span> active members</span>
               </div>
             </div>
           </div>
@@ -114,30 +113,9 @@ export default function MembersPage() {
                     <SelectTrigger className="h-11 w-[160px] border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="Category" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All categories</SelectItem>
-                      {(["Graduate", "Technologist", "Professional", "Fellow", "Firm"] as MemberCategory[]).map(c => (
+                      {(["Student", "Graduate", "Technologist", "Professional", "Fellow", "Firm"]).map(c => (
                         <SelectItem key={c} value={c}>{c}</SelectItem>
                       ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={loc} onValueChange={v => { setLoc(v); setPage(1); }}>
-                    <SelectTrigger className="h-11 w-[150px] border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="Location" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All locations</SelectItem>
-                      <SelectItem value="Local">Local (Rwanda)</SelectItem>
-                      <SelectItem value="Foreign">Foreign</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={`${sort}-${dir}`} onValueChange={v => { const [s, d] = v.split("-") as [SortKey, "asc" | "desc"]; setSort(s); setDir(d); }}>
-                    <SelectTrigger className="h-11 w-[170px] border-zinc-200 dark:border-zinc-800">
-                      <ArrowUpDown className="mr-2 h-3.5 w-3.5 text-gold" />
-                      <SelectValue placeholder="Sort by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="name-asc">Name (A–Z)</SelectItem>
-                      <SelectItem value="name-desc">Name (Z–A)</SelectItem>
-                      <SelectItem value="id-asc">ID (Asc)</SelectItem>
-                      <SelectItem value="id-desc">ID (Desc)</SelectItem>
-                      <SelectItem value="category-asc">Category</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button onClick={exportCsv} variant="outline" className="h-11 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300">
@@ -150,7 +128,7 @@ export default function MembersPage() {
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-4">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="text-muted-foreground font-sans">
-                    <span className="font-semibold text-navy dark:text-gold">{filtered.length}</span> member{filtered.length !== 1 && "s"} found
+                    <span className="font-semibold text-navy dark:text-gold">{totalCount}</span> member{totalCount !== 1 && "s"} found
                   </span>
                   {activeFilters > 0 && (
                     <>
@@ -181,7 +159,48 @@ export default function MembersPage() {
           </Card>
 
           {/* Results */}
-          {pageData.length === 0 ? (
+          {isLoading ? (
+            view === "cards" ? (
+              <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 stagger">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Card key={i} className="animate-pulse bg-zinc-100 dark:bg-zinc-800/50 border-none h-[220px]" />
+                ))}
+              </div>
+            ) : (
+              <Card className="mt-6 overflow-hidden border border-zinc-100 dark:border-zinc-800 shadow-sm animate-fade-in">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-navy text-white">
+                      <tr>
+                        {["Member", "Membership ID", "Category", "Contact", "Status"].map(h => (
+                          <th key={h} className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800/80">
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded-full shrink-0"></div>
+                              <div className="space-y-2">
+                                <div className="h-4 w-32 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded"></div>
+                                <div className="h-3 w-48 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded"></div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4"><div className="h-4 w-24 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded"></div></td>
+                          <td className="px-5 py-4"><div className="h-6 w-20 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded-full"></div></td>
+                          <td className="px-5 py-4"><div className="h-4 w-32 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded"></div></td>
+                          <td className="px-5 py-4"><div className="h-6 w-20 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded-full"></div></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )
+          ) : members.length === 0 ? (
             <Card className="mt-6 border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50/20 dark:bg-zinc-950/10">
               <CardContent className="py-16 text-center">
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-zinc-100 dark:bg-zinc-800 text-muted-foreground">
@@ -194,7 +213,7 @@ export default function MembersPage() {
             </Card>
           ) : view === "cards" ? (
             <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 stagger">
-              {pageData.map(m => (
+              {members.map((m: any) => (
                 <MemberCard key={m.id} m={m} />
               ))}
             </div>
@@ -204,34 +223,28 @@ export default function MembersPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-navy text-white">
                     <tr>
-                      {["Member", "Membership ID", "Category", "Location", "Contact", "Status"].map(h => (
+                      {["Member", "Membership ID", "Category", "Contact", "Status"].map(h => (
                         <th key={h} className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {pageData.map((m, i) => (
+                    {members.map((m: any, i: number) => (
                       <tr key={m.id} className={cn("border-b border-zinc-100 dark:border-zinc-800/80 transition-colors hover:bg-gold/5", i % 2 === 1 && "bg-zinc-50/20 dark:bg-zinc-950/10")}>
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            <Avatar name={m.fullName} />
+                            <Avatar name={m.full_name} />
                             <div>
-                              <div className="font-semibold text-zinc-900 dark:text-zinc-100">{m.fullName}</div>
+                              <div className="font-semibold text-zinc-900 dark:text-zinc-100">{m.full_name}</div>
                               <div className="text-xs text-muted-foreground">{m.email}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-5 py-4 text-xs font-semibold text-navy dark:text-gold">{m.membershipId}</td>
+                        <td className="px-5 py-4 text-xs font-semibold text-navy dark:text-gold">{m.membership_id || m.id}</td>
                         <td className="px-5 py-4">
-                          <Badge variant="outline" className="border-navy/20 bg-navy/5 text-navy dark:border-zinc-700 dark:text-zinc-300 font-semibold">{m.category}</Badge>
+                          <Badge variant="outline" className="border-navy/20 bg-navy/5 text-navy dark:border-zinc-700 dark:text-zinc-300 font-semibold">{m.membership_class}</Badge>
                         </td>
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-1.5 text-xs text-zinc-650 dark:text-zinc-350">
-                            <MapPin className="h-3 w-3 text-gold" />
-                            {m.practiceLocation}{m.country && m.practiceLocation === "Foreign" && ` · ${m.country}`}
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400">{m.phone}</td>
+                        <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400">{m.phone_number}</td>
                         <td className="px-5 py-4">
                           <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none font-semibold">
                             <BadgeCheck className="mr-1 h-3.5 w-3.5 text-emerald-600 inline shrink-0" /> Approved
@@ -282,7 +295,7 @@ function MemberCard({ m }: { m: any }) {
       <div className="relative h-20 brand-gradient">
         <div className="absolute -bottom-7 left-5">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-navy to-[#14467f] text-sm font-bold text-white ring-4 ring-white dark:ring-zinc-900">
-            {m.fullName.split(" ").map((s: string) => s[0]).join("").slice(0, 2).toUpperCase()}
+            {(m.full_name || "").split(" ").map((s: string) => s[0]).join("").slice(0, 2).toUpperCase()}
           </div>
         </div>
         <Badge className="absolute right-4 top-4 bg-emerald-500/20 text-emerald-100 border-emerald-400/40 backdrop-blur font-semibold">
@@ -290,14 +303,13 @@ function MemberCard({ m }: { m: any }) {
         </Badge>
       </div>
       <CardContent className="pt-10 pb-5 px-5">
-        <div className="text-[10px] uppercase tracking-wider gold-text font-bold">{m.membershipId}</div>
-        <div className="mt-1 text-base font-bold text-navy dark:text-white leading-tight">{m.fullName}</div>
+        <div className="text-[10px] uppercase tracking-wider gold-text font-bold">{m.membership_id || m.id}</div>
+        <div className="mt-1 text-base font-bold text-navy dark:text-white leading-tight">{m.full_name}</div>
         <div className="mt-1.5">
-          <Badge variant="outline" className="border-navy/15 bg-navy/5 text-navy dark:border-zinc-800 dark:text-zinc-350 text-[10px] font-semibold">{m.category}</Badge>
+          <Badge variant="outline" className="border-navy/15 bg-navy/5 text-navy dark:border-zinc-800 dark:text-zinc-350 text-[10px] font-semibold">{m.membership_class}</Badge>
         </div>
         <div className="mt-4 space-y-2 text-xs text-muted-foreground font-sans">
-          <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-gold shrink-0" /> {m.practiceLocation}</div>
-          <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-gold shrink-0" /> {m.phone}</div>
+          <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-gold shrink-0" /> {m.phone_number}</div>
           <div className="flex items-center gap-2 truncate"><Mail className="h-3.5 w-3.5 text-gold shrink-0" /> <span className="truncate">{m.email}</span></div>
         </div>
       </CardContent>

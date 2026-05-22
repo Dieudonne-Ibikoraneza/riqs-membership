@@ -25,29 +25,37 @@ export default function ForgotPassword() {
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleRequestOtp = (e: React.FormEvent) => {
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return toast.error("Enter your email address");
     
-    // Call our mocked context function
-    startForgotPassword(email);
-    toast.success(`We sent a 6-digit code to ${email}`);
-    setStep("otp");
+    setIsLoading(true);
+    const success = await startForgotPassword(email);
+    setIsLoading(false);
+    
+    if (success) {
+      toast.success(`We sent a 6-digit code to ${email}`);
+      setStep("otp");
+    }
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (otp.length !== 6) return toast.error("Enter the 6-digit code");
     
-    // Using mock 123456
-    if (!verifyOtp(otp)) return toast.error("Invalid code — try 123456");
+    setIsLoading(true);
+    const success = await verifyOtp(otp);
+    setIsLoading(false);
+    
+    if (!success) return;
     
     toast.success("Code verified");
     setStep("reset");
   };
 
-  const handleResetPassword = (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Check if the 5 password rules pass (basic check since component does visual)
@@ -67,12 +75,13 @@ export default function ForgotPassword() {
       return toast.error("Passwords do not match");
     }
 
-    // Call mocked context function
-    const success = resetPassword(newPassword);
-    if (!success) return toast.error("An error occurred during reset.");
-
-    toast.success("Password reset successfully! Please sign in.");
-    router.push("/login");
+    setIsLoading(true);
+    const success = await resetPassword(newPassword);
+    setIsLoading(false);
+    
+    if (success) {
+      router.push("/login");
+    }
   };
 
   return (
@@ -125,9 +134,10 @@ export default function ForgotPassword() {
                   </div>
                   <Button 
                     type="submit" 
+                    disabled={isLoading}
                     className="w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-semibold"
                   >
-                    Send Verification Code
+                    {isLoading ? "Sending code..." : "Send Verification Code"}
                   </Button>
                   <div className="text-center text-sm">
                     Remember your password?{" "}
@@ -146,9 +156,7 @@ export default function ForgotPassword() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   We've sent a 6-digit code to <strong>{email}</strong>.
                 </p>
-                <div className="mt-3 border border-gold/40 bg-gold/10 p-2 text-xs text-[#8a5c00]">
-                  Demo code: <strong>123456</strong>
-                </div>
+                {/* Dev Code Hint Removed */}
                 <form onSubmit={handleVerifyOtp} className="mt-6 space-y-6">
                   <div className="flex justify-center">
                     <InputOTP
@@ -170,9 +178,10 @@ export default function ForgotPassword() {
                   <div className="space-y-2">
                     <Button 
                       type="submit" 
+                      disabled={isLoading}
                       className="w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-semibold"
                     >
-                      Verify Code
+                      {isLoading ? "Verifying..." : "Verify Code"}
                     </Button>
                     <Button 
                       type="button" 
@@ -231,9 +240,18 @@ export default function ForgotPassword() {
                   <div className="h-4" />
                   <Button 
                     type="submit" 
-                    className="w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-semibold"
+                    disabled={
+                      isLoading ||
+                      newPassword.length < 8 ||
+                      !/[A-Z]/.test(newPassword) ||
+                      !/[a-z]/.test(newPassword) ||
+                      !/[0-9]/.test(newPassword) ||
+                      !/[^A-Za-z0-9]/.test(newPassword) ||
+                      newPassword !== confirmPassword
+                    }
+                    className="w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Reset Password
+                    {isLoading ? "Resetting..." : "Reset Password"}
                   </Button>
                 </form>
               </>

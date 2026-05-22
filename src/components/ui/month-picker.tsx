@@ -34,31 +34,41 @@ export function MonthYearPicker({
   value,
   onChange,
   allowPresent = false,
-  placeholder = "Select Month/Year",
+  placeholder = "Select Date",
   className,
 }: MonthYearPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<"bottom" | "top">("bottom");
   const containerRef = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState<"days" | "months">("days");
 
-  // Parse current year/month from value or default to current date
+  // Parse current year/month/day from value or default to current date
   const parseValue = () => {
     if (!value || value.toLowerCase() === "present") {
       const d = new Date();
-      return { year: d.getFullYear(), month: String(d.getMonth() + 1).padStart(2, "0") };
+      return { year: d.getFullYear(), month: String(d.getMonth() + 1).padStart(2, "0"), day: String(d.getDate()).padStart(2, "0") };
     }
-    const [y, m] = value.split("-");
-    return { year: parseInt(y, 10), month: m };
+    const parts = value.split("-");
+    return { year: parseInt(parts[0], 10), month: parts[1] || "01", day: parts[2] || "01" };
   };
 
   const { year: valYear, month: valMonth } = parseValue();
   const [activeYear, setActiveYear] = useState(valYear);
+  const [activeMonth, setActiveMonth] = useState(valMonth);
 
-  // Synchronize active year when value changes
+  // Synchronize active year/month when value changes
   useEffect(() => {
-    const { year } = parseValue();
+    const { year, month } = parseValue();
     setActiveYear(year);
+    setActiveMonth(month);
   }, [value]);
+
+  // Reset view to 'days' when opening
+  useEffect(() => {
+    if (isOpen) {
+      setView("days");
+    }
+  }, [isOpen]);
 
   // Measure space and decide popover position (above/below)
   useEffect(() => {
@@ -68,8 +78,8 @@ export function MonthYearPicker({
         const spaceBelow = window.innerHeight - rect.bottom;
         const spaceAbove = rect.top;
         
-        // The popover height is around 290px
-        if (spaceBelow < 290 && spaceAbove > spaceBelow) {
+        // The popover height is around 320px for the day grid
+        if (spaceBelow < 320 && spaceAbove > spaceBelow) {
           setPosition("top");
         } else {
           setPosition("bottom");
@@ -108,14 +118,25 @@ export function MonthYearPicker({
   const getDisplayText = () => {
     if (!value) return "";
     if (value.toLowerCase() === "present") return "Present";
-    const [y, m] = value.split("-");
-    const monthObj = MONTHS.find((mObj) => mObj.val === m);
-    return monthObj ? `${monthObj.label} ${y}` : `${m}/${y}`;
+    const parts = value.split("-");
+    if (parts.length >= 3) {
+      const monthObj = MONTHS.find((mObj) => mObj.val === parts[1]);
+      return monthObj ? `${parts[2]} ${monthObj.label} ${parts[0]}` : value;
+    } else if (parts.length === 2) {
+      const monthObj = MONTHS.find((mObj) => mObj.val === parts[1]);
+      return monthObj ? `${monthObj.label} ${parts[0]}` : value;
+    }
+    return value;
   };
 
   const handleSelectMonth = (monthVal: string) => {
-    const formattedMonth = String(monthVal).padStart(2, "0");
-    onChange(`${activeYear}-${formattedMonth}`);
+    setActiveMonth(monthVal);
+    setView("days");
+  };
+
+  const handleSelectDay = (day: number) => {
+    const formattedDay = String(day).padStart(2, "0");
+    onChange(`${activeYear}-${activeMonth}-${formattedDay}`);
     setIsOpen(false);
   };
 
@@ -129,19 +150,40 @@ export function MonthYearPicker({
     setIsOpen(false);
   };
 
-  const handleThisMonth = () => {
+  const handleToday = () => {
     const d = new Date();
     const curYear = d.getFullYear();
     const curMonth = String(d.getMonth() + 1).padStart(2, "0");
-    onChange(`${curYear}-${curMonth}`);
+    const curDay = String(d.getDate()).padStart(2, "0");
+    onChange(`${curYear}-${curMonth}-${curDay}`);
     setIsOpen(false);
   };
 
-  const isCurrentSelection = (monthVal: string) => {
-    if (!value || value.toLowerCase() === "present") return false;
-    const [y, m] = value.split("-");
-    return parseInt(y, 10) === activeYear && m === monthVal;
+  const handlePrevMonth = () => {
+    let m = parseInt(activeMonth, 10) - 1;
+    let y = activeYear;
+    if (m < 1) {
+      m = 12;
+      y -= 1;
+    }
+    setActiveMonth(String(m).padStart(2, "0"));
+    setActiveYear(y);
   };
+
+  const handleNextMonth = () => {
+    let m = parseInt(activeMonth, 10) + 1;
+    let y = activeYear;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+    setActiveMonth(String(m).padStart(2, "0"));
+    setActiveYear(y);
+  };
+
+  const daysInMonth = new Date(activeYear, parseInt(activeMonth, 10), 0).getDate();
+  const firstDay = new Date(activeYear, parseInt(activeMonth, 10) - 1, 1).getDay();
+  const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
   return (
     <div ref={containerRef} className={cn("relative w-full", className)}>
@@ -155,7 +197,7 @@ export function MonthYearPicker({
           !value && "text-muted-foreground"
         )}
       >
-        <span className={cn("truncate font-medium font-sans", value.toLowerCase() === "present" && "text-gold font-semibold")}>
+        <span className={cn("truncate font-medium font-sans", value?.toLowerCase() === "present" && "text-gold font-semibold")}>
           {getDisplayText() || placeholder}
         </span>
         <Calendar className="h-4.5 w-4.5 text-zinc-400 shrink-0 dark:text-zinc-500" />
@@ -174,51 +216,110 @@ export function MonthYearPicker({
               position === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5"
             )}
           >
-            {/* Header: Year Selector */}
-            <div className="flex items-center justify-between pb-2.5 border-b border-zinc-100 dark:border-zinc-800/80">
-              <button
-                type="button"
-                onClick={() => setActiveYear((y) => y - 1)}
-                className="flex h-7 w-7 items-center justify-center rounded-none border border-input bg-transparent text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="text-sm font-bold text-navy dark:text-gold tracking-wide">
-                {activeYear}
-              </span>
-              <button
-                type="button"
-                onClick={() => setActiveYear((y) => y + 1)}
-                className="flex h-7 w-7 items-center justify-center rounded-none border border-input bg-transparent text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Grid of Months */}
-            <div className="grid grid-cols-4 gap-2 py-3.5">
-              {MONTHS.map((m) => {
-                const active = isCurrentSelection(m.val);
-                return (
+            {view === "days" ? (
+              <>
+                {/* Header: Month/Year */}
+                <div className="flex items-center justify-between pb-2.5 border-b border-zinc-100 dark:border-zinc-800/80">
                   <button
-                    key={m.val}
                     type="button"
-                    onClick={() => handleSelectMonth(m.val)}
-                    className={cn(
-                      "flex h-9 items-center justify-center rounded-none text-xs font-semibold transition-all duration-250 cursor-pointer",
-                      active
-                        ? "bg-navy text-white shadow-md dark:bg-gold dark:text-[#1a1a1a]"
-                        : "text-zinc-700 hover:bg-zinc-100 hover:text-navy dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-gold"
-                    )}
+                    onClick={handlePrevMonth}
+                    className="flex h-7 w-7 items-center justify-center rounded-none border border-input bg-transparent text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
                   >
-                    {m.label}
+                    <ChevronLeft className="h-4 w-4" />
                   </button>
-                );
-              })}
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => setView("months")}
+                    className="text-sm font-bold text-navy dark:text-gold tracking-wide hover:underline cursor-pointer"
+                  >
+                    {MONTHS.find(m => m.val === activeMonth)?.label} {activeYear}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNextMonth}
+                    className="flex h-7 w-7 items-center justify-center rounded-none border border-input bg-transparent text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+                {/* Days Grid */}
+                <div className="pt-3">
+                  <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                    {DAYS.map(d => <div key={d} className="text-[10px] font-bold text-muted-foreground">{d}</div>)}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} />)}
+                    {Array.from({ length: daysInMonth }).map((_, i) => {
+                      const day = i + 1;
+                      const formattedDay = String(day).padStart(2, "0");
+                      const isSelected = value === `${activeYear}-${activeMonth}-${formattedDay}`;
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => handleSelectDay(day)}
+                          className={cn(
+                            "h-7 w-7 flex items-center justify-center rounded-none text-xs font-medium cursor-pointer transition-colors mx-auto",
+                            isSelected
+                              ? "bg-navy text-white dark:bg-gold dark:text-[#1a1a1a] font-bold shadow-sm"
+                              : "text-zinc-700 hover:bg-zinc-100 hover:text-navy dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-gold"
+                          )}
+                        >
+                          {day}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Header: Year */}
+                <div className="flex items-center justify-between pb-2.5 border-b border-zinc-100 dark:border-zinc-800/80">
+                  <button
+                    type="button"
+                    onClick={() => setActiveYear(y => y - 1)}
+                    className="flex h-7 w-7 items-center justify-center rounded-none border border-input bg-transparent text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="text-sm font-bold text-navy dark:text-gold tracking-wide">
+                    {activeYear}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveYear(y => y + 1)}
+                    className="flex h-7 w-7 items-center justify-center rounded-none border border-input bg-transparent text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+                {/* Months Grid */}
+                <div className="grid grid-cols-4 gap-2 py-3.5">
+                  {MONTHS.map((m) => {
+                    const isSelected = activeMonth === m.val;
+                    return (
+                      <button
+                        key={m.val}
+                        type="button"
+                        onClick={() => handleSelectMonth(m.val)}
+                        className={cn(
+                          "flex h-9 items-center justify-center rounded-none text-xs font-semibold transition-all duration-250 cursor-pointer",
+                          isSelected
+                            ? "bg-navy text-white shadow-md dark:bg-gold dark:text-[#1a1a1a]"
+                            : "text-zinc-700 hover:bg-zinc-100 hover:text-navy dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-gold"
+                        )}
+                      >
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
             {/* Footer Action Buttons */}
-            <div className="flex items-center justify-between border-t border-zinc-100 pt-2.5 dark:border-zinc-800/80 gap-1.5">
+            <div className="flex items-center justify-between border-t border-zinc-100 pt-2.5 dark:border-zinc-800/80 gap-1.5 mt-2">
               <button
                 type="button"
                 onClick={handleClear}
@@ -233,7 +334,7 @@ export function MonthYearPicker({
                     onClick={handleSelectPresent}
                     className={cn(
                       "text-xs font-bold py-1 px-2.5 rounded-none border transition-colors cursor-pointer",
-                      value.toLowerCase() === "present"
+                      value?.toLowerCase() === "present"
                         ? "border-gold bg-gold/10 text-gold"
                         : "border-zinc-200 text-gold hover:bg-gold/5 dark:border-zinc-800"
                     )}
@@ -243,10 +344,10 @@ export function MonthYearPicker({
                 )}
                 <button
                   type="button"
-                  onClick={handleThisMonth}
+                  onClick={handleToday}
                   className="text-xs font-bold text-navy hover:text-navy/85 dark:text-gold dark:hover:text-gold/85 py-1 px-2.5 rounded-none transition-colors cursor-pointer"
                 >
-                  This month
+                  Today
                 </button>
               </div>
             </div>

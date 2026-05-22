@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Sora, Cormorant_Garamond, Great_Vibes } from "next/font/google";
 import { AuthProvider } from "@/lib/auth";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import { ConfigProvider } from "@/lib/config-store";
+import { QueryProvider } from "@/providers/QueryProvider";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -46,12 +47,14 @@ export default function RootLayout({
       className={`${plusJakartaSans.variable} ${sora.variable} ${cormorantGaramond.variable} ${greatVibes.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background font-sans">
-        <ConfigProvider>
-          <AuthProvider>
-            {children}
-            <Toaster richColors position="top-right" />
-          </AuthProvider>
-        </ConfigProvider>
+        <QueryProvider>
+          <ConfigProvider>
+            <AuthProvider>
+              {children}
+              <Toaster richColors position="top-right" />
+            </AuthProvider>
+          </ConfigProvider>
+        </QueryProvider>
       </body>
     </html>
   );

@@ -65,14 +65,14 @@ export function AppShell({
     },
     { href: "/admin/members", label: "Members", icon: Users },
     { href: "/admin/email", label: "Email System", icon: Send },
-    ...(role === "admin"
+    ...(role === "Admin"
       ? [
           { href: "/admin/settings", label: "System Settings", icon: Settings },
           { href: "/admin/templates", label: "Email Templates", icon: FileCode },
         ]
       : []),
     { href: "/admin/export", label: "Export Tool", icon: Folder },
-    ...(role === "admin" ? [{ href: "/admin/audit", label: "Audit Log", icon: Shield }] : []),
+    ...(role === "Admin" ? [{ href: "/admin/audit", label: "Audit Log", icon: Shield }] : []),
   ];
 
   const links = kind === "admin" ? adminLinks : memberLinks;
@@ -311,7 +311,7 @@ export function AppShell({
               <div className="text-sm font-semibold">{name}</div>
               <div className="text-[11px] text-muted-foreground">
                 {kind === "admin"
-                  ? role === "admin" ? "System Administrator" : "Reviewer / Approver"
+                  ? role === "Admin" ? "System Administrator" : "Reviewer / Approver"
                   : isTeacher ? "Teacher" : isMentor ? "Mentor" : isStudent ? "Student" : "Active Member"}
               </div>
             </div>

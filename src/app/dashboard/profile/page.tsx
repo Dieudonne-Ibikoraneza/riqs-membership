@@ -6,9 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Lock, Plus, Pencil } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/services/queryKeys";
+import { applicantServices } from "@/services/applicant.services";
 
 function LockedField({ label, value }: { label: string; value: string }) {
   return (
@@ -16,20 +19,92 @@ function LockedField({ label, value }: { label: string; value: string }) {
       <Label className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
         {label} <Lock className="h-3 w-3 text-gold" />
       </Label>
-      <Input value={value} disabled readOnly className="mt-1 bg-zinc-50 dark:bg-zinc-950 cursor-not-allowed border-zinc-200 dark:border-zinc-800" />
+      <Input value={value || "N/A"} disabled readOnly className="mt-1 bg-zinc-50 dark:bg-zinc-950 cursor-not-allowed border-zinc-200 dark:border-zinc-800" />
       <p className="text-[11px] text-muted-foreground/80">Locked compliance field — contact RIQS admin to update.</p>
     </div>
   );
 }
 
 export default function Profile() {
-  const [name, setName] = useState("Demo Member");
-  const [edu, setEdu] = useState([
-    { degree: "BSc Quantity Surveying", institution: "University of Rwanda", year: 2020 },
-    { degree: "MSc Construction Management", institution: "Strathmore University", year: 2023 },
-  ]);
+  const queryClient = useQueryClient();
+  const { data, isLoading, error } = useQuery({
+    queryKey: queryKeys.applicant.profile(),
+    queryFn: applicantServices.getProfile,
+  });
+
+  const [name, setName] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [draft, setDraft] = useState({ degree: "", institution: "", year: 2026 });
+
+  const mutation = useMutation({
+    mutationFn: applicantServices.updateProfile,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
+      toast.success("Profile saved successfully");
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || "Failed to update profile");
+    }
+  });
+
+  useEffect(() => {
+    if (data?.profile?.fullName) {
+      setName(data.profile.fullName);
+    }
+  }, [data]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        {/* Header Skeleton */}
+        <div>
+          <div className="h-8 w-48 bg-zinc-200 dark:bg-zinc-800 rounded-md mb-2"></div>
+          <div className="h-4 w-96 bg-zinc-200 dark:bg-zinc-800 rounded-md"></div>
+        </div>
+
+        {/* Card 1 Skeleton */}
+        <div className="rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 space-y-6">
+          <div className="flex justify-between items-center border-b border-zinc-50 dark:border-zinc-800/50 pb-4">
+            <div className="h-6 w-40 bg-zinc-200 dark:bg-zinc-800 rounded-md"></div>
+            <div className="h-8 w-28 bg-zinc-200 dark:bg-zinc-800 rounded-md"></div>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="space-y-2">
+                <div className="h-4 w-32 bg-zinc-200 dark:bg-zinc-800 rounded-md"></div>
+                <div className="h-10 w-full bg-zinc-100 dark:bg-zinc-900 rounded-md"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Card 2 Skeleton */}
+        <div className="rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 space-y-6">
+          <div className="flex justify-between items-center border-b border-zinc-50 dark:border-zinc-800/50 pb-4">
+            <div className="h-6 w-32 bg-zinc-200 dark:bg-zinc-800 rounded-md"></div>
+            <div className="h-8 w-36 bg-zinc-200 dark:bg-zinc-800 rounded-md"></div>
+          </div>
+          <div className="space-y-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-24 w-full bg-zinc-100 dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data?.profile) {
+    return (
+      <div className="flex flex-col h-[400px] items-center justify-center space-y-4 text-center">
+        <p className="text-muted-foreground">Unable to load profile data.</p>
+      </div>
+    );
+  }
+
+  const member = data.profile;
+  const eduRecords = data.education || [];
+  const empRecords = data.employment || [];
 
   return (
     <div className="space-y-6">
@@ -44,10 +119,11 @@ export default function Profile() {
           <CardTitle className="text-navy">Personal Information</CardTitle>
           <Button 
             size="sm" 
-            onClick={() => toast.success("Profile saved successfully")} 
-            className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none font-semibold"
+            onClick={() => mutation.mutate({ fullName: name })} 
+            disabled={name === member.fullName || mutation.isPending}
+            className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Pencil className="mr-2 h-4 w-4" />Save changes
+            <Pencil className="mr-2 h-4 w-4" />{mutation.isPending ? "Saving..." : "Save changes"}
           </Button>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 p-6">
@@ -56,11 +132,11 @@ export default function Profile() {
             <Input id="prof-name" placeholder="e.g. Demo Member" value={name} onChange={e => setName(e.target.value)} />
             <p className="text-xs text-muted-foreground">Editable. Change is audit-logged.</p>
           </div>
-          <LockedField label="National ID / Passport" value="1 1990 8 0123456 7 89" />
-          <LockedField label="Primary Email Address" value="demo@riqs.rw" />
-          <LockedField label="Mobile Phone" value="+250 788 000 000" />
-          <LockedField label="Practice Category" value="Professional" />
-          <LockedField label="Date of Birth" value="14 May 1990" />
+          <LockedField label="National ID / Passport" value={member.nationalIdOrPassport || ""} />
+          <LockedField label="Primary Email Address" value={member.email || ""} />
+          <LockedField label="Mobile Phone" value={member.phoneNumber || ""} />
+          <LockedField label="Practice Category" value={member.membershipClass || data.application?.category_name || ""} />
+          <LockedField label="Date of Birth" value={member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString() : ""} />
         </CardContent>
       </Card>
 
@@ -78,17 +154,21 @@ export default function Profile() {
           </Button>
         </CardHeader>
         <CardContent className="space-y-3 p-6">
-          {edu.map((e, i) => (
-            <div key={i} className="flex items-start justify-between rounded-md border border-zinc-100 dark:border-zinc-850 p-4">
-              <div>
-                <div className="font-semibold text-zinc-800 dark:text-zinc-200">{e.degree}</div>
-                <div className="text-sm text-muted-foreground mt-0.5">{e.institution} · {e.year}</div>
+          {eduRecords.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">No education records found.</p>
+          ) : (
+            eduRecords.map((e) => (
+              <div key={e.id} className="flex items-start justify-between rounded-md border border-zinc-100 dark:border-zinc-850 p-4">
+                <div>
+                  <div className="font-semibold text-zinc-800 dark:text-zinc-200">{e.qualificationType} in {e.fieldOfStudy}</div>
+                  <div className="text-sm text-muted-foreground mt-0.5">{e.institution} &middot; {new Date(e.endDate).getFullYear()}</div>
+                </div>
+                <Badge variant="outline" className="border-emerald-200 text-emerald-700 bg-emerald-50/50">
+                  Verified
+                </Badge>
               </div>
-              <Badge variant="outline" className="border-emerald-200 text-emerald-700 bg-emerald-50/50">
-                Verified
-              </Badge>
-            </div>
-          ))}
+            ))
+          )}
           
           {showAdd && (
             <motion.div 
@@ -113,13 +193,11 @@ export default function Profile() {
               <div className="flex gap-2 pt-1">
                 <Button 
                   size="sm" 
-                  className="bg-navy border-none" 
+                  className="bg-navy border-none text-white hover:bg-navy/90" 
                   onClick={() => {
                     if (!draft.degree) return toast.error("Enter qualification name");
-                    setEdu([...edu, draft]); 
-                    setDraft({ degree: "", institution: "", year: 2026 }); 
-                    setShowAdd(false);
                     toast.success("Qualification added (pending verification review)");
+                    setShowAdd(false);
                   }}
                 >
                   Add
@@ -137,12 +215,22 @@ export default function Profile() {
           <CardTitle className="text-navy">Employment</CardTitle>
         </CardHeader>
         <CardContent className="p-6 space-y-3">
-          <div className="rounded-md border border-zinc-100 dark:border-zinc-850 p-4">
-            <div className="font-semibold text-zinc-800 dark:text-zinc-200">
-              Senior Quantity Surveyor — Kigali Build Ltd
-            </div>
-            <div className="text-sm text-muted-foreground mt-0.5">Jun 2020 — Present</div>
-          </div>
+          {empRecords.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">No employment records found.</p>
+          ) : (
+            empRecords.map((emp) => (
+              <div key={emp.id} className="rounded-md border border-zinc-100 dark:border-zinc-850 p-4">
+                <div className="font-semibold text-zinc-800 dark:text-zinc-200">
+                  {emp.jobTitle} &mdash; {emp.companyName}
+                </div>
+                <div className="text-sm text-muted-foreground mt-0.5">
+                  {new Date(emp.startDate).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })} 
+                  &mdash; 
+                  {emp.isCurrent ? ' Present' : emp.endDate ? ` ${new Date(emp.endDate).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}` : ''}
+                </div>
+              </div>
+            ))
+          )}
         </CardContent>
       </Card>
 

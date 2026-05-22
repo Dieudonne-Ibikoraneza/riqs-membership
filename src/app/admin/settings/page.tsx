@@ -21,12 +21,12 @@ export default function SettingsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (role !== "admin") {
+    if (role !== "Admin") {
       router.push("/admin");
     }
   }, [role, router]);
 
-  if (role !== "admin") return null;
+  if (role !== "Admin") return null;
 
   const save = () => { setConfig(draft); toast.success("Settings saved"); };
 

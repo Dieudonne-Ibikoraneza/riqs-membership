@@ -641,15 +641,34 @@ function WizardContent({
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (documents?.length > 0 && !photoPreview) {
-      const passportDoc = documents.find((d: any) => d.documentType === "PassportPhoto");
-      if (passportDoc) {
-        setIsPhotoLoading(true);
-        applicantServices.downloadDocument(passportDoc.id)
-          .then((blob) => setPhotoPreview(URL.createObjectURL(blob)))
-          .catch((err) => console.error("Failed to load passport photo", err))
-          .finally(() => setIsPhotoLoading(false));
-      }
+    if (documents?.length > 0) {
+      documents.forEach((d: any) => {
+        if (d.documentType === "PassportPhoto") {
+          if (!photoPreview) {
+            setIsPhotoLoading(true);
+            applicantServices.downloadDocument(d.id)
+              .then((blob) => setPhotoPreview(URL.createObjectURL(blob)))
+              .catch((err) => console.error("Failed to load passport photo", err))
+              .finally(() => setIsPhotoLoading(false));
+          }
+        } else {
+          setData((prev: any) => {
+            if (!prev.docs[d.documentType]) {
+              applicantServices.downloadDocument(d.id)
+                .then((blob) => {
+                  setData((curr: any) => ({
+                    ...curr,
+                    docs: { ...curr.docs, [d.documentType]: URL.createObjectURL(blob) }
+                  }));
+                })
+                .catch((err) => console.error(`Failed to load ${d.documentType}`, err));
+              
+              return { ...prev, docs: { ...prev.docs, [d.documentType]: "loading..." } };
+            }
+            return prev;
+          });
+        }
+      });
     }
   }, [documents]);
 

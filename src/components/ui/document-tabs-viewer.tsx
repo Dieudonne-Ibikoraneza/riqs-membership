@@ -183,7 +183,12 @@ export function DocumentTabsViewer({ tabs, onUpload, onDelete, onAddTab, isUploa
                 </div>
               ) : null}
 
-              {isUploaded ? (
+              {url === "loading..." ? (
+                <div className="w-full h-full flex flex-col items-center justify-center p-12 text-center bg-zinc-50 dark:bg-zinc-950">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-navy mx-auto mb-4"></div>
+                  <p className="text-zinc-500 font-medium">Loading document...</p>
+                </div>
+              ) : isUploaded ? (
                 <div className="w-full h-full p-0 flex-1 relative overflow-hidden flex items-center justify-center">
                   {isImage ? (
                     <img src={url!} alt={tab.l} className="max-w-full max-h-full object-contain p-4" />

@@ -639,6 +639,35 @@ function WizardContent({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isPhotoLoading, setIsPhotoLoading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const [verifyingMentorIdx, setVerifyingMentorIdx] = useState<number | null>(null);
+
+  const verifyMentor = async (index: number, membershipId: string) => {
+    if (!membershipId) return;
+    try {
+      setVerifyingMentorIdx(index);
+      const res = await publicServices.getPublicMembers({ search: membershipId, limit: 10 });
+      const member = res.members.find((m: any) => m.membership_id === membershipId);
+      const v = [...data.mentors];
+      if (member) {
+        v[index].name = member.full_name;
+        v[index].contact = member.email || member.phone_number || "";
+        if (member.membership_class) {
+          v[index].category = member.membership_class;
+        }
+        setData({ ...data, mentors: v });
+        toast.success("Mentor found!");
+      } else {
+        toast.error("Mentor not found or unavailable.");
+        v[index].name = "";
+        v[index].contact = "";
+        setData({ ...data, mentors: v });
+      }
+    } catch (err) {
+      toast.error("Failed to verify mentor");
+    } finally {
+      setVerifyingMentorIdx(null);
+    }
+  };
 
   useEffect(() => {
     if (documents?.length > 0) {
@@ -1313,26 +1342,36 @@ function WizardContent({
                     As a Graduate applicant, you must be assigned to a registered Mentor (a Professional or Technologist) for promotion to Technologist or Professional standing. Each Mentor can supervise <strong>up to 5 graduates</strong>. Nominate your preferred mentor below — the secretariat will confirm availability.
                   </div>
                   {data.mentors.map((m: any, i: number) => (
-                    <div key={i} className="grid gap-3 border p-4 rounded-md md:grid-cols-[1fr_1fr_180px_auto] bg-zinc-50/50">
+                    <div key={i} className="grid gap-3 border p-4 rounded-md md:grid-cols-[1fr_1fr_1fr_150px_auto] bg-zinc-50/50">
+                      <div>
+                        <Label>Membership ID</Label>
+                        <div className="flex gap-2">
+                          <Input placeholder="e.g. RQIS-001" value={m.membershipId || ""}
+                            onChange={(e) => { const v = [...data.mentors]; v[i].membershipId = e.target.value; setData({ ...data, mentors: v }); }}
+                            onBlur={() => verifyMentor(i, m.membershipId)}
+                          />
+                          <Button 
+                            variant="outline" 
+                            size="icon" 
+                            onClick={() => verifyMentor(i, m.membershipId)}
+                            disabled={verifyingMentorIdx === i || !m.membershipId}
+                            title="Verify Mentor"
+                          >
+                            {verifyingMentorIdx === i ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
                       <div>
                         <Label>Mentor's full name</Label>
-                        <Input placeholder="e.g. Jane Smith" value={m.name}
-                          onChange={(e) => { const v = [...data.mentors]; v[i].name = e.target.value; setData({ ...data, mentors: v }); }} />
+                        <Input placeholder="Auto-filled" value={m.name} disabled className="bg-zinc-100" />
                       </div>
                       <div>
                         <Label>Contact (email/phone)</Label>
-                        <Input placeholder="e.g. +250 788 000 000" value={m.contact}
-                          onChange={(e) => { const v = [...data.mentors]; v[i].contact = e.target.value; setData({ ...data, mentors: v }); }} />
+                        <Input placeholder="Auto-filled" value={m.contact} disabled className="bg-zinc-100" />
                       </div>
                       <div>
                         <Label>Mentor category</Label>
-                        <Select value={m.category} onValueChange={(val) => { const v = [...data.mentors]; v[i].category = val; setData({ ...data, mentors: v }); }}>
-                          <SelectTrigger className="mt-1 bg-white"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Professional">Professional</SelectItem>
-                            <SelectItem value="Technologist">Technologist</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Input placeholder="Auto-filled" value={m.category} disabled className="bg-zinc-100" />
                       </div>
                       <div className="flex items-end pb-0.5">
                         {data.mentors.length > 1 && (

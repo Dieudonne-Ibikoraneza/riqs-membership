@@ -20,6 +20,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCw,
+  RotateCcw,
   Maximize2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -369,52 +370,12 @@ export default function Review({ params }: PageProps) {
 
         {/* Right column: Document viewer */}
         <div className="lg:col-span-3">
-          <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col sticky top-4 h-[calc(100vh-2rem)]">
+          <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col sticky top-2 h-[calc(100vh-5rem)]">
             <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800 py-3 px-4 shrink-0">
-            <CardTitle className="text-sm font-bold text-navy">
-              Documents Workbench
-            </CardTitle>
-            <div className="flex items-center gap-1">
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))}
-              >
-                <ZoomOut className="h-4 w-4" />
-              </Button>
-              <span className="text-xs w-12 text-center font-medium">
-                {Math.round(zoom * 100)}%
-              </span>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setZoom((z) => Math.min(2, z + 0.1))}
-              >
-                <ZoomIn className="h-4 w-4" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setRot((r) => (r + 90) % 360)}
-              >
-                <RotateCw className="h-4 w-4" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => toast.success("FullScreen preview enabled")}
-              >
-                <Maximize2 className="h-4 w-4" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => toast.success("Document downloaded")}
-              >
-                <Download className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
+              <CardTitle className="text-sm font-bold text-navy">
+                Documents Workbench
+              </CardTitle>
+            </CardHeader>
           <CardContent className="p-4 flex-1 flex flex-col overflow-hidden">
             <Tabs
               value={String(activeDoc)}
@@ -425,6 +386,8 @@ export default function Review({ params }: PageProps) {
                 setDirection(dir);
                 setActiveDoc(idx);
                 prevDoc.current = idx;
+                setZoom(1);
+                setRot(0);
               }}
               className="flex-1 flex flex-col"
             >
@@ -445,62 +408,73 @@ export default function Review({ params }: PageProps) {
                   </TabsTrigger>
                 )})}
               </TabsList>
-              {/* Single animated preview keyed by activeDoc so we can slide by direction */}
+              {/* Pre-render all documents so PDFs do not reload when switching tabs */}
               <div className="relative flex-1 mt-0 overflow-hidden">
-                <AnimatePresence initial={false} custom={direction}>
-                  <motion.div
-                    key={activeDoc}
-                    custom={direction}
-                    variants={{
-                      enter: (dir: number) => ({
-                        x: dir === 1 ? "100%" : dir === -1 ? "-100%" : "0%",
-                        opacity: 0,
-                      }),
-                      center: {
-                        x: "0%",
-                        opacity: 1,
-                        transition: { duration: 0.32, ease: "easeOut" },
-                      },
-                      exit: (dir: number) => ({
-                        x: dir === 1 ? "-100%" : dir === -1 ? "100%" : "0%",
-                        opacity: 0,
-                        transition: { duration: 0.22, ease: "easeIn" },
-                      }),
-                    }}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    className="absolute inset-0 flex items-center justify-center"
-                  >
-                    <div className="relative flex h-full w-full items-center justify-center overflow-auto rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4">
-                      <div
-                        style={{
-                          transform: `scale(${zoom}) rotate(${rot}deg)`,
-                          transition: "transform 0.15s ease-out",
-                          width: "100%",
-                          height: "100%",
-                        }}
-                        className="flex items-center justify-center"
-                      >
-                        {(() => {
-                           const doc = app.documents[activeDoc];
-                           if (!doc) return null;
-                           const url = doc.url;
-                           if (!url) {
-                             return <div className="text-zinc-500">Document URL missing</div>;
-                           }
-                           const checkUrl = doc.originalFileUrl || url;
-                           const isImage = checkUrl?.toLowerCase().match(/\.(jpeg|jpg|gif|png)$/i) || checkUrl?.startsWith("data:image");
-                           return isImage ? (
-                              <img src={url} alt={doc.name} className="max-w-full max-h-full object-contain p-4 shadow-sm bg-white" />
-                           ) : (
-                              <PDFViewer src={url} fileName={doc.name + ".pdf"} />
-                           );
-                        })()}
+                {app.documents.map((doc: any, i: number) => {
+                  const isActive = activeDoc === i;
+                  const xPos = isActive ? "0%" : i < activeDoc ? "-100%" : "100%";
+                  
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={false}
+                      animate={{
+                        x: xPos,
+                        opacity: isActive ? 1 : 0,
+                      }}
+                      transition={{ duration: 0.32, ease: "easeInOut" }}
+                      className="absolute inset-0 flex items-center justify-center"
+                      style={{ pointerEvents: isActive ? "auto" : "none" }}
+                    >
+                      <div className="relative flex h-full w-full items-center justify-center overflow-auto rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4">
+                        <div className="flex items-center justify-center h-full w-full">
+                          {(() => {
+                             const url = doc.url;
+                             if (!url) {
+                               return <div className="text-zinc-500">Document URL missing</div>;
+                             }
+                             const checkUrl = doc.originalFileUrl || url;
+                             const isImage = checkUrl?.toLowerCase().match(/\.(jpeg|jpg|gif|png)$/i) || checkUrl?.startsWith("data:image");
+                             return isImage ? (
+                                <div className="relative w-full h-full bg-white shadow-sm rounded-md overflow-hidden flex flex-col group">
+                                  <div className="flex-1 w-full h-full flex items-center justify-center overflow-auto p-4">
+                                    <img 
+                                      src={url} 
+                                      alt={doc.name} 
+                                      className="max-w-full max-h-full object-contain" 
+                                      style={{
+                                        transform: `scale(${zoom}) rotate(${rot}deg)`,
+                                        transition: "transform 0.15s ease-out",
+                                        transformOrigin: "center center"
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 p-1.5 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
+                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))}><ZoomOut className="h-4 w-4 text-zinc-700 dark:text-zinc-300" /></Button>
+                                    <span className="text-xs w-12 text-center font-semibold text-zinc-700 dark:text-zinc-300">{Math.round(zoom * 100)}%</span>
+                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setZoom((z) => Math.min(3, z + 0.1))}><ZoomIn className="h-4 w-4 text-zinc-700 dark:text-zinc-300" /></Button>
+                                    <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 mx-1" />
+                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setRot((r) => (r - 90) % 360)}><RotateCcw className="h-4 w-4 text-zinc-700 dark:text-zinc-300" /></Button>
+                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setRot((r) => (r + 90) % 360)}><RotateCw className="h-4 w-4 text-zinc-700 dark:text-zinc-300" /></Button>
+                                    <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 mx-1" />
+                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => {
+                                      const a = document.createElement("a");
+                                      a.href = url;
+                                      a.download = doc.name;
+                                      a.click();
+                                      toast.success("Image downloaded");
+                                    }}><Download className="h-4 w-4 text-zinc-700 dark:text-zinc-300" /></Button>
+                                  </div>
+                                </div>
+                             ) : (
+                                <PDFViewer src={url} fileName={doc.name + ".pdf"} />
+                             );
+                          })()}
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
               </div>
             </Tabs>
           </CardContent>

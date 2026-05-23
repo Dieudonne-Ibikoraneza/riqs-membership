@@ -24,10 +24,12 @@ export async function getApplicationsQueue(
   page: number = 1,
   limit: number = 10,
   status?: string,
+  view: string = 'queue'
 ): Promise<AdminQueueResponse> {
   const params = new URLSearchParams();
   params.append("page", page.toString());
   params.append("limit", limit.toString());
+  params.append("view", view);
   if (status && status !== "all") {
     params.append("status", status);
   }

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -69,13 +70,14 @@ export default function AdminApps() {
   const [isLoading, setIsLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
   const [takingOverId, setTakingOverId] = useState<string | null>(null);
+  const [view, setView] = useState<"queue" | "assigned" | "all">("queue");
   const router = useRouter();
 
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
       try {
-        const res = await getApplicationsQueue(page, pageSize, status);
+        const res = await getApplicationsQueue(page, pageSize, status, view);
         const mapped = res.queue.map(a => ({
           id: a.id,
           applicantName: a.full_name,
@@ -95,7 +97,7 @@ export default function AdminApps() {
       }
     }
     loadData();
-  }, [page, status]);
+  }, [page, status, view]);
 
   const handleReviewClick = async (a: any) => {
     if (a.status !== "Pending") {
@@ -196,14 +198,24 @@ export default function AdminApps() {
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto pb-8 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold text-navy tracking-tight">
-          Application Queue
-        </h1>
-        <p className="text-sm text-muted-foreground font-sans">
-          Review, verify, and manage incoming quantity surveyor practice
-          applications.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-navy tracking-tight">
+            {view === 'queue' ? 'Application Queue' : view === 'assigned' ? 'My Assigned Applications' : 'All Applications'}
+          </h1>
+          <p className="text-sm text-muted-foreground font-sans mt-1">
+            {view === 'queue' ? 'Review, verify, and take over incoming practice applications.' : 
+             view === 'assigned' ? 'Applications currently assigned to you for review or correction.' : 
+             'Complete global view of all applications in the registry.'}
+          </p>
+        </div>
+        <Tabs value={view} onValueChange={(v) => { setView(v as any); setPage(1); }} className="w-full sm:w-auto">
+          <TabsList className="grid w-full grid-cols-3 bg-zinc-100 dark:bg-zinc-800">
+            <TabsTrigger value="queue">Queue</TabsTrigger>
+            <TabsTrigger value="assigned">My Assigned</TabsTrigger>
+            <TabsTrigger value="all">All</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       <Card className="border border-zinc-150 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm">

@@ -1,79 +1,188 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, Lock, Upload } from "lucide-react";
+import { Download, Lock, ChevronDown, ChevronUp, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/services/queryKeys";
+import { applicantServices } from "@/services/applicant.services";
+import PDFViewer from "@/components/ui/pdf-viewer";
 
-const DOCS = [
-  { name: "National ID Scan", file: "national-id.pdf", locked: true, uploaded: "2025-12-01" },
-  { name: "Passport photography", file: "photo.jpg", locked: true, uploaded: "2025-12-01" },
-  { name: "Notarized Degree Cert", file: "degree-notarized.pdf", locked: true, uploaded: "2025-12-01" },
-  { name: "Curriculum Vitae", file: "cv-2026.pdf", locked: false, uploaded: "2026-01-10" },
-  { name: "CPD Attendance Letter", file: "cpd-2025.pdf", locked: false, uploaded: "2025-11-20" },
-];
+function DocumentCard({ doc }: { doc: any }) {
+  const [expanded, setExpanded] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  const toggleExpand = async () => {
+    if (!expanded && !previewUrl && !isLoading) {
+      setIsLoading(true);
+      setError(false);
+      try {
+        const blob = await applicantServices.downloadDocument(doc.id);
+        const isImg = blob.type.startsWith("image/") || doc.fileName?.match(/\.(jpeg|jpg|gif|png)$/i);
+        const url = URL.createObjectURL(blob) + (isImg ? "#image" : "#pdf");
+        setPreviewUrl(url);
+      } catch (err) {
+        console.error("Failed to load document", err);
+        setError(true);
+        toast.error(`Failed to load ${doc.documentType}`);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    setExpanded(!expanded);
+  };
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const blob = await applicantServices.downloadDocument(doc.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(`Failed to download ${doc.fileName}`);
+    }
+  };
+
+  const friendlyName = doc.documentType.replace(/([A-Z])/g, ' $1').trim();
+
+  return (
+    <Card className="border-zinc-200 dark:border-zinc-800">
+      <CardContent className="flex flex-col p-4">
+        {/* Header */}
+        <div 
+          className="flex items-start justify-between gap-4 cursor-pointer"
+          onClick={toggleExpand}
+        >
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm capitalize">{friendlyName}</span>
+              <Badge variant="outline" className="gap-1 text-xs border-zinc-200 bg-zinc-50 dark:bg-zinc-900 text-zinc-650 dark:text-zinc-400">
+                <Lock className="h-3 w-3 text-gold" />Locked
+              </Badge>
+            </div>
+            <div className="text-xs text-muted-foreground font-sans">
+              {doc.fileName} · Uploaded {new Date(doc.uploadedAt).toLocaleDateString()}
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-1.5">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={handleDownload}
+              className="border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50"
+            >
+              <Download className="h-4 w-4 text-gold md:mr-2" />
+              <span className="hidden md:inline">Download</span>
+            </Button>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={(e) => { e.stopPropagation(); toggleExpand(); }}
+            >
+              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+
+        {/* Expandable Preview */}
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-4 border border-zinc-200 dark:border-zinc-800 h-[450px] relative bg-zinc-50 dark:bg-zinc-900 rounded-md overflow-hidden">
+                {isLoading ? (
+                  <div className="w-full h-full p-4 flex flex-col gap-4 bg-zinc-50 dark:bg-zinc-900 animate-pulse">
+                    {/* Simulated PDF Toolbar */}
+                    <div className="w-full h-12 bg-zinc-200/60 dark:bg-zinc-800 rounded-md flex items-center px-4 justify-between">
+                      <div className="h-4 bg-zinc-300 dark:bg-zinc-700 rounded w-1/4 animate-pulse" />
+                      <div className="flex gap-2">
+                        <div className="h-7 w-7 bg-zinc-300 dark:bg-zinc-700 rounded animate-pulse" />
+                        <div className="h-7 w-7 bg-zinc-300 dark:bg-zinc-700 rounded animate-pulse" />
+                        <div className="h-7 w-7 bg-zinc-300 dark:bg-zinc-700 rounded animate-pulse" />
+                      </div>
+                    </div>
+                    {/* Simulated Document Body */}
+                    <div className="w-full flex-1 bg-zinc-200/40 dark:bg-zinc-800/80 rounded-md animate-pulse" />
+                  </div>
+                ) : error ? (
+                  <div className="flex flex-col items-center justify-center w-full h-full text-red-400 gap-2">
+                    <AlertCircle className="h-8 w-8" />
+                    <p className="text-sm">Failed to load preview</p>
+                  </div>
+                ) : previewUrl ? (
+                  previewUrl.includes("#image") ? (
+                    <img src={previewUrl} className="w-full h-full object-contain pointer-events-auto" alt={friendlyName} />
+                  ) : (
+                    <PDFViewer src={previewUrl} fileName={friendlyName} />
+                  )
+                ) : null}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Documents() {
+  const { data: profileData, isLoading } = useQuery({
+    queryKey: queryKeys.applicant.profile(),
+    queryFn: applicantServices.getProfile,
+  });
+
+  const documents = profileData?.documents || [];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-navy">Documents</h1>
         <p className="text-sm text-muted-foreground font-sans">
-          Download your active files and credentials. Locked files can only be replaced via administrative request.
+          View and download your active files and credentials. Locked files can only be replaced via administrative request.
         </p>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 stagger">
-        {DOCS.map((d, index) => (
-          <motion.div
-            key={d.file}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.04 }}
-          >
-            <Card className="hover-lift border-zinc-100 dark:border-zinc-800">
-              <CardContent className="flex items-start justify-between gap-4 p-4">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">{d.name}</span>
-                    {d.locked && (
-                      <Badge variant="outline" className="gap-1 text-xs border-zinc-200 bg-zinc-50 dark:bg-zinc-900 text-zinc-650 dark:text-zinc-400">
-                        <Lock className="h-3 w-3 text-gold" />Locked
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="text-xs text-muted-foreground font-sans">
-                    {d.file} · Uploaded {d.uploaded}
-                  </div>
-                </div>
-                
-                <div className="flex gap-1.5">
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={() => toast.success(`Download started for ${d.file}`)}
-                    className="border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50"
-                  >
-                    <Download className="h-4 w-4 text-gold" />
-                  </Button>
-                  {!d.locked && (
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={() => toast.success(`${d.name} successfully updated`)}
-                      className="border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50"
-                    >
-                      <Upload className="h-4 w-4 text-navy" />
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center h-40">
+          <Loader2 className="h-8 w-8 animate-spin text-gold" />
+        </div>
+      ) : documents.length === 0 ? (
+        <Card className="border-dashed border-2 bg-transparent">
+          <CardContent className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+            <p>No documents found.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 stagger">
+          {documents.map((d: any, index: number) => (
+            <motion.div
+              key={d.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.04 }}
+            >
+              <DocumentCard doc={d} />
+            </motion.div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

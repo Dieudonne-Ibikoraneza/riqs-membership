@@ -43,8 +43,14 @@ export const publicServices = {
     category?: string;
     page?: number;
     limit?: number;
+    mentorsOnly?: boolean;
   }): Promise<PublicMembersResponse> => {
     const response = await axiosClient.get('/members/directory', { params });
+    return response.data;
+  },
+
+  getMentorById: async (membershipId: string): Promise<{ fullName: string; contact: string }> => {
+    const response = await axiosClient.get(`/members/mentors/${membershipId}`);
     return response.data;
   },
 };

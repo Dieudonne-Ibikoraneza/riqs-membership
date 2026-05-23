@@ -2,10 +2,21 @@
 
 import { useRef, useCallback, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Download, Printer, Loader2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { 
+  Download, 
+  Printer, 
+  Loader2, 
+  Lock, 
+  Clock, 
+  AlertCircle, 
+  ArrowRight 
+} from "lucide-react";
 import { toast } from "sonner";
-import { ME_APPLICATION } from "@/lib/mock-data";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/services/queryKeys";
+import { applicantServices } from "@/services/applicant.services";
+import Link from "next/link";
 
 const logo = "/riqs-logo.png";
 const certBg = "/certificate-bg.png";
@@ -41,7 +52,7 @@ function getScallopedPath(points: number, innerR: number, outerR: number, cx = 1
   return pathData;
 }
 
-function Seal() {
+function Seal({ year }: { year: number }) {
   const points = 28;
   const innerR = 80;
   const outerR = 88;
@@ -86,63 +97,120 @@ function Seal() {
       <circle cx="100" cy="100" r="64" fill="#082649" />
 
       {/* Ribbon Seal Text Elements matching official layout */}
-      <text x="100" y="58" textAnchor="middle" fill="#ffffff" fontSize="16" fontWeight="800" fontFamily="var(--font-plus-jakarta-sans), sans-serif" letterSpacing="0.5">RIQS&apos;</text>
-      <text x="100" y="75" textAnchor="middle" fill={GOLD} fontSize="9.5" fontWeight="700" fontFamily="var(--font-plus-jakarta-sans), sans-serif">Certified</text>
-      <text x="100" y="90" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), sans-serif">registered Professional</text>
-      <text x="100" y="104" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), sans-serif">QS for the year</text>
-      <text x="100" y="142" textAnchor="middle" fill={GOLD} fontSize="28" fontWeight="800" fontFamily="var(--font-plus-jakarta-sans), sans-serif" letterSpacing="0.5">2026</text>
+      <text x="100" y="58" textAnchor="middle" fill="#ffffff" fontSize="16" fontWeight="800" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" letterSpacing="0.5">RIQS&apos;</text>
+      <text x="100" y="75" textAnchor="middle" fill={GOLD} fontSize="9.5" fontWeight="700" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">Certified</text>
+      <text x="100" y="90" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">registered Professional</text>
+      <text x="100" y="104" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">QS for the year</text>
+      <text x="100" y="142" textAnchor="middle" fill={GOLD} fontSize="28" fontWeight="800" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" letterSpacing="0.5">{year}</text>
     </svg>
   );
 }
 
-function RegSeal() {
+function RegSeal({ regNo }: { regNo: string }) {
   const points = 32;
   const innerR = 80;
   const outerR = 88;
-  const scallopedPath = getScallopedPath(points, innerR, outerR);
+  const scallopedPath = getScallopedPath(points, innerR, outerR, 130, 100);
 
   return (
-    <svg viewBox="0 0 200 200" className="h-full w-full">
+    <svg viewBox="0 0 260 200" className="h-full w-full">
       {/* Outer Scalloped Navy Base */}
       <path d={scallopedPath} fill={NAVY} />
 
       {/* Inner White Circular Area */}
-      <circle cx="100" cy="100" r="76" fill="#ffffff" />
+      <circle cx="130" cy="100" r="76" fill="#ffffff" />
 
       {/* Thin Navy Inner Border */}
-      <circle cx="100" cy="100" r="70" fill="none" stroke={NAVY} strokeWidth="1.5" />
+      <circle cx="130" cy="100" r="70" fill="none" stroke={NAVY} strokeWidth="1.5" />
 
       {/* Registry Title Label */}
-      <text x="100" y="66" textAnchor="middle" fill={NAVY} fontSize="15" fontWeight="800" fontFamily="var(--font-plus-jakarta-sans), sans-serif">Reg No :</text>
+      <text x="130" y="62" textAnchor="middle" fill={NAVY} fontSize="20" fontWeight="900" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">Reg No :</text>
 
       {/* Rounded Pill-Shaped Box - spans wider to overlap border naturally */}
-      <rect x="15" y="80" width="170" height="40" rx="12" ry="12" fill="#ffffff" stroke={NAVY} strokeWidth="3" />
+      <rect x="6" y="78" width="248" height="50" rx="16" ry="16" fill="#ffffff" stroke={NAVY} strokeWidth="4" />
 
       {/* Verifiable Registry ID */}
-      <text x="100" y="106" textAnchor="middle" fill={NAVY} fontSize="14" fontWeight="800" fontFamily="var(--font-plus-jakarta-sans), sans-serif" letterSpacing="0.2">RIQS/2015/PrQs/0001</text>
+      <text x="130" y="110" textAnchor="middle" fill={NAVY} fontSize="14" fontWeight="900" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" letterSpacing="0.2">{regNo}</text>
     </svg>
   );
 }
 
 function CertificateContent() {
-  const me = ME_APPLICATION;
   const certRef = useRef<HTMLDivElement>(null);
   const zoneRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
+  const [passportUrl, setPassportUrl] = useState<string | null>(null);
+  const [passportLoading, setPassportLoading] = useState(true);
+  const [scale, setScale] = useState(1);
 
-  // CSS custom property-based scaling — avoids React re-renders that cause flickering
+  // Fetch applicant profile
+  const { data: profileData, isLoading } = useQuery({
+    queryKey: queryKeys.applicant.profile(),
+    queryFn: applicantServices.getProfile,
+  });
+
+  const appStatus = profileData?.application?.status || "None";
+  const isApproved = appStatus === "Approved";
+
+  // Lazy-load passport photo if approved
+  useEffect(() => {
+    if (isLoading) return; // Wait until profileData query has completed to avoid state updates and flickering
+
+    if (!isApproved || !profileData?.documents) {
+      setPassportLoading(false);
+      return;
+    }
+
+    let passportDoc = profileData.documents.find(d => d.documentType === "PassportPhoto");
+    if (!passportDoc) {
+      passportDoc = profileData.documents.find(d => 
+        d.documentType === "Passport" || 
+        d.documentType === "id" || 
+        d.documentType.toLowerCase().includes("passport") ||
+        d.documentType.toLowerCase().includes("id")
+      );
+    }
+
+    let active = true;
+
+    if (passportDoc) {
+      setPassportLoading(true);
+      applicantServices.downloadDocument(passportDoc.id)
+        .then(blob => {
+          if (!active) return;
+          const url = URL.createObjectURL(blob);
+          setPassportUrl(url);
+          setPassportLoading(false);
+        })
+        .catch(err => {
+          console.error("Failed to fetch passport photo:", err);
+          if (active) {
+            setPassportLoading(false);
+          }
+        });
+    } else {
+      setPassportLoading(false);
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [profileData, isApproved, isLoading]);
+
+  // Dynamic scale calculation based on parent container width
   useEffect(() => {
     const zone = zoneRef.current;
-    const card = certRef.current;
-    if (!zone || !card) return;
+    if (!zone || !isApproved) return;
 
     function updateCertScale() {
-      if (!zone || !card) return;
+      if (!zone) return;
       const containerWidth = zone.clientWidth;
-      const certWidth = 1000;
-      const scale = containerWidth < certWidth ? containerWidth / certWidth : 1;
-      card.style.setProperty("--cert-scale", scale.toString());
-      card.style.marginBottom = `${(scale - 1) * 707}px`;
+      // Ignore zero-width layout measurements on initial rendering mounts to prevent scale from dropping to 0
+      if (containerWidth === 0) return;
+
+      const certWidth = 1200;
+      const newScale = containerWidth < certWidth ? containerWidth / certWidth : 1;
+      setScale(newScale);
     }
 
     updateCertScale();
@@ -153,34 +221,34 @@ function CertificateContent() {
     return () => {
       ro.disconnect();
     };
-  }, []);
+  }, [isApproved, isLoading, passportLoading]);
 
   const handleDownloadPDF = useCallback(async () => {
-    if (!certRef.current) return;
+    if (!certRef.current || !profileData?.profile?.fullName) return;
     setDownloading(true);
 
     try {
       const html2canvas = (await import("html2canvas-pro")).default;
       const { jsPDF } = await import("jspdf");
 
-      // Render the certificate at full resolution (1000x707)
       const canvas = await html2canvas(certRef.current, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: "#ffffff",
-        width: 1000,
-        height: 707,
+        width: 1200,
+        height: 848,
         onclone: (clonedDoc) => {
           const el = clonedDoc.getElementById("certificate-card");
           if (el) {
             el.style.transform = "none";
-            el.style.marginBottom = "0";
+            el.style.position = "relative";
+            el.style.top = "0";
+            el.style.left = "0";
           }
         },
       });
 
-      // A4 landscape PDF
       const pdf = new jsPDF({
         orientation: "landscape",
         unit: "mm",
@@ -192,25 +260,118 @@ function CertificateContent() {
 
       const imgData = canvas.toDataURL("image/png", 1.0);
       pdf.addImage(imgData, "PNG", 0, 0, pageWidth, pageHeight);
-      pdf.save(`RIQS_Certificate_${me.applicantName.replace(/\s+/g, "_")}_2026.pdf`);
+      pdf.save(`RIQS_Practicing_License_${profileData.profile.fullName.replace(/\s+/g, "_")}_2026.pdf`);
 
-      toast.success("Certificate PDF downloaded successfully!");
+      toast.success("License PDF downloaded successfully!");
     } catch (err) {
       console.error("PDF generation failed:", err);
       toast.error("Failed to generate PDF. Please try again.");
     } finally {
       setDownloading(false);
     }
-  }, [me.applicantName]);
+  }, [profileData]);
 
   const handlePrint = useCallback(() => {
     window.print();
   }, []);
 
+  // 1. Loading State Screen (waits for both profileData and passport image download if approved)
+  if (isLoading || (isApproved && passportLoading)) {
+    return (
+      <div className="flex flex-col items-center justify-center h-80 gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-gold" />
+        <p className="text-sm text-muted-foreground font-sans">Loading progression details...</p>
+      </div>
+    );
+  }
+
+  // 2. UNREADY / PENDING APP SCREEN
+  if (!isApproved) {
+    let badgeText = "Under Board Review";
+    let descText = "Your application has been locked and submitted to the RIQS Governing Board. Our reviewers are verifying your credentials and logbooks. We appreciate your patience during this process.";
+    let showButton = false;
+
+    if (appStatus === "Draft") {
+      badgeText = "Draft Registration";
+      descText = "Your membership application is currently in Draft. Please head to the Application section to fill in your personal details, education, employment, and submit it for Board review.";
+      showButton = true;
+    } else if (appStatus === "Correction_Required") {
+      badgeText = "Correction Required";
+      descText = "The review board has flagged items in your application that require correction. Please review the reviewer comments and update your application details immediately.";
+      showButton = true;
+    } else if (appStatus === "Rejected") {
+      badgeText = "Application Rejected";
+      descText = "Regrettably, your professional membership application was not approved by the Governing Council. Please consult the registrar or check your email for official reviewer notes.";
+    } else if (appStatus === "None") {
+      badgeText = "No Application Found";
+      descText = "You have not started your professional membership application yet. To get licensed, you must submit an application packet.";
+      showButton = true;
+    }
+
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto">
+        <div>
+          <h1 className="text-2xl font-bold text-navy">Annual Practicing License</h1>
+          <p className="text-sm text-muted-foreground font-sans font-normal mt-1">Your official, digitally signed RIQS practicing license certificate.</p>
+        </div>
+
+        <Card className="border-dashed border-2 bg-zinc-50/20 dark:bg-zinc-900/10 border-zinc-200 dark:border-zinc-800 p-8 shadow-sm">
+          <CardContent className="flex flex-col items-center justify-center py-8 text-center max-w-lg mx-auto gap-4">
+            <div className="h-14 w-14 rounded-full bg-gold/10 flex items-center justify-center text-gold relative shadow-gold/5">
+              <Lock className="h-6 w-6" />
+              <Clock className="h-4.5 w-4.5 text-navy absolute right-[-2px] bottom-[-2px] bg-white dark:bg-zinc-950 p-0.5 rounded-full border border-gold" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                <AlertCircle className="h-3.5 w-3.5 text-gold" /> {badgeText}
+              </div>
+              <h2 className="text-xl font-bold text-navy dark:text-zinc-150 font-sans pt-1">Practicing License Not Issued Yet</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed font-sans">
+                {descText}
+              </p>
+            </div>
+
+            {showButton && (
+              <Link href="/dashboard/application" className="mt-2">
+                <Button className="bg-gold text-[#1a1a1a] hover:bg-gold/90 font-bold gap-1.5 shadow-gold border-none">
+                  Go to Application <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 3. LICENSED CERTIFICATE VIEW (AppStatus === Approved)
+  const fullName = profileData?.profile?.fullName || "Member Name";
+  const regNo = profileData?.profile?.membershipId || `RIQS/2026/PrQs/${profileData?.profile?.id?.slice(0, 4).toUpperCase() || "0001"}`;
+  const categoryName = profileData?.application?.category_name || "Professional Quantity Surveyor";
+
+  // Calculate 1 year validity from payment / submission date
+  const paymentDate = profileData?.application?.submittedAt
+    ? new Date(profileData.application.submittedAt)
+    : profileData?.application?.approvedAt
+    ? new Date(profileData.application.approvedAt)
+    : new Date();
+  const validUntilDate = new Date(paymentDate);
+  validUntilDate.setFullYear(validUntilDate.getFullYear() + 1);
+
+  const paymentYear = paymentDate.getFullYear();
+  const formattedValidUntil = validUntilDate.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+
   return (
     <div className="space-y-6">
-      {/* Print styles: isolate the certificate card only */}
+      {/* Print styles: isolate the certificate card only with explicit webfont loading and scaling */}
       <style dangerouslySetInnerHTML={{ __html: `
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Great+Vibes&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
         @media print {
           @page {
             size: landscape;
@@ -228,14 +389,15 @@ function CertificateContent() {
             visibility: visible;
           }
 
-          /* Position the certificate to fill the printed page */
+          /* Position the certificate to fill the printed page perfectly with scale */
           #certificate-card {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            transform: none !important;
+            width: 1200px !important;
+            height: 848px !important;
+            transform: scale(calc(100vw / 1200)) !important;
+            transform-origin: top left !important;
             margin: 0 !important;
             padding: 0 !important;
             box-shadow: none !important;
@@ -252,17 +414,17 @@ function CertificateContent() {
 
       <div className="flex flex-wrap items-end justify-between gap-3 no-print">
         <div>
-          <h1 className="text-2xl font-bold text-navy">Annual Practicing License</h1>
-          <p className="text-sm text-muted-foreground">Your official, digitally signed RIQS certificate.</p>
+          <h1 className="text-2xl font-bold text-navy dark:text-zinc-150">Annual Practicing License</h1>
+          <p className="text-sm text-muted-foreground font-sans">Your official, digitally signed RIQS practicing license certificate.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handlePrint}>
+          <Button variant="outline" onClick={handlePrint} className="border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900">
             <Printer className="mr-2 h-4 w-4" />Print
           </Button>
           <Button
             onClick={handleDownloadPDF}
             disabled={downloading}
-            className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold"
+            className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none font-bold"
           >
             {downloading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -274,104 +436,122 @@ function CertificateContent() {
         </div>
       </div>
 
-      <Card className="overflow-hidden p-4 md:p-8 bg-zinc-50/50 dark:bg-zinc-950/10 border border-zinc-100 dark:border-zinc-800 no-print-card">
+      <Card className="overflow-hidden p-4 md:p-8 bg-zinc-50/50 dark:bg-zinc-950/10 border border-zinc-150 dark:border-zinc-850 no-print-card shadow-sm">
         <div ref={zoneRef} id="certificate-print-zone" className="w-full flex justify-center overflow-hidden">
           {/* 
             CSS-based scaling: use a container that constrains width to 100%,
             and scale the fixed-size certificate card using CSS.
-            This avoids React state-driven re-renders that cause flickering.
           */}
           <div
-            className="w-full"
             style={{
-              maxWidth: "1000px",
+              width: "100%",
+              maxWidth: "1200px",
+              aspectRatio: "1200 / 848",
+              position: "relative",
+              overflow: "hidden",
             }}
+            className="no-print-wrapper"
           >
             <div
               ref={certRef}
               id="certificate-card"
-              className="relative bg-white border border-zinc-200 rounded-sm origin-top-left"
+              className="bg-white border border-zinc-200 rounded-sm"
               style={{
-                width: "1000px",
-                height: "707px",
-                fontFamily: "var(--font-plus-jakarta-sans), sans-serif",
+                width: "1200px",
+                height: "848px",
+                fontFamily: "var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif",
                 backgroundImage: `url(${certBg})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 backgroundRepeat: "no-repeat",
-                /* CSS-based scaling: scale to fit container width, no JS needed */
-                transform: "scale(var(--cert-scale, 1))",
+                transform: `scale(${scale})`,
                 transformOrigin: "top left",
-                marginBottom: "calc((var(--cert-scale, 1) - 1) * 707px)",
+                position: "absolute",
+                top: 0,
+                left: 0,
               }}
             >
+              {/* Passport Photo top-left (symmetric to Seal, border matching layout) */}
+              {passportUrl && (
+                <div className="absolute left-[5.5%] top-[12%] h-[18%] w-[12.5%] z-10 border-2 border-[#0b3363]/40 bg-zinc-50 p-1.5 rounded-sm overflow-hidden shadow-sm flex items-center justify-center">
+                  <img src={passportUrl} className="w-full h-full object-cover" alt="Passport Photo" />
+                </div>
+              )}
+
               {/* Seal top-right (inside frame, away from ribbon decoration) */}
-              <div className="absolute right-[8%] top-[12%] h-[24%] w-[14%] z-10">
-                <Seal />
+              <div className="absolute right-[5.5%] top-[12%] h-[21%] w-[12.5%] z-10">
+                <Seal year={paymentYear} />
               </div>
 
-              {/* Main content - perfectly static container coordinates */}
-              <div className="relative flex h-full flex-col items-center px-[12%] pt-[5%] pb-[6%] text-center" style={{ color: NAVY }}>
-                <img src={logo} alt="RIQS logo" className="h-[14%] w-auto object-contain" />
+              {/* Main content - perfectly static container coordinates with pb-[7%] to avoid bottom border overlap */}
+              <div className="relative flex h-full flex-col items-center px-[15%] pt-[3%] pb-[7%] text-center" style={{ color: NAVY }}>
+                <img src={logo} alt="RIQS logo" className="h-[10.5%] w-auto object-contain" />
 
                 <div
-                  className="mt-[1.5%] text-[38px] leading-none"
-                  style={{ fontFamily: "var(--font-great-vibes), cursive", color: NAVY }}
+                  className="mt-[0.5%] text-[54px] leading-none font-normal"
+                  style={{ fontFamily: "var(--font-great-vibes), 'Great Vibes', cursive", color: NAVY }}
                 >
                   Annual Practicing License
                 </div>
 
                 <div 
-                  className="mt-[1.5%] text-[17px] font-medium italic"
-                  style={{ fontFamily: "var(--font-cormorant-garamond), serif" }}
+                  className="mt-[0.5%] text-[24px] font-medium italic"
+                  style={{ fontFamily: "var(--font-cormorant-garamond), 'Cormorant Garamond', serif" }}
                 >
                   This is to certify that
                 </div>
 
                 <div 
-                  className="mt-[2.5%] text-[32px] font-bold italic" 
-                  style={{ fontFamily: "var(--font-cormorant-garamond), serif", color: NAVY }}
+                  className="mt-[1%] text-[42px] font-bold italic" 
+                  style={{ fontFamily: "var(--font-cormorant-garamond), 'Cormorant Garamond', serif", color: NAVY }}
                 >
-                  QS. {me.applicantName}
+                  {fullName}
                 </div>
 
-                <p className="mt-[2%] max-w-[80%] text-[14.5px] italic leading-[1.6]">
-                  Is a registered and licensed <strong className="not-italic font-bold">Professional Quantity Surveyor</strong> in the year 2026 with practicing License
-                  No: <strong className="not-italic font-bold">RIQS/2015/PrQs/0001</strong> pursuant to the Law No: <strong className="not-italic font-bold">023/2025 of 01/09/2025</strong> Governing the profession of Quantity Surveying in Rwanda.
+                <p className="mt-[0.8%] max-w-[96%] text-[17px] italic leading-[1.45]">
+                  Is a registered and licensed <strong className="not-italic font-bold">{categoryName}</strong> in the year {paymentYear} with practicing License
+                  No: <strong className="not-italic font-bold">{regNo}</strong> pursuant to the Law No: <strong className="not-italic font-bold">023/2025 of 01/09/2025</strong> Governing the profession of Quantity Surveying in Rwanda.
                 </p>
 
-                <p className="mt-[1.5%] max-w-[82%] text-[14.5px] italic leading-[1.6]">
+                <p className="mt-[0.3%] max-w-[90%] text-[17px] italic leading-[1.45]">
                   In witness where of the common seal has been here to affixed at a meeting of the Governing Council held to admit this member.
                 </p>
 
-                <p className="mt-[1.5%] text-[16px] font-bold italic">
-                  This certificate is valid until 31<sup>st</sup> December 2026.
+                <p className="mt-[0.3%] text-[19px] font-bold italic">
+                  This certificate is valid until {formattedValidUntil}.
                 </p>
 
-                <div className="mt-auto h-[16%] w-[12%]">
-                  <RegSeal />
+                <div className="mt-auto h-[12.5%] w-[18%]">
+                  <RegSeal regNo={regNo} />
                 </div>
 
-                <div className="mt-[2%] grid w-full grid-cols-3 items-end gap-6 px-[2%] text-[13px]" style={{ fontFamily: "var(--font-plus-jakarta-sans), sans-serif" }}>
-                  <div className="flex flex-col items-center">
-                    <div className="h-px w-[85%]" style={{ background: NAVY }} />
-                    <div className="mt-1 font-bold not-italic">QS. David Louis Mugabe</div>
-                    <div 
-                      className="italic text-[13px]"
-                      style={{ fontFamily: "var(--font-cormorant-garamond), serif" }}
-                    >
-                      Registrar
+                {/* Spacing above the signature lines matches professional layouts and prevents overlaps */}
+                <div className="mt-[1%] grid w-full grid-cols-3 items-end gap-6 px-[2%] text-[15px]" style={{ fontFamily: "var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" }}>
+                  <div className="flex flex-col items-center justify-end">
+                    <div className="w-[85%] border-t border-[#0b3363] pt-2 flex flex-col items-center">
+                      <div className="font-bold not-italic">QS. David Louis Mugabe</div>
+                      <div 
+                        className="italic text-[15px]"
+                        style={{ fontFamily: "var(--font-cormorant-garamond), 'Cormorant Garamond', serif" }}
+                      >
+                        Registrar
+                      </div>
                     </div>
                   </div>
+                  
                   <div />
-                  <div className="flex flex-col items-center">
-                    <div className="h-px w-[85%]" style={{ background: NAVY }} />
-                    <div className="mt-1 font-bold not-italic">QS. Charles Lugira</div>
-                    <div 
-                      className="italic text-[13px]"
-                      style={{ fontFamily: "var(--font-cormorant-garamond), serif" }}
-                    >
-                      Chairman
+                  
+                  <div className="flex flex-col items-center relative">
+                    {/* QR Code placed at the top of the Chairman signature area with high padding bottom for better spacing */}
+                    <img src="/qrcode.png" alt="Verification QR Code" className="h-[90px] w-[90px] object-contain mb-6" />
+                    <div className="w-[85%] border-t border-[#0b3363] pt-2 flex flex-col items-center">
+                      <div className="font-bold not-italic">QS. Charles Lugira</div>
+                      <div 
+                        className="italic text-[15px]"
+                        style={{ fontFamily: "var(--font-cormorant-garamond), 'Cormorant Garamond', serif" }}
+                      >
+                        Chairman
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -380,8 +560,6 @@ function CertificateContent() {
           </div>
         </div>
       </Card>
-
-
     </div>
   );
 }

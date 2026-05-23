@@ -20,6 +20,8 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Upload,
   FileText,
   Sparkles,
@@ -34,6 +36,7 @@ import {
   Loader2,
   User,
   Pencil,
+  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MonthYearPicker } from "@/components/ui/month-picker";
@@ -44,6 +47,7 @@ import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
 import { publicServices } from "@/services/public.services";
 import { DocumentTabsViewer } from "@/components/ui/document-tabs-viewer";
+import PDFViewer from "@/components/ui/pdf-viewer";
 
 // ─── Status Banner ──────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, {
@@ -202,7 +206,7 @@ export default function Application() {
     employment: [{ company: "", role: "", from: "", to: "" }],
     hasNoEmployment: false,
     agreedToTerms: false,
-    mentors: [{ name: "", contact: "", category: "Professional" }],
+    mentors: [{ membershipId: "", name: "", contact: "" }],
     mentorPlan: "",
     docs: {},
     dynamicTabs: [],
@@ -266,6 +270,26 @@ export default function Application() {
           from: emp.startDate ? emp.startDate.split("T")[0].substring(0, 7) : "",
           to: emp.isCurrent ? "Present" : (emp.endDate ? emp.endDate.split("T")[0].substring(0, 7) : ""),
         })) : [{ company: "", role: "", from: "", to: "" }]),
+      mentors: (() => {
+        const backendMentors = profileData?.mentorship?.options || [];
+        const localMentors = savedLocal?.mentors?.length ? savedLocal.mentors : null;
+        
+        if (localMentors) {
+           return localMentors.map((m: any) => {
+              const backendMatch = backendMentors.find((b: any) => b.regNumber === m.membershipId);
+              return { ...m, isSaved: !!backendMatch || m.isSaved };
+           });
+        }
+        
+        if (backendMentors.length > 0) {
+           return backendMentors.map((m: any) => ({
+             membershipId: m.regNumber, name: m.name, contact: m.contact, isSaved: true
+           }));
+        }
+        
+        return [{ membershipId: "", name: "", contact: "", isSaved: false }];
+      })(),
+      mentorPlan: savedLocal?.mentorPlan || profileData?.mentorship?.mentorshipPlan || "",
     }));
     
     setStep(savedStep);
@@ -354,7 +378,7 @@ export default function Application() {
 
   const addMentor = () => {
     if (data.mentors.length >= 5) return toast.error("Maximum 5 mentors allowed");
-    setData({ ...data, mentors: [...data.mentors, { name: "", contact: "", category: "Professional" }] });
+    setData({ ...data, mentors: [...data.mentors, { membershipId: "", name: "", contact: "" }] });
   };
   const removeMentor = (i: number) =>
     setData({ ...data, mentors: data.mentors.filter((_: any, idx: number) => idx !== i) });
@@ -445,6 +469,39 @@ export default function Application() {
     onError: (err: any) => toast.error(err?.response?.data?.error || "Failed to remove employment"),
   });
 
+  // ─── Mentorship mutation ───────────────────────────────────────────────────
+  const mentorshipMutation = useMutation({
+    mutationFn: applicantServices.saveMentorship,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
+      toast.success("Mentor saved successfully!");
+      setData((prev: any) => ({
+        ...prev,
+        mentors: prev.mentors.map((m: any) => ({
+          ...m,
+          isSaved: m.name ? true : m.isSaved
+        }))
+      }));
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error || "Failed to save mentor"),
+  });
+
+  const delMentorMutation = useMutation({
+    mutationFn: (regNumber: string) => applicantServices.deleteMentorshipOption(appId!, regNumber),
+    onSuccess: (_, deletedRegNumber) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
+      toast.success("Mentor removed successfully!");
+      setData((prev: any) => {
+        const newMentors = prev.mentors.filter((m: any) => m.membershipId !== deletedRegNumber);
+        return {
+          ...prev,
+          mentors: newMentors.length > 0 ? newMentors : [{ membershipId: "", name: "", contact: "", isSaved: false }]
+        };
+      });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error || "Failed to remove mentor"),
+  });
+
   // ─── Submit mutation ───────────────────────────────────────────────────────
   const submitMutation = useMutation({
     mutationFn: applicantServices.submitApplication,
@@ -500,7 +557,6 @@ export default function Application() {
           list.push({ k: "rqssa", l: "Certificate of RQSSA (or equivalent student membership proof)", r: true });
           list.push({ k: "letter", l: "Application Letter", r: true });
           list.push({ k: "id", l: "Copy of ID / Passport", r: true });
-          list.push({ k: "photo", l: "Passport Photo", r: true });
           list.push({ k: "cv", l: "Curriculum Vitae (CV)", r: false });
           list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: false });
         } else if (catName === "Technologist") {
@@ -510,7 +566,6 @@ export default function Application() {
           list.push({ k: "logbook", l: "Logbook of records", r: false });
           list.push({ k: "letter", l: "Application Letter", r: true });
           list.push({ k: "id", l: "Copy of ID / Passport", r: true });
-          list.push({ k: "photo", l: "Passport Photo", r: true });
           list.push({ k: "cv", l: "Curriculum Vitae (CV)", r: false });
           list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: false });
         } else {
@@ -520,7 +575,6 @@ export default function Application() {
           list.push({ k: "logbook", l: "Logbook of records", r: false });
           list.push({ k: "letter", l: "Application Letter", r: true });
           list.push({ k: "id", l: "Copy of ID / Passport", r: true });
-          list.push({ k: "photo", l: "Passport Photo", r: true });
           list.push({ k: "cv", l: "Curriculum Vitae (CV)", r: false });
           list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: false });
         }
@@ -529,7 +583,6 @@ export default function Application() {
         list.push({ k: "degree", l: isProf ? "Notarized Degree Certificate" : "Notarized Diploma Certificate", r: true });
         list.push({ k: "membershipOrigin", l: "Valid Membership Certificate from country of origin", r: true });
         list.push({ k: "permit", l: "Visa & Work Permit (PDF)", r: true });
-        list.push({ k: "photo", l: "Passport Photo (JPG/PNG)", r: true });
         list.push({ k: "cv", l: "CV & References (PDF)", r: false });
         list.push({ k: "payment", l: `Proof of Payment (${isProf ? "50 USD" : "30 USD"} Application Fee)`, r: false });
       }
@@ -586,6 +639,8 @@ export default function Application() {
               delEduMutation={delEduMutation}
               addEmpMutation={addEmpMutation}
               delEmpMutation={delEmpMutation}
+              mentorshipMutation={mentorshipMutation}
+              delMentorMutation={delMentorMutation}
               submitMutation={submitMutation}
               submit={submit}
               next={next}
@@ -619,6 +674,8 @@ export default function Application() {
       delEduMutation={delEduMutation}
       addEmpMutation={addEmpMutation}
       delEmpMutation={delEmpMutation}
+      mentorshipMutation={mentorshipMutation}
+      delMentorMutation={delMentorMutation}
       submitMutation={submitMutation}
       submit={submit}
       next={next}
@@ -632,28 +689,38 @@ export default function Application() {
 function WizardContent({
   step, STEPS, pct, data, setData, categoriesList, documentChecklist,
   currentStepName, updateLocation, updateEntity, addMentor, removeMentor,
-  appId, isSaving, addEduMutation, delEduMutation, addEmpMutation, delEmpMutation,
+  appId, isSaving, addEduMutation, delEduMutation, addEmpMutation, delEmpMutation, mentorshipMutation, delMentorMutation,
   submitMutation, submit, next, back, documents, goToStep,
 }: any) {
+  const queryClient = useQueryClient();
   const [photoDragActive, setPhotoDragActive] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isPhotoLoading, setIsPhotoLoading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [verifyingMentorIdx, setVerifyingMentorIdx] = useState<number | null>(null);
+  const [collapsedDocs, setCollapsedDocs] = useState<Record<string, boolean>>({});
 
   const verifyMentor = async (index: number, membershipId: string) => {
     if (!membershipId) return;
+
+    // Check for duplicates
+    const isDuplicate = data.mentors.some((m: any, i: number) => i !== index && m.membershipId === membershipId);
+    if (isDuplicate) {
+      toast.error("This mentor has already been added.");
+      const v = [...data.mentors];
+      v[index].membershipId = "";
+      v[index].name = "";
+      v[index].contact = "";
+      setData({ ...data, mentors: v });
+      return;
+    }
     try {
       setVerifyingMentorIdx(index);
-      const res = await publicServices.getPublicMembers({ search: membershipId, limit: 10 });
-      const member = res.members.find((m: any) => m.membership_id === membershipId);
+      const member = await publicServices.getMentorById(membershipId);
       const v = [...data.mentors];
       if (member) {
-        v[index].name = member.full_name;
-        v[index].contact = member.email || member.phone_number || "";
-        if (member.membership_class) {
-          v[index].category = member.membership_class;
-        }
+        v[index].name = member.fullName;
+        v[index].contact = member.contact;
         setData({ ...data, mentors: v });
         toast.success("Mentor found!");
       } else {
@@ -663,7 +730,11 @@ function WizardContent({
         setData({ ...data, mentors: v });
       }
     } catch (err) {
-      toast.error("Failed to verify mentor");
+      toast.error("Failed to verify mentor. They may not be eligible.");
+      const v = [...data.mentors];
+      v[index].name = "";
+      v[index].contact = "";
+      setData({ ...data, mentors: v });
     } finally {
       setVerifyingMentorIdx(null);
     }
@@ -685,14 +756,15 @@ function WizardContent({
             if (!prev.docs[d.documentType]) {
               applicantServices.downloadDocument(d.id)
                 .then((blob) => {
+                  const isImg = blob.type.startsWith("image/") || d.fileName?.match(/\.(jpeg|jpg|gif|png)$/i);
                   setData((curr: any) => ({
                     ...curr,
-                    docs: { ...curr.docs, [d.documentType]: URL.createObjectURL(blob) }
+                    docs: { ...curr.docs, [d.documentType]: URL.createObjectURL(blob) + (isImg ? "#image" : "#pdf") }
                   }));
                 })
                 .catch((err) => console.error(`Failed to load ${d.documentType}`, err));
               
-              return { ...prev, docs: { ...prev.docs, [d.documentType]: "loading..." } };
+              return { ...prev, docs: { ...prev.docs, [d.documentType]: "loading_from_backend" } };
             }
             return prev;
           });
@@ -749,6 +821,18 @@ function WizardContent({
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.error || err.message || "Failed to upload document");
+    }
+  });
+
+  const deleteDocumentMutation = useMutation({
+    mutationFn: async ({ appId, documentType }: { appId: string, documentType: string }) => {
+      return applicantServices.deleteDocumentByType(appId, documentType);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || err.message || "Failed to delete document");
     }
   });
 
@@ -841,9 +925,9 @@ function WizardContent({
       </Card>
 
       {/* Main Content Grid */}
-      <div className={cn("grid gap-6 items-start", contextualChecklist.length > 0 ? "lg:grid-cols-12" : "grid-cols-1")}>
+      <div className={cn("grid gap-6 items-start", (contextualChecklist.length > 0 && currentStepName !== "Other Documents") ? "lg:grid-cols-12" : "grid-cols-1")}>
         {/* Left Side: Step Content */}
-        <div className={cn("flex flex-col", contextualChecklist.length > 0 ? "lg:col-span-5 pr-2" : "w-full")}>
+        <div className={cn("flex flex-col", (contextualChecklist.length > 0 && currentStepName !== "Other Documents") ? "lg:col-span-5 pr-2" : "w-full")}>
           <div className="space-y-6">
           <Card className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 mb-4">
         <CardHeader className="border-b border-zinc-50 dark:border-zinc-800/50 py-4">
@@ -1342,7 +1426,7 @@ function WizardContent({
                     As a Graduate applicant, you must be assigned to a registered Mentor (a Professional or Technologist) for promotion to Technologist or Professional standing. Each Mentor can supervise <strong>up to 5 graduates</strong>. Nominate your preferred mentor below — the secretariat will confirm availability.
                   </div>
                   {data.mentors.map((m: any, i: number) => (
-                    <div key={i} className="grid gap-3 border p-4 rounded-md md:grid-cols-[1fr_1fr_1fr_150px_auto] bg-zinc-50/50">
+                    <div key={i} className="grid gap-3 border p-4 rounded-md md:grid-cols-[1fr_1fr_1fr_auto] bg-zinc-50/50">
                       <div>
                         <Label>Membership ID</Label>
                         <div className="flex gap-2">
@@ -1369,15 +1453,40 @@ function WizardContent({
                         <Label>Contact (email/phone)</Label>
                         <Input placeholder="Auto-filled" value={m.contact} disabled className="bg-zinc-100" />
                       </div>
-                      <div>
-                        <Label>Mentor category</Label>
-                        <Input placeholder="Auto-filled" value={m.category} disabled className="bg-zinc-100" />
-                      </div>
-                      <div className="flex items-end pb-0.5">
-                        {data.mentors.length > 1 && (
-                          <Button variant="ghost" size="icon" onClick={() => removeMentor(i)} className="text-red-500 hover:bg-red-50 shrink-0">
-                            <Trash2 className="h-4 w-4" />
+                      <div className="flex items-end gap-1 pb-0.5">
+                        {m.isSaved ? (
+                          <Button variant="ghost" size="icon" 
+                            onClick={() => delMentorMutation.mutate(m.membershipId)}
+                            disabled={delMentorMutation.isPending}
+                            className="text-red-500 hover:bg-red-50 shrink-0 h-10 w-10">
+                            {delMentorMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                           </Button>
+                        ) : (
+                          <>
+                            {m.name && (
+                              <Button size="sm"
+                                className="bg-navy text-white hover:bg-navy/90 border-none text-xs"
+                                disabled={!appId || mentorshipMutation.isPending}
+                                onClick={() => {
+                                  mentorshipMutation.mutate({
+                                    applicationId: appId,
+                                    mentorshipPlan: data.mentorPlan,
+                                    options: data.mentors.map((opt: any) => ({
+                                      regNumber: opt.membershipId,
+                                      name: opt.name,
+                                      contact: opt.contact
+                                    })).filter((opt: any) => opt.regNumber)
+                                  });
+                                }}>
+                                {mentorshipMutation.isPending ? "..." : "Save"}
+                              </Button>
+                            )}
+                            {data.mentors.length > 1 && (
+                              <Button variant="ghost" size="icon" onClick={() => removeMentor(i)} className="text-red-500 hover:bg-red-50 shrink-0 h-10 w-10">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -1403,11 +1512,110 @@ function WizardContent({
                   <div className="border-l-4 border-gold bg-gold/10 p-5 text-sm text-[#8a5c00] rounded-r-md">
                     <h3 className="font-bold text-navy mb-2">Final Documentation</h3>
                     <p className="leading-relaxed">
-                      Please upload any remaining documents required for your application on the right panel. These may include your Application Letter, CPD Activities, Membership Certificates from other countries, Visas, and Proof of Payment depending on your category.
+                      Please upload any remaining documents required for your application below. These may include your Application Letter, CPD Activities, Membership Certificates from other countries, Visas, and Proof of Payment depending on your category.
                     </p>
                     <p className="mt-2 font-semibold">
-                      Once all required documents on the right are marked with a green checkmark, you may proceed to Review & Submit.
+                      Once all required documents are marked with a green checkmark, you may proceed to Review & Submit.
                     </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    {contextualChecklist.map((d: any) => {
+                      const hasDoc = !!data.docs[d.k];
+                      const isUploading = data.docs[d.k] === "uploading_from_client";
+                      const isLoadingBackend = data.docs[d.k] === "loading_from_backend";
+                      const isPending = isUploading || isLoadingBackend;
+                      const isCollapsed = collapsedDocs[d.k] || false;
+                      return (
+                        <div key={d.k} className={cn("relative border border-dashed border-zinc-300 rounded-sm p-4 bg-white transition-all", hasDoc ? "col-span-1 md:col-span-2" : "")}>
+                          {!hasDoc ? (
+                            <div className="flex items-center gap-4">
+                              <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files[0]) {
+                                    const file = e.target.files[0];
+                                    if (!appId) { toast.error("Please save first step before uploading."); return; }
+                                    setData({ ...data, docs: { ...data.docs, [d.k]: "uploading_from_client" } });
+                                    uploadFileMutation.mutate({ file, documentType: d.k }, {
+                                      onSuccess: () => {
+                                        const isImg = file.type.startsWith("image/") || file.name.match(/\.(jpeg|jpg|gif|png)$/i);
+                                        setData((prev: any) => ({ ...prev, docs: { ...prev.docs, [d.k]: URL.createObjectURL(file) + (isImg ? "#image" : "#pdf") } }));
+                                        // Ensure it's expanded when a new file is uploaded
+                                        setCollapsedDocs(prev => ({ ...prev, [d.k]: false }));
+                                      }
+                                    });
+                                  }
+                                }}
+                              />
+                              <div className="w-12 h-12 flex items-center justify-center bg-[#fef4e5] text-navy rounded-sm shrink-0">
+                                <Upload className="h-5 w-5" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-navy truncate">{d.l} {d.r && <span className="text-red-500">*</span>}</p>
+                                <p className="text-xs text-muted-foreground truncate">Click to upload</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-3 relative z-10">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 flex items-center justify-center bg-green-50 text-green-600 rounded-sm shrink-0 cursor-pointer" onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.k]: !prev[d.k] }))}>
+                                    {isPending ? <Loader2 className="h-5 w-5 animate-spin text-gold" /> : <CheckCircle2 className="h-5 w-5" />}
+                                  </div>
+                                  <div className={cn("select-none flex-1", !isPending && "cursor-pointer")} onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.k]: !prev[d.k] }))}>
+                                    <p className="text-sm font-semibold text-navy truncate">{d.l}</p>
+                                    <p className="text-xs text-green-600">
+                                      {isUploading ? "Uploading document..." : isLoadingBackend ? "Loading document..." : "Successfully uploaded"}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {!isPending && (
+                                    <Button variant="ghost" size="sm" onClick={() => setCollapsedDocs(prev => ({ ...prev, [d.k]: !prev[d.k] }))} className="text-muted-foreground hover:bg-zinc-100 hidden sm:flex">
+                                      {isCollapsed ? <><ChevronDown className="h-4 w-4 mr-1" /> Expand</> : <><ChevronUp className="h-4 w-4 mr-1" /> Collapse</>}
+                                    </Button>
+                                  )}
+                                  <Button variant="ghost" size="sm" onClick={() => {
+                                    const newDocs = { ...data.docs };
+                                    delete newDocs[d.k];
+                                    setData({ ...data, docs: newDocs });
+                                    if (appId) {
+                                      deleteDocumentMutation.mutate({ appId, documentType: d.k });
+                                    }
+                                  }} className="text-red-500 hover:bg-red-50" disabled={isPending || deleteDocumentMutation.isPending}>
+                                    {deleteDocumentMutation.isPending && deleteDocumentMutation.variables?.documentType === d.k ? <Loader2 className="h-4 w-4 mr-1 md:mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 sm:mr-2" />} <span className="hidden sm:inline">Remove</span>
+                                  </Button>
+                                </div>
+                              </div>
+                              <AnimatePresence initial={false}>
+                                {!isCollapsed && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                                    className="overflow-hidden"
+                                  >
+                                    <div className="w-full h-[450px] border rounded-md overflow-hidden bg-zinc-50 relative mt-2">
+                                      {isPending ? (
+                                        <div className="w-full h-full p-4 flex flex-col gap-4 bg-zinc-100 animate-pulse">
+                                          <div className="w-full h-12 bg-zinc-200 rounded-md" />
+                                          <div className="w-full flex-1 bg-zinc-200 rounded-md" />
+                                        </div>
+                                      ) : data.docs[d.k].match(/\.(jpeg|jpg|gif|png)$/i) != null || data.docs[d.k].startsWith('data:image') || data.docs[d.k].includes('#image') ? (
+                                        <img src={data.docs[d.k]} className="w-full h-full object-contain pointer-events-auto" />
+                                      ) : (
+                                        <PDFViewer src={data.docs[d.k]} fileName={d.l} />
+                                      )}
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1473,7 +1681,7 @@ function WizardContent({
       </div>
 
     {/* Right Side: Contextual Document Uploader */}
-    {contextualChecklist.length > 0 && (
+    {(contextualChecklist.length > 0 && currentStepName !== "Other Documents") && (
       <div className="lg:col-span-7 flex flex-col relative sticky top-6 h-[calc(100vh-48px)]">
         <DocumentTabsViewer 
           tabs={[
@@ -1502,7 +1710,8 @@ function WizardContent({
               toast.error("Please save the first step before uploading documents.");
               return;
             }
-            const url = URL.createObjectURL(file);
+            const isImg = file.type.startsWith("image/") || file.name.match(/\.(jpeg|jpg|gif|png)$/i);
+            const url = URL.createObjectURL(file) + (isImg ? "#image" : "#pdf");
             setData({ ...data, docs: { ...data.docs, [key]: url } });
             uploadFileMutation.mutate({ file, documentType: key });
           }}
@@ -1511,6 +1720,9 @@ function WizardContent({
             delete newDocs[key];
             const newDynamicTabs = (data.dynamicTabs || []).filter((t: any) => t.k !== key);
             setData({ ...data, docs: newDocs, dynamicTabs: newDynamicTabs });
+            if (appId) {
+              deleteDocumentMutation.mutate({ appId, documentType: key });
+            }
             toast.success("Document removed");
           }}
           onAddTab={(activeTabKey, file) => {
@@ -1534,7 +1746,8 @@ function WizardContent({
             
             const newLabel = `${cleanLabel} ${existingDynamicCount + 2}`;
 
-            const url = URL.createObjectURL(file);
+            const isImg = file.type.startsWith("image/") || file.name.match(/\.(jpeg|jpg|gif|png)$/i);
+            const url = URL.createObjectURL(file) + (isImg ? "#image" : "#pdf");
 
             if (!appId) {
               toast.error("Please save the first step before uploading documents.");
@@ -1562,7 +1775,7 @@ function WizardContent({
           <ChevronLeft className="mr-2 h-4 w-4" /> Back
         </Button>
         {step < STEPS.length - 1 && (
-          <Button onClick={next} disabled={isSaving}
+          <Button onClick={next} disabled={isSaving || contextualChecklist.filter((d: any) => d.r).some((d: any) => !data.docs[d.k] || data.docs[d.k] === "loading_from_backend" || data.docs[d.k] === "uploading_from_client")}
             className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none font-semibold">
             {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <>Next <ChevronRight className="ml-2 h-4 w-4" /></>}
           </Button>

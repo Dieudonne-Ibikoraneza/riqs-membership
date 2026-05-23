@@ -47,7 +47,7 @@ export function DocumentTabsViewer({ tabs, onUpload, onDelete, onAddTab, isUploa
 
   const activeTab = tabs.find((t) => t.k === activeTabKey) || tabs[0];
   const isUploaded = !!activeTab?.url;
-  const isImage = activeTab?.url?.match(/\.(jpeg|jpg|gif|png)$/i) != null || (activeTab?.url?.startsWith('data:image'));
+  const isImage = activeTab?.url?.match(/\.(jpeg|jpg|gif|png)$/i) != null || activeTab?.url?.startsWith('data:image') || activeTab?.url?.includes('#image');
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

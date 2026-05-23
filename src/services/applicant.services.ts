@@ -12,6 +12,7 @@ export interface ApplicantProfileResponse {
     residencyAddress: string | null;
     workAddress: string | null;
     membershipClass: string | null;
+    membershipId?: string | null;
   };
   application: {
     id: string;
@@ -21,6 +22,7 @@ export interface ApplicantProfileResponse {
     categoryId: string;
     category_name: string;
     submittedAt: string | null;
+    approvedAt?: string | null;
   } | null;
   education: Array<{
     id: string;
@@ -44,6 +46,21 @@ export interface ApplicantProfileResponse {
     fileName: string;
     uploadedAt: string;
   }>;
+  mentorship?: {
+    id: string;
+    mentorshipPlan: string | null;
+    options: Array<{
+      regNumber: string;
+      name: string;
+      contact: string;
+    }>;
+    mentorName?: string | null;
+    mentorQualification?: string | null;
+    mentorEmployer?: string | null;
+    mentorContact?: string | null;
+    mentorRegistrationNumber?: string | null;
+    completedDurationMonths?: number | null;
+  };
 }
 
 export const applicantServices = {
@@ -126,6 +143,35 @@ export const applicantServices = {
     const response = await axiosClient.get(`/files/download/${fileId}`, {
       responseType: 'blob',
     });
+    return response.data;
+  },
+
+  deleteDocumentByType: async (applicationId: string, documentType: string): Promise<any> => {
+    const response = await axiosClient.delete(`/files/type/${applicationId}/${documentType}`);
+    return response.data;
+  },
+
+  saveMentorship: async (data: {
+    applicationId: string;
+    mentorshipPlan: string;
+    options: any[];
+  }): Promise<any> => {
+    const response = await axiosClient.put('/education/mentorship', data);
+    return response.data;
+  },
+
+  deleteMentorshipOption: async (applicationId: string, regNumber: string): Promise<any> => {
+    const response = await axiosClient.delete(`/education/mentorship/${applicationId}/options/${regNumber}`);
+    return response.data;
+  },
+
+  getMentees: async (): Promise<any> => {
+    const response = await axiosClient.get('/progression/mentees');
+    return response.data;
+  },
+
+  getMentorshipProgress: async (): Promise<any> => {
+    const response = await axiosClient.get('/progression/mentorship/progress');
     return response.data;
   },
 };

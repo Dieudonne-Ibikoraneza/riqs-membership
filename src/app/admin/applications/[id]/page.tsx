@@ -7,6 +7,7 @@ import { getApplicationDetail, submitReviewDecision } from "@/lib/api/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import PDFViewer from "@/components/ui/pdf-viewer";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -106,11 +107,16 @@ export default function Review({ params }: PageProps) {
             startedAt: new Date(res.mentorship.createdAt).toISOString().split('T')[0],
             progress: 0
           } : null,
-          documents: (res.documents || []).map((d: any) => ({
-            name: d.documentType,
-            type: d.documentType.split('_').pop() || "DOC",
-            url: d.fileUrl
-          }))
+          documents: (res.documents || []).map((d: any) => {
+            const token = typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : '';
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+            return {
+              name: d.documentType,
+              type: d.documentType.split('_').pop() || "DOC",
+              url: `${baseUrl}/files/download/${d.id}?token=${token}`,
+              originalFileUrl: d.fileUrl
+            };
+          })
         };
         setApp(mappedApp);
       } catch (err) {
@@ -362,8 +368,9 @@ export default function Review({ params }: PageProps) {
         </div>
 
         {/* Right column: Document viewer */}
-        <Card className="lg:col-span-3 border-zinc-100 dark:border-zinc-800 flex flex-col">
-          <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800 py-3 px-4">
+        <div className="lg:col-span-3">
+          <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col sticky top-4 h-[calc(100vh-2rem)]">
+            <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800 py-3 px-4 shrink-0">
             <CardTitle className="text-sm font-bold text-navy">
               Documents Workbench
             </CardTitle>
@@ -421,16 +428,22 @@ export default function Review({ params }: PageProps) {
               }}
               className="flex-1 flex flex-col"
             >
-              <TabsList className="flex h-auto flex-wrap bg-zinc-100 dark:bg-zinc-800 p-2 rounded-md mb-4 self-start">
-                {app.documents.map((d: any, i: number) => (
+              <TabsList className="flex w-full h-auto flex-wrap bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-lg mb-4 gap-1">
+                {app.documents.map((d: any, i: number) => {
+                  const formatName = (n: string) => {
+                    if (n.toLowerCase() === 'id') return 'ID Document';
+                    const spaced = n.replace(/([a-z])([A-Z])/g, '$1 $2');
+                    return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
+                  };
+                  return (
                   <TabsTrigger
                     key={i}
                     value={String(i)}
-                    className="text-xs font-semibold px-3 py-1.5"
+                    className="flex-1 text-xs font-semibold px-3 py-2 whitespace-nowrap"
                   >
-                    {d.name}
+                    {formatName(d.name)}
                   </TabsTrigger>
-                ))}
+                )})}
               </TabsList>
               {/* Single animated preview keyed by activeDoc so we can slide by direction */}
               <div className="relative flex-1 mt-0 overflow-hidden">
@@ -459,26 +472,31 @@ export default function Review({ params }: PageProps) {
                     exit="exit"
                     className="absolute inset-0 flex items-center justify-center"
                   >
-                    <div className="relative flex h-[500px] w-full items-center justify-center overflow-auto rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4">
+                    <div className="relative flex h-full w-full items-center justify-center overflow-auto rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4">
                       <div
                         style={{
                           transform: `scale(${zoom}) rotate(${rot}deg)`,
                           transition: "transform 0.15s ease-out",
+                          width: "100%",
+                          height: "100%",
                         }}
-                        className="flex h-[400px] w-[300px] shrink-0 flex-col items-center justify-center rounded-md border bg-white p-6 shadow-md"
+                        className="flex items-center justify-center"
                       >
-                        <FileText className="h-14 w-14 text-navy/20 dark:text-zinc-400/25" />
-                        <div className="mt-4 font-semibold text-navy text-center">
-                          {app.documents[activeDoc]?.name}
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground uppercase tracking-wide">
-                          {app.documents[activeDoc]?.type} PREVIEW STATE
-                        </div>
-                        <div className="mt-6 w-full space-y-2">
-                          <div className="h-1.5 w-full rounded bg-zinc-100" />
-                          <div className="h-1.5 w-4/5 rounded bg-zinc-100" />
-                          <div className="h-1.5 w-3/5 rounded bg-zinc-100" />
-                        </div>
+                        {(() => {
+                           const doc = app.documents[activeDoc];
+                           if (!doc) return null;
+                           const url = doc.url;
+                           if (!url) {
+                             return <div className="text-zinc-500">Document URL missing</div>;
+                           }
+                           const checkUrl = doc.originalFileUrl || url;
+                           const isImage = checkUrl?.toLowerCase().match(/\.(jpeg|jpg|gif|png)$/i) || checkUrl?.startsWith("data:image");
+                           return isImage ? (
+                              <img src={url} alt={doc.name} className="max-w-full max-h-full object-contain p-4 shadow-sm bg-white" />
+                           ) : (
+                              <PDFViewer src={url} fileName={doc.name + ".pdf"} />
+                           );
+                        })()}
                       </div>
                     </div>
                   </motion.div>
@@ -487,6 +505,7 @@ export default function Review({ params }: PageProps) {
             </Tabs>
           </CardContent>
         </Card>
+        </div>
       </div>
 
       {/* Dynamic Action Modals */}

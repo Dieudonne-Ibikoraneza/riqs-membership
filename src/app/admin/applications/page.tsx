@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { APPLICATIONS } from "@/lib/mock-data";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, useEffect } from "react";
+import { getApplicationsQueue, takeOverApplication } from "@/lib/api/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -64,10 +65,56 @@ export default function AdminApps() {
   const [sel, setSel] = useState<Record<string, boolean>>({});
   const [page, setPage] = useState(1);
   const pageSize = 8;
+  const [applications, setApplications] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [totalPages, setTotalPages] = useState(1);
+  const [takingOverId, setTakingOverId] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    async function loadData() {
+      setIsLoading(true);
+      try {
+        const res = await getApplicationsQueue(page, pageSize, status);
+        const mapped = res.queue.map(a => ({
+          id: a.id,
+          applicantName: a.full_name,
+          email: a.email,
+          category: a.category_name,
+          practiceLocation: a.location,
+          submittedAt: new Date(a.submitted_at).toISOString().split('T')[0],
+          status: a.status.replace("_", " "),
+          reviewer: a.reviewer || "Unassigned"
+        }));
+        setApplications(mapped);
+        setTotalPages(Math.max(1, Math.ceil(res.pagination.total / pageSize)));
+      } catch (err) {
+        toast.error("Failed to load applications");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadData();
+  }, [page, status]);
+
+  const handleReviewClick = async (a: any) => {
+    if (a.status !== "Pending") {
+      router.push(`/admin/applications/${a.id}`);
+      return;
+    }
+    try {
+      setTakingOverId(a.id);
+      await takeOverApplication(a.id);
+      router.push(`/admin/applications/${a.id}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to take over application.");
+      setTakingOverId(null);
+    }
+  };
 
   const filtered = useMemo(
     () =>
-      APPLICATIONS.filter((a) => {
+      applications.filter((a) => {
         if (
           q &&
           !`${a.applicantName} ${a.id} ${a.email}`
@@ -75,12 +122,13 @@ export default function AdminApps() {
             .includes(q.toLowerCase())
         )
           return false;
-        if (status !== "all" && a.status !== status) return false;
+        // Backend filters by status, but we can do it locally if needed, though we already pass status to backend.
+        if (status !== "all" && a.status !== status.replace("_", " ")) return false;
         if (loc !== "all" && a.practiceLocation !== loc) return false;
-        if (cat !== "all" && a.category !== cat) return false;
+        if (cat !== "all" && !a.category.includes(cat)) return false;
         return true;
       }),
-    [q, status, loc, cat],
+    [applications, q, status, loc, cat],
   );
 
   const sortedApplications = useMemo(() => {
@@ -105,16 +153,8 @@ export default function AdminApps() {
     return arr;
   }, [filtered, sortKey, sortDir]);
 
-  // Compute pagination
-  const totalPages = Math.max(
-    1,
-    Math.ceil(sortedApplications.length / pageSize),
-  );
-  const safePage = Math.min(page, totalPages);
-  const pageData = sortedApplications.slice(
-    (safePage - 1) * pageSize,
-    safePage * pageSize,
-  );
+  const safePage = page;
+  const pageData = sortedApplications;
 
   const selectedIds = Object.keys(sel).filter((k) => sel[k]);
 
@@ -340,7 +380,16 @@ export default function AdminApps() {
         </CardContent>
       </Card>
 
-      {pageData.length === 0 ? (
+      {isLoading ? (
+        <Card className="border border-zinc-150 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm animate-pulse">
+          <CardContent className="py-16 text-center">
+            <div className="mx-auto flex h-12 w-12 animate-spin items-center justify-center rounded-full border-4 border-gold border-t-transparent" />
+            <h3 className="mt-4 font-bold text-navy text-lg">
+              Loading applications...
+            </h3>
+          </CardContent>
+        </Card>
+      ) : pageData.length === 0 ? (
         <Card className="border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-950/10">
           <CardContent className="py-16 text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-zinc-100 dark:bg-zinc-800 text-muted-foreground">
@@ -384,7 +433,6 @@ export default function AdminApps() {
                     </div>
                   </th>
                   {[
-                    "App ID",
                     "Applicant",
                     "Category",
                     "Location",
@@ -422,9 +470,6 @@ export default function AdminApps() {
                         />
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-xs font-semibold text-navy dark:text-gold">
-                      {a.id}
-                    </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <Avatar name={a.applicantName} />
@@ -438,13 +483,13 @@ export default function AdminApps() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-4">
-                      <Badge
-                        variant="outline"
-                        className="border-navy/15 bg-navy/5 text-navy dark:border-zinc-700 dark:text-zinc-350 font-semibold"
+                    <td className="px-5 py-4 max-w-[200px]">
+                      <div 
+                        className="truncate text-zinc-700 dark:text-zinc-300 font-medium"
+                        title={a.category}
                       >
                         {a.category}
-                      </Badge>
+                      </div>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-1.5 text-xs text-zinc-650 dark:text-zinc-350">
@@ -464,16 +509,16 @@ export default function AdminApps() {
                       <StatusBadge status={a.status} />
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <Link href={`/admin/applications/${a.id}`}>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-navy dark:text-gold hover:bg-navy/5 font-bold transition-all hover:translate-x-0.5"
-                        >
-                          Review{" "}
-                          <ArrowRight className="ml-1.5 h-3.5 w-3.5 text-gold shrink-0" />
-                        </Button>
-                      </Link>
+                      <button
+                        onClick={() => handleReviewClick(a)}
+                        disabled={takingOverId === a.id}
+                        className="inline-flex items-center text-xs font-semibold text-navy dark:text-gold hover:underline group disabled:opacity-50"
+                      >
+                        {takingOverId === a.id ? "Loading..." : "Review"}
+                        {takingOverId !== a.id && (
+                          <ArrowRight className="ml-1 h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                        )}
+                      </button>
                     </td>
                   </tr>
                 ))}

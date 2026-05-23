@@ -19,8 +19,8 @@ import Image from "next/image";
 export default function Login() {
   const { startLogin, verifyOtp, pending, cancelPending } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState("demo@riqs.rw");
-  const [pw, setPw] = useState("password");
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 

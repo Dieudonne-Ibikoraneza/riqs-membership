@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { APPLICATIONS } from "@/lib/mock-data";
+import { getApplicationDetail, submitReviewDecision } from "@/lib/api/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,7 +61,8 @@ interface PageProps {
 export default function Review({ params }: PageProps) {
   const { id } = React.use(params);
   const router = useRouter();
-  const app = APPLICATIONS.find((a) => a.id === id);
+  const [app, setApp] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [activeDoc, setActiveDoc] = useState(0);
   const [zoom, setZoom] = useState(1);
@@ -73,6 +74,62 @@ export default function Review({ params }: PageProps) {
 
   const prevDoc = useRef(activeDoc);
   const [direction, setDirection] = useState(0);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const res = await getApplicationDetail(id);
+        const mappedApp = {
+          id: res.application.id,
+          applicantName: res.application.full_name,
+          email: res.application.email,
+          phone: res.application.phone_number || "Not provided",
+          national_id_or_passport: res.application.national_id_or_passport || "Not provided",
+          category: res.application.category_name,
+          entityType: res.application.cat_entity_type || "Individual",
+          practiceLocation: res.application.location,
+          status: res.application.status.replace("_", " "),
+          submittedAt: res.application.submittedAt ? new Date(res.application.submittedAt).toISOString().split('T')[0] : "Unknown",
+          education: (res.education || []).map((e: any) => ({
+            degree: e.qualificationType,
+            institution: e.institution,
+            startMonthYear: new Date(e.startDate).toISOString().slice(0, 7)
+          })),
+          employment: (res.employment || []).map((e: any) => ({
+            role: e.jobTitle,
+            company: e.companyName,
+            from: new Date(e.startDate).toISOString().slice(0, 7),
+            to: e.endDate ? new Date(e.endDate).toISOString().slice(0, 7) : undefined
+          })),
+          mentorship: res.mentorship ? {
+            mentor: "Assigned Mentor",
+            startedAt: new Date(res.mentorship.createdAt).toISOString().split('T')[0],
+            progress: 0
+          } : null,
+          documents: (res.documents || []).map((d: any) => ({
+            name: d.documentType,
+            type: d.documentType.split('_').pop() || "DOC",
+            url: d.fileUrl
+          }))
+        };
+        setApp(mappedApp);
+      } catch (err) {
+        toast.error("Failed to load application details.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadData();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="p-16 text-center animate-pulse">
+        <div className="mx-auto flex h-12 w-12 animate-spin items-center justify-center rounded-full border-4 border-gold border-t-transparent" />
+        <h3 className="mt-4 font-bold text-navy text-lg">Loading application...</h3>
+      </div>
+    );
+  }
 
   if (!app) {
     return (
@@ -93,23 +150,30 @@ export default function Review({ params }: PageProps) {
     );
   }
 
-  const handle = (action: "approve" | "reject" | "correction") => {
+  const handle = async (action: "approve" | "reject" | "correction") => {
     if (action !== "approve" && !note.trim()) {
       return toast.error("Please add a note explaining the reason");
     }
 
-    const msg =
-      action === "approve"
-        ? `Approved Jean Mugisha — issued ${app.id.replace("APP", "RIQS")}`
-        : action === "reject"
-          ? "Application successfully rejected"
-          : "Correction request successfully sent to applicant";
+    const apiAction = action === "approve" ? "Approve" : action === "reject" ? "Reject" : "Flag";
 
-    toast.success(msg);
-    setDialog(null);
-    setNote("");
+    try {
+      await submitReviewDecision(app.id, apiAction, note);
+      const msg =
+        action === "approve"
+          ? `Application successfully approved`
+          : action === "reject"
+            ? "Application successfully rejected"
+            : "Correction request successfully sent to applicant";
 
-    setTimeout(() => router.push("/admin/applications"), 650);
+      toast.success(msg);
+      setDialog(null);
+      setNote("");
+
+      setTimeout(() => router.push("/admin/applications"), 650);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to process decision");
+    }
   };
 
   return (
@@ -200,6 +264,7 @@ export default function Review({ params }: PageProps) {
                 <Row k="Phone" v={app.phone} />
                 <Row k="Category" v={app.category} highlight />
                 <Row k="Entity" v={app.entityType} />
+                <Row k="National ID/Passport" v={app.national_id_or_passport} />
                 <Row k="Practice location" v={app.practiceLocation} />
               </CardContent>
             </Card>
@@ -357,7 +422,7 @@ export default function Review({ params }: PageProps) {
               className="flex-1 flex flex-col"
             >
               <TabsList className="flex h-auto flex-wrap bg-zinc-100 dark:bg-zinc-800 p-2 rounded-md mb-4 self-start">
-                {app.documents.map((d, i) => (
+                {app.documents.map((d: any, i: number) => (
                   <TabsTrigger
                     key={i}
                     value={String(i)}
@@ -488,7 +553,7 @@ function Row({
 }) {
   return (
     <div
-      className={`flex items-center justify-between rounded px-2.5 py-1.5 transition-all ${highlight ? "bg-gold/15 text-[#1a1a1a] font-semibold" : ""}`}
+      className={`flex items-center justify-between rounded px-2.5 py-1.5 transition-all gap-6 ${highlight ? "bg-gold/15 text-[#1a1a1a] font-semibold" : ""}`}
     >
       <span className="text-xs text-muted-foreground">{k}</span>
       <span className="font-medium text-zinc-900 dark:text-zinc-100">{v}</span>

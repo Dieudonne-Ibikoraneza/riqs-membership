@@ -249,7 +249,7 @@ export default function Application() {
     } catch (e) {}
 
     // Find the category name from the categories list
-    const catName = savedLocal?.categoryName || application?.category_name || "";
+    const catName = savedLocal?.categoryName || application?.category?.categoryName || "";
 
     setData((prev: any) => ({
       ...prev,
@@ -1607,7 +1607,10 @@ function WizardContent({
                                 <Upload className="h-5 w-5" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-navy truncate">{d.l} {d.r && <span className="text-red-500">*</span>}</p>
+                                <div className="flex items-center gap-1 min-w-0">
+                                  <p className="text-sm font-semibold text-navy truncate">{d.l}</p>
+                                  {d.r && <span className="text-red-500 shrink-0">*</span>}
+                                </div>
                                 <p className="text-xs text-muted-foreground truncate">Click to upload</p>
                               </div>
                             </div>

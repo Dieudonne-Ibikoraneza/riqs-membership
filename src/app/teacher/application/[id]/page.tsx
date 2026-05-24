@@ -65,7 +65,7 @@ const STATUS_CONFIG: Record<string, {
     icon: <Clock className="h-12 w-12" />,
     title: "Application Submitted — Awaiting Review",
     description:
-      "Your application has been successfully submitted and is now in the RIQS secretariat queue. Our team will begin the formal review process within 5–10 business days. You will receive email notifications at each stage of your review.",
+      "The student's application has been successfully submitted and is now in the RIQS secretariat queue. Our team will begin the formal review process within 5–10 business days. You will receive email notifications at each stage of the review.",
     color: "text-blue-700 dark:text-blue-400",
     bg: "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800",
     badge: "border-blue-300 bg-blue-100 text-blue-800",
@@ -74,7 +74,7 @@ const STATUS_CONFIG: Record<string, {
     icon: <Search className="h-12 w-12" />,
     title: "Under Active Review",
     description:
-      "A qualified RIQS reviewer is actively assessing your submitted application and verifying your credentials. This process ensures the integrity of RIQS membership. You will be contacted via your registered email if any additional information or clarification is required.",
+      "A qualified RIQS reviewer is actively assessing the submitted application and verifying the student's credentials. This process ensures the integrity of RIQS membership. You will be contacted via your registered email if any additional information or clarification is required.",
     color: "text-purple-700 dark:text-purple-400",
     bg: "bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800",
     badge: "border-purple-300 bg-purple-100 text-purple-800",
@@ -83,7 +83,7 @@ const STATUS_CONFIG: Record<string, {
     icon: <CheckCircle2 className="h-12 w-12" />,
     title: "Awaiting Final Board Approval",
     description:
-      "Excellent news! Your application has successfully passed the reviewer assessment stage and has been forwarded to the RIQS Board for final approval. This is the last step before your membership is confirmed. You will be notified once a decision has been made.",
+      "Excellent news! The application has successfully passed the reviewer assessment stage and has been forwarded to the RIQS Board for final approval. This is the last step before the student's membership is confirmed. You will be notified once a decision has been made.",
     color: "text-emerald-700 dark:text-emerald-400",
     bg: "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800",
     badge: "border-emerald-300 bg-emerald-100 text-emerald-800",
@@ -92,7 +92,7 @@ const STATUS_CONFIG: Record<string, {
     icon: <Trophy className="h-12 w-12" />,
     title: "Congratulations — Membership Approved!",
     description:
-      "Your RIQS membership application has been officially approved! Welcome to the Rwanda Institute of Quantity Surveyors. Your membership certificate and ID are now available for download on the Certificate page. We look forward to your contributions to the profession.",
+      "The student's RIQS membership application has been officially approved! Their membership certificate and ID are now available. Thank you for your support in registering this new member.",
     color: "text-gold dark:text-gold",
     bg: "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-700",
     badge: "border-amber-300 bg-amber-100 text-amber-800",
@@ -101,7 +101,7 @@ const STATUS_CONFIG: Record<string, {
     icon: <XCircle className="h-12 w-12" />,
     title: "Application Not Approved",
     description:
-      "We regret to inform you that your application was not approved at this time. This decision may be based on eligibility criteria, documentation, or other assessment factors. Please contact the RIQS secretariat at info@riqs.rw or call +250 788 XXX XXX for detailed feedback and to understand your options for reapplication.",
+      "We regret to inform you that this application was not approved at this time. This decision may be based on eligibility criteria, documentation, or other assessment factors. Please contact the RIQS secretariat at info@riqs.rw or call +250 788 XXX XXX for detailed feedback and to understand the options for reapplication.",
     color: "text-red-700 dark:text-red-400",
     bg: "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800",
     badge: "border-red-300 bg-red-100 text-red-800",
@@ -110,7 +110,7 @@ const STATUS_CONFIG: Record<string, {
     icon: <AlertTriangle className="h-12 w-12" />,
     title: "Corrections Required",
     description:
-      "The RIQS reviewer has flagged your application and requires corrections or additional information before it can proceed. Please review the feedback provided, update your application accordingly, and resubmit. Your previous entries have been preserved.",
+      "The RIQS reviewer has flagged this application and requires corrections or additional information from you before it can proceed. Please review the feedback provided, update the application accordingly, and resubmit. Your previous entries have been preserved.",
     color: "text-orange-700 dark:text-orange-400",
     bg: "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800",
     badge: "border-orange-300 bg-orange-100 text-orange-800",
@@ -129,7 +129,7 @@ function StatusBanner({ status }: { status: string }) {
         <div>
           <h1 className="text-3xl font-bold text-navy">Membership Application</h1>
           <p className="text-sm text-muted-foreground font-sans">
-            Track the status of your submitted application below.
+            Track the status of the student's submitted application below.
           </p>
         </div>
         <Badge variant="outline" className={cn("font-bold text-sm px-3 py-1", cfg.badge)}>

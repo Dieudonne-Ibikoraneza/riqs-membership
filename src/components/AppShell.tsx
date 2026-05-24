@@ -107,7 +107,12 @@ export function AppShell({
 
   const teacherLinks = [
     { href: "/teacher", label: "My Students", icon: Users, exact: true },
-    ...(activeAppId ? [{ href: `/teacher/application/${activeAppId}`, label: "Application", icon: ClipboardList }] : []),
+    { 
+      href: activeAppId ? `/teacher/application/${activeAppId}` : "#", 
+      label: "Application", 
+      icon: ClipboardList,
+      disabled: !activeAppId
+    },
   ];
 
   const links = kind === "admin" ? adminLinks : kind === "teacher" ? teacherLinks : memberLinks;
@@ -237,6 +242,7 @@ export function AppShell({
                       active
                         ? "bg-white/10 text-white before:h-6"
                         : "text-white/70 hover:bg-white/5 hover:text-white hover:pl-4",
+                      (l as any).disabled && "opacity-50 pointer-events-none",
                       collapsed && "justify-center px-2",
                     )}
                   >

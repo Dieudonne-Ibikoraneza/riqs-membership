@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/services/queryKeys";
+import { applicantServices } from "@/services/applicant.services";
 import {
   Building2,
   LayoutDashboard,
@@ -43,13 +46,37 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
+  const { data: profileData } = useQuery({
+    queryKey: queryKeys.applicant.profile(),
+    queryFn: applicantServices.getProfile,
+    enabled: !!role && kind === "member" && role !== "Admin",
+  });
+
+  const [isFirm, setIsFirm] = useState(false);
+
+  useEffect(() => {
+    let firmStatus = profileData?.application?.entityType === "Firm" || profileData?.profile?.membershipClass?.includes("Firm");
+    
+    if (!firmStatus && typeof window !== "undefined") {
+      try {
+        const draft = localStorage.getItem("riqs_app_draft");
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          if (parsed.entityType === "Firm") firmStatus = true;
+        }
+      } catch (e) {}
+    }
+    
+    setIsFirm(firmStatus || false);
+  }, [profileData]);
+
   const memberLinks = [
     { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
     { href: "/dashboard/profile", label: "My Profile", icon: User2 },
     { href: "/dashboard/application", label: "Application", icon: FileText },
     { href: "/dashboard/certificate", label: "Certificate", icon: Award },
     { href: "/dashboard/payments", label: "Payments", icon: Wallet },
-    { href: "/dashboard/mentorship", label: isMentor ? "My Mentees" : "Mentorship", icon: GraduationCap },
+    ...(isFirm ? [] : [{ href: "/dashboard/mentorship", label: isMentor ? "My Mentees" : "Mentorship", icon: GraduationCap }]),
     ...(isTeacher ? [{ href: "/dashboard/students", label: "My Students", icon: Users }] : []),
     { href: "/dashboard/documents", label: "Documents", icon: Folder },
     { href: "/dashboard/communications", label: "Messages", icon: Mail },
@@ -311,7 +338,7 @@ export function AppShell({
               <div className="text-sm font-semibold">{name}</div>
               <div className="text-[11px] text-muted-foreground">
                 {kind === "admin"
-                  ? role === "Admin" ? "System Administrator" : "Reviewer / Approver"
+                  ? role === "Admin" ? "System Administrator" : role || "Staff"
                   : isTeacher ? "Teacher" : isMentor ? "Mentor" : isStudent ? "Student" : "Active Member"}
               </div>
             </div>

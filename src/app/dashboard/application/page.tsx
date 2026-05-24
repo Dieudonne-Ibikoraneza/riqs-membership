@@ -103,7 +103,7 @@ const STATUS_CONFIG: Record<string, {
     bg: "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800",
     badge: "border-red-300 bg-red-100 text-red-800",
   },
-  "Correction Required": {
+  "Correction_Required": {
     icon: <AlertTriangle className="h-12 w-12" />,
     title: "Corrections Required",
     description:
@@ -148,7 +148,7 @@ function StatusBanner({ status }: { status: string }) {
               <Trophy className="mr-2 h-4 w-4" /> View My Certificate
             </Button>
           )}
-          {status === "Correction Required" && (
+          {status === "Correction_Required" && (
             <p className={cn("text-sm font-semibold", cfg.color)}>
               Scroll down to continue editing your application.
             </p>
@@ -171,7 +171,8 @@ export default function Application() {
 
   const appStatus = profileData?.application?.status;
   const appId = profileData?.application?.id;
-  const isEditable = !appStatus || appStatus === "Draft" || appStatus === "Correction Required";
+  const reviewerNotes = profileData?.application?.reviewerNotes;
+  const isEditable = !appStatus || appStatus === "Draft" || appStatus === "Correction_Required";
 
   // Fetch categories
   const { data: categories } = useQuery({
@@ -200,7 +201,7 @@ export default function Application() {
       countryOfOrigin: "Rwanda",
       firmName: "",
       firmAddress: "",
-      shareholders: [{ fullName: "", email: "", phone: "", membershipId: "" }],
+      shareholders: [{ fullName: "", email: "", phone: "", membershipId: "", shareholdingPercentage: "" }],
     },
     education: [{ institution: "", studyField: "", degree: "", startMonthYear: "" }],
     employment: [{ company: "", role: "", from: "", to: "" }],
@@ -224,6 +225,20 @@ export default function Application() {
       if (stored) savedLocal = JSON.parse(stored);
       const sStep = localStorage.getItem('riqs_app_step');
       if (sStep) savedStep = Number(sStep);
+
+      // Force step 0 if application just switched to Correction Required
+      if (application?.status === "Correction_Required") {
+        const lastSeen = localStorage.getItem("riqs_app_last_correction");
+        // We use application.id + string length or similar as a simple check
+        // Or simpler, just check if the last status wasn't Correction_Required
+        if (savedLocal?.status !== "Correction_Required") {
+           savedStep = 0;
+           // We'll also tag savedLocal so we don't reset it again until status changes
+           if (savedLocal) savedLocal.status = "Correction_Required";
+        }
+      } else if (application?.status) {
+        if (savedLocal) savedLocal.status = application.status;
+      }
     } catch (e) {}
 
     // Find the category name from the categories list
@@ -313,8 +328,8 @@ export default function Application() {
     ];
     if (data.entityType === "Individual") {
       list.push("Education");
+      list.push("Employment Record");
     }
-    list.push("Employment Record");
     if (data.entityType === "Individual" && (data.categoryName === "Graduate" || data.categoryName?.toLowerCase().includes("graduate"))) {
       list.push("Mentorship Plan");
     }
@@ -516,6 +531,24 @@ export default function Application() {
 
   // ─── Save & advance ────────────────────────────────────────────────────────
   const next = () => {
+    if (data.entityType === "Firm" && currentStepName === "Personal Info") {
+      let sum = 0;
+      for (const sh of data.personal.shareholders) {
+        sum += parseFloat(sh.shareholdingPercentage || "0") || 0;
+      }
+      const rounded = Math.round(sum * 100) / 100;
+      if (rounded < 99.9 || rounded > 100.1) {
+         return toast.error("The firm shareholders' shares must sum to 100%.");
+      }
+      if (appId) {
+        applicantServices.saveShareholders(appId, data.personal.shareholders.map((s: any) => ({
+          ...s,
+          phoneNumber: s.phone,
+          riqsMembershipId: s.membershipId,
+        }))).catch(err => toast.error("Failed to save firm shareholders: " + (err?.response?.data?.error || err.message)));
+      }
+    }
+
     if (!data.categoryId && step >= 2) {
       // Skip auto-save if no categoryId yet (steps 0-1)
     }
@@ -533,6 +566,8 @@ export default function Application() {
         residencyAddress: data.personal.residentAddress,
         workAddress: data.personal.workAddress,
         countryOfOrigin: data.personal.countryOfOrigin,
+        firmName: data.entityType === "Firm" ? data.personal.firmName : undefined,
+        firmAddress: data.entityType === "Firm" ? data.personal.firmAddress : undefined,
       });
     }
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
@@ -558,7 +593,7 @@ export default function Application() {
           list.push({ k: "letter", l: "Application Letter", r: true });
           list.push({ k: "id", l: "Copy of ID / Passport", r: true });
           list.push({ k: "cv", l: "Curriculum Vitae (CV)", r: false });
-          list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: false });
+          list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: true });
         } else if (catName === "Technologist") {
           list.push({ k: "degree", l: "Diploma Certificate (HEC equivalency if foreign)", r: true });
           list.push({ k: "transcripts", l: "Notarized Academic Transcripts showing subjects", r: true });
@@ -567,7 +602,7 @@ export default function Application() {
           list.push({ k: "letter", l: "Application Letter", r: true });
           list.push({ k: "id", l: "Copy of ID / Passport", r: true });
           list.push({ k: "cv", l: "Curriculum Vitae (CV)", r: false });
-          list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: false });
+          list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: true });
         } else {
           list.push({ k: "degree", l: "Notarized Degree Certificate (HEC equivalent if foreign)", r: true });
           list.push({ k: "transcripts", l: "Notarized Academic Transcripts showing subjects", r: true });
@@ -576,7 +611,7 @@ export default function Application() {
           list.push({ k: "letter", l: "Application Letter", r: true });
           list.push({ k: "id", l: "Copy of ID / Passport", r: true });
           list.push({ k: "cv", l: "Curriculum Vitae (CV)", r: false });
-          list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: false });
+          list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: true });
         }
       } else {
         const isProf = catName === "Professional";
@@ -584,18 +619,20 @@ export default function Application() {
         list.push({ k: "membershipOrigin", l: "Valid Membership Certificate from country of origin", r: true });
         list.push({ k: "permit", l: "Visa & Work Permit (PDF)", r: true });
         list.push({ k: "cv", l: "CV & References (PDF)", r: false });
-        list.push({ k: "payment", l: `Proof of Payment (${isProf ? "50 USD" : "30 USD"} Application Fee)`, r: false });
+        list.push({ k: "payment", l: `Proof of Payment (${isProf ? "50 USD" : "30 USD"} Application Fee)`, r: true });
       }
     } else {
       const isLocal = data.practiceLocation === "Local";
       list.push({ k: "firmCert", l: isLocal ? "Firm Business Registration Certificate by RDB" : "Firm Business Registration Certificate", r: true });
       list.push({ k: "taxClearance", l: "Tax Clearance Certificate", r: true });
+      list.push({ k: "beneficialOwnerIds", l: "Identity documents of beneficial owners / shareholders", r: true });
+      list.push({ k: "shareCertificates", l: "Share certificates or company registry extract", r: true });
       list.push({ k: "socialSecurity", l: isLocal ? "RSSB Tax Clearance Certificate" : "Social Security Clearance Certificate", r: false });
       if (isLocal) list.push({ k: "staffCertificates", l: "RIQS Members working in the firm (Certificates)", r: false });
-      const fee = catName.includes("Small") ? (isLocal ? "100,000 RWF" : "100 USD")
-        : catName.includes("Medium") ? (isLocal ? "200,000 RWF" : "200 USD")
-        : isLocal ? "300,000 RWF" : "300 USD";
-      list.push({ k: "payment", l: `Proof of Payment (${fee} Application Fee)`, r: false });
+      const fee = catName.includes("Small") ? (isLocal ? "50,000 RWF" : "100 USD")
+        : catName.includes("Medium") ? (isLocal ? "100,000 RWF" : "200 USD")
+        : isLocal ? "200,000 RWF" : "400 USD";
+      list.push({ k: "payment", l: isLocal ? `Proof of Momo Payment (${fee} via Momo Code: 604516)` : `Proof of Payment (${fee} Application Fee)`, r: true });
     }
     return list;
   }, [data.practiceLocation, data.entityType, data.categoryName]);
@@ -618,7 +655,7 @@ export default function Application() {
     return (
       <div className="space-y-6">
         <StatusBanner status={appStatus} />
-        {appStatus === "Correction Required" && (
+        {appStatus === "Correction_Required" && (
           <div className="mt-8 pt-8 border-t border-zinc-200 dark:border-zinc-800">
             <WizardContent
               step={step}
@@ -646,6 +683,7 @@ export default function Application() {
               next={next}
               back={back}
               documents={profileData?.documents || []}
+              reviewerNotes={reviewerNotes}
             />
           </div>
         )}
@@ -681,6 +719,7 @@ export default function Application() {
       next={next}
       back={back}
       documents={profileData?.documents || []}
+      reviewerNotes={reviewerNotes}
     />
   );
 }
@@ -690,7 +729,7 @@ function WizardContent({
   step, STEPS, pct, data, setData, categoriesList, documentChecklist,
   currentStepName, updateLocation, updateEntity, addMentor, removeMentor,
   appId, isSaving, addEduMutation, delEduMutation, addEmpMutation, delEmpMutation, mentorshipMutation, delMentorMutation,
-  submitMutation, submit, next, back, documents, goToStep,
+  submitMutation, submit, next, back, documents, goToStep, reviewerNotes
 }: any) {
   const queryClient = useQueryClient();
   const [photoDragActive, setPhotoDragActive] = useState(false);
@@ -872,13 +911,27 @@ function WizardContent({
         <div>
           <h1 className="text-3xl font-bold text-navy">Membership Application</h1>
           <p className="text-sm text-muted-foreground font-sans">
-            Complete the steps below — your progress is saved automatically.
+            {reviewerNotes 
+              ? "Review the feedback below and update your application." 
+              : "Complete the steps below — your progress is saved automatically."}
           </p>
         </div>
-        <Badge variant="outline" className="border-gold/40 bg-gold/10 text-gold font-bold">
-          <Sparkles className="mr-1.5 h-3.5 w-3.5 text-gold fill-gold" /> Draft
-        </Badge>
+        {!reviewerNotes && (
+          <Badge variant="outline" className="border-gold/40 bg-gold/10 text-gold font-bold">
+            <Sparkles className="mr-1.5 h-3.5 w-3.5 text-gold fill-gold" /> Draft
+          </Badge>
+        )}
       </div>
+
+      {reviewerNotes && (
+        <div className="bg-orange-50 border-l-4 border-orange-500 p-5 text-orange-900 rounded-r shadow-sm">
+          <div className="flex items-center mb-2">
+            <AlertTriangle className="h-5 w-5 text-orange-500 mr-2" />
+            <h3 className="font-bold text-lg">Corrections Required</h3>
+          </div>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed">{reviewerNotes}</p>
+        </div>
+      )}
 
       {/* Stepper */}
       <Card className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 overflow-hidden">
@@ -1021,8 +1074,7 @@ function WizardContent({
                       </div>
                       <div className="space-y-1">
                         <Label htmlFor="app-email">Primary Email Address</Label>
-                        <Input id="app-email" type="email" placeholder="e.g. john.doe@example.com" value={data.personal.email}
-                          onChange={(e) => setData({ ...data, personal: { ...data.personal, email: e.target.value } })} />
+                        <Input id="app-email" type="email" placeholder="e.g. john.doe@example.com" value={data.personal.email} disabled className="bg-zinc-100" />
                       </div>
                       <div className="space-y-1">
                         <Label htmlFor="app-phone">Mobile Phone</Label>
@@ -1175,6 +1227,8 @@ function WizardContent({
                           <div key={id} className="space-y-1">
                             <Label htmlFor={id}>{label}</Label>
                             <Input id={id} type={type} placeholder={placeholder} value={data.personal[field]}
+                              disabled={field === "email"}
+                              className={field === "email" ? "bg-zinc-100" : ""}
                               onChange={(e) => setData({ ...data, personal: { ...data.personal, [field]: e.target.value } })} />
                           </div>
                         ))}
@@ -1198,15 +1252,18 @@ function WizardContent({
                     {/* Shareholders */}
                     <div className="border border-zinc-100 dark:border-zinc-800 p-4 rounded-md bg-zinc-50/50 space-y-4">
                       <h3 className="font-semibold text-base text-navy">Firm Shareholders</h3>
-                      {data.personal.shareholders.map((sh: any, i: number) => (
+                      {data.personal.shareholders.map((sh: any, i: number) => {
+                        const hasDelete = data.personal.shareholders.length > 1;
+                        return (
                         <div key={i} className="relative grid gap-3 border border-zinc-100 dark:border-zinc-800 p-4 rounded-md md:grid-cols-12 bg-white dark:bg-zinc-900 shadow-sm">
                           {[
-                            { span: 3, label: "Shareholder Name", field: "fullName", placeholder: "e.g. Alice Umuhoza" },
-                            { span: 3, label: "Email Address", field: "email", placeholder: "e.g. alice@example.com", type: "email" },
-                            { span: 3, label: "Phone Number", field: "phone", placeholder: "e.g. +250 788 000 000" },
-                            { span: 2, label: "RIQS ID (Optional)", field: "membershipId", placeholder: "e.g. RIQS-2026-M-045" },
-                          ].map(({ span, label, field, placeholder, type }) => (
-                            <div key={field} className={`md:col-span-${span} space-y-1`}>
+                            { className: "md:col-span-3", label: "Shareholder Name", field: "fullName", placeholder: "e.g. Alice Umuhoza" },
+                            { className: "md:col-span-3", label: "Email Address", field: "email", placeholder: "e.g. alice@example.com", type: "email" },
+                            { className: "md:col-span-2", label: "Phone Number", field: "phone", placeholder: "e.g. +250 788 000 000" },
+                            { className: "md:col-span-1", label: "Share (%)", field: "shareholdingPercentage", placeholder: "e.g. 50", type: "number" },
+                            { className: hasDelete ? "md:col-span-2" : "md:col-span-3", label: "RIQS ID (Optional)", field: "membershipId", placeholder: "e.g. RIQS-2026-M-045" },
+                          ].map(({ className, label, field, placeholder, type }) => (
+                            <div key={field} className={`${className} space-y-1`}>
                               <Label>{label}</Label>
                               <Input type={type} placeholder={placeholder} value={sh[field]}
                                 onChange={(e) => {
@@ -1216,8 +1273,8 @@ function WizardContent({
                                 }} />
                             </div>
                           ))}
-                          <div className="md:col-span-1 flex items-end justify-center pb-0.5">
-                            {data.personal.shareholders.length > 1 && (
+                          {hasDelete && (
+                            <div className="md:col-span-1 flex items-end justify-center pb-0.5">
                               <Button variant="ghost" size="icon"
                                 onClick={() => {
                                   const v = data.personal.shareholders.filter((_: any, idx: number) => idx !== i);
@@ -1226,12 +1283,12 @@ function WizardContent({
                                 className="text-red-500 hover:bg-red-50 h-10 w-10 shrink-0">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
-                      ))}
+                      )})}
                       <Button variant="outline" size="sm"
-                        onClick={() => setData({ ...data, personal: { ...data.personal, shareholders: [...data.personal.shareholders, { fullName: "", email: "", phone: "", membershipId: "" }] } })}
+                        onClick={() => setData({ ...data, personal: { ...data.personal, shareholders: [...data.personal.shareholders, { fullName: "", email: "", phone: "", membershipId: "", shareholdingPercentage: "" }] } })}
                         className="border-zinc-200 dark:border-zinc-800">
                         + Add Shareholder
                       </Button>
@@ -1774,12 +1831,19 @@ function WizardContent({
         <Button variant="outline" onClick={back} disabled={step === 0} className="border-zinc-200 bg-white dark:bg-zinc-900">
           <ChevronLeft className="mr-2 h-4 w-4" /> Back
         </Button>
-        {step < STEPS.length - 1 && (
-          <Button onClick={next} disabled={isSaving || contextualChecklist.filter((d: any) => d.r).some((d: any) => !data.docs[d.k] || data.docs[d.k] === "loading_from_backend" || data.docs[d.k] === "uploading_from_client")}
-            className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none font-semibold">
-            {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <>Next <ChevronRight className="ml-2 h-4 w-4" /></>}
-          </Button>
-        )}
+        {step < STEPS.length - 1 && (() => {
+          const isNextDisabled = () => {
+            if (isSaving) return true;
+            if (contextualChecklist.filter((d: any) => d.r).some((d: any) => !data.docs[d.k] || data.docs[d.k] === "loading_from_backend" || data.docs[d.k] === "uploading_from_client")) return true;
+            return false;
+          };
+          return (
+            <Button onClick={next} disabled={isNextDisabled()}
+              className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none font-semibold">
+              {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <>Next <ChevronRight className="ml-2 h-4 w-4" /></>}
+            </Button>
+          );
+        })()}
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
 
 function LockedField({ label, value }: { label: string; value: string }) {
+  if (!value || value === "N/A") return null;
   return (
     <div className="space-y-1">
       <Label className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
@@ -105,6 +106,7 @@ export default function Profile() {
   const member = data.profile;
   const eduRecords = data.education || [];
   const empRecords = data.employment || [];
+  const isFirm = data.application?.entity_type === "Firm" || member.membershipClass?.includes("Firm");
 
   return (
     <div className="space-y-6">
@@ -135,13 +137,15 @@ export default function Profile() {
           <LockedField label="National ID / Passport" value={member.nationalIdOrPassport || ""} />
           <LockedField label="Primary Email Address" value={member.email || ""} />
           <LockedField label="Mobile Phone" value={member.phoneNumber || ""} />
-          <LockedField label="Practice Category" value={member.membershipClass || data.application?.category_name || ""} />
+          <LockedField label="Practice Category" value={data.application?.category_name || member.membershipClass || ""} />
           <LockedField label="Date of Birth" value={member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString() : ""} />
         </CardContent>
       </Card>
 
-      {/* Education Qualifications */}
-      <Card className="border-zinc-100 dark:border-zinc-800">
+      {!isFirm && (
+        <>
+          {/* Education Qualifications */}
+          <Card className="border-zinc-100 dark:border-zinc-800">
         <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-50 dark:border-zinc-800/50 py-4">
           <CardTitle className="text-navy">Education</CardTitle>
           <Button 
@@ -233,6 +237,8 @@ export default function Profile() {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
 
       {/* Warning locked notice */}
       <Card className="border-amber-200 bg-amber-50/30 dark:bg-amber-950/10">
@@ -241,7 +247,9 @@ export default function Profile() {
         </CardHeader>
         <CardContent className="px-6 pb-6">
           <p className="text-sm text-amber-900/80 dark:text-amber-400/80 leading-relaxed">
-            Your notarized academic degree scans, National ID/passport duplicates, passport photography, and primary verification records are locked for security. Visit the **Documents** page to view copies or request replacement options.
+            {isFirm 
+              ? "Your company registration certificates, tax clearance, ownership documentation, and other corporate verification records are locked for security. Visit the **Documents** page to view copies or request replacement options."
+              : "Your notarized academic degree scans, National ID/passport duplicates, passport photography, and primary verification records are locked for security. Visit the **Documents** page to view copies or request replacement options."}
           </p>
         </CardContent>
       </Card>

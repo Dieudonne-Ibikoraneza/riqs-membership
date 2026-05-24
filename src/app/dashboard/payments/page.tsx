@@ -14,32 +14,33 @@ import {
 import { Upload, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-
-const HISTORY = [
-  {
-    id: "PMT-2025-001",
-    date: "2025-01-12",
-    desc: "Annual Renewal 2025",
-    amount: "RWF 50,000",
-    status: "Verified",
-  },
-  {
-    id: "PMT-2024-008",
-    date: "2024-01-09",
-    desc: "Annual Renewal 2024",
-    amount: "RWF 50,000",
-    status: "Verified",
-  },
-  {
-    id: "PMT-2023-012",
-    date: "2023-01-15",
-    desc: "Annual Renewal 2023",
-    amount: "RWF 45,000",
-    status: "Verified",
-  },
-];
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/services/queryKeys";
+import { applicantServices } from "@/services/applicant.services";
 
 export default function Payments() {
+  const { data, isLoading } = useQuery({
+    queryKey: queryKeys.applicant.profile(),
+    queryFn: applicantServices.getProfile,
+  });
+
+  const isFirm = data?.application?.entity_type === "Firm" || data?.profile?.membershipClass?.includes("Firm");
+  const feeNumber = data?.application?.annual_renewal_fee || 50000;
+  const feeAmount = `RWF ${Number(feeNumber).toLocaleString()}`;
+  const renewalDesc = isFirm ? "Company Annual Subscription" : "Annual Renewal";
+
+  const { data: paymentsData, isLoading: isPaymentsLoading } = useQuery({
+    queryKey: queryKeys.applicant.payments(),
+    queryFn: applicantServices.getPaymentHistory,
+  });
+
+  const transactions = paymentsData?.transactions || [];
+  
+  // Calculate total paid
+  const totalPaid = transactions
+    .filter((tx: any) => tx.status === 'Cleared')
+    .reduce((acc: number, tx: any) => acc + Number(tx.amount), 0);
+
   return (
     <div className="space-y-6">
       <div>
@@ -62,7 +63,7 @@ export default function Payments() {
                   Next renewal due
                 </div>
                 <div className="text-lg font-bold text-navy mt-0.5">
-                  31 Dec 2025 · RWF 50,000
+                  {isLoading ? "Loading..." : `31 Dec 2025 · ${feeAmount}`}
                 </div>
               </div>
             </div>
@@ -86,9 +87,9 @@ export default function Payments() {
             <div className="text-sm text-muted-foreground">
               Total paid (lifetime)
             </div>
-            <div className="mt-1 text-2xl font-bold text-navy">RWF 245,000</div>
+            <div className="mt-1 text-2xl font-bold text-navy">{isPaymentsLoading ? "..." : `RWF ${totalPaid.toLocaleString()}`}</div>
             <div className="mt-2 text-xs text-muted-foreground">
-              5 successful verification cycles
+              {transactions.filter((tx: any) => tx.status === 'Cleared').length} successful verification cycles
             </div>
           </CardContent>
         </Card>
@@ -122,24 +123,41 @@ export default function Payments() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {HISTORY.map((h, i) => (
+                {isPaymentsLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      Loading payment history...
+                    </TableCell>
+                  </TableRow>
+                ) : transactions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      No payment records found.
+                    </TableCell>
+                  </TableRow>
+                ) : transactions.map((tx: any) => (
                   <TableRow
-                    key={h.id}
+                    key={tx.id}
                     className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 border-b border-zinc-100 dark:border-zinc-800"
                   >
                     <TableCell className="text-xs text-zinc-600 dark:text-zinc-400">
-                      {h.id}
+                      {tx.transactionReference}
                     </TableCell>
                     <TableCell className="text-sm text-zinc-700 dark:text-zinc-350">
-                      {h.date}
+                      {new Date(tx.createdAt).toLocaleDateString()}
                     </TableCell>
-                    <TableCell className="text-sm">{h.desc}</TableCell>
+                    <TableCell className="text-sm">{tx.txType.replace(/_/g, ' ')}</TableCell>
                     <TableCell className="font-semibold text-zinc-900 dark:text-zinc-100">
-                      {h.amount}
+                      {tx.currency} {Number(tx.amount).toLocaleString()}
                     </TableCell>
                     <TableCell>
-                      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none font-medium">
-                        {h.status}
+                      <Badge className={
+                        tx.status === 'Unpaid' ? "bg-red-100 text-red-700 hover:bg-red-100 border-none font-medium" :
+                        tx.status === 'Pending_Verification' ? "bg-amber-100 text-amber-700 hover:bg-amber-100 border-none font-medium" :
+                        tx.status === 'Cleared' ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none font-medium" :
+                        "bg-zinc-100 text-zinc-700 hover:bg-zinc-100 border-none font-medium"
+                      }>
+                        {tx.status.replace(/_/g, ' ')}
                       </Badge>
                     </TableCell>
                   </TableRow>

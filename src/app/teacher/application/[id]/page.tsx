@@ -37,6 +37,7 @@ import {
   User,
   Pencil,
   Save,
+  UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MonthYearPicker } from "@/components/ui/month-picker";
@@ -540,7 +541,7 @@ export default function Application() {
     onSuccess: () => {
       localStorage.removeItem(`riqs_app_draft_${appId}`);
       localStorage.removeItem(`riqs_app_step_${appId}`);
-      queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
+      queryClient.invalidateQueries({ queryKey: ["teacherApp", appId] });
       toast.success("Application submitted successfully!");
     },
     onError: (err: any) => toast.error(err?.response?.data?.error || "Failed to submit application"),
@@ -667,6 +668,16 @@ export default function Application() {
     return (
       <div className="space-y-6">
         <StatusBanner status={appStatus} />
+        
+        <div className="flex justify-center mt-6">
+           <Button 
+             className="bg-navy text-white hover:bg-navy/90 h-11 px-8 text-sm font-semibold rounded-md shadow-sm"
+             onClick={() => window.location.href = "/teacher"}
+           >
+             <UserPlus className="mr-2 h-5 w-5" /> Register Another Student
+           </Button>
+        </div>
+
         {appStatus === "Correction_Required" && (
           <div className="mt-8 pt-8 border-t border-zinc-200 dark:border-zinc-800">
             <WizardContent

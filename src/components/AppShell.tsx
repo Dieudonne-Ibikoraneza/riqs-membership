@@ -38,7 +38,7 @@ export function AppShell({
   kind,
 }: {
   children: ReactNode;
-  kind: "member" | "admin";
+  kind: "member" | "admin" | "teacher";
 }) {
   const { name, email, role, isMentor, isTeacher, isStudent, logout } = useAuth();
   const router = useRouter();
@@ -102,7 +102,11 @@ export function AppShell({
     ...(role === "Admin" ? [{ href: "/admin/audit", label: "Audit Log", icon: Shield }] : []),
   ];
 
-  const links = kind === "admin" ? adminLinks : memberLinks;
+  const teacherLinks = [
+    { href: "/teacher", label: "My Students", icon: Users, exact: true },
+  ];
+
+  const links = kind === "admin" ? adminLinks : kind === "teacher" ? teacherLinks : memberLinks;
 
   const doLogout = () => {
     logout();
@@ -339,6 +343,7 @@ export function AppShell({
               <div className="text-[11px] text-muted-foreground">
                 {kind === "admin"
                   ? role === "Admin" ? "System Administrator" : role || "Staff"
+                  : kind === "teacher" ? "Teacher Workspace"
                   : isTeacher ? "Teacher" : isMentor ? "Mentor" : isStudent ? "Student" : "Active Member"}
               </div>
             </div>

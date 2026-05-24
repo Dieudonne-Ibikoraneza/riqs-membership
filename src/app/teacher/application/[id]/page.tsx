@@ -46,7 +46,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/services/queryKeys";
 import { teacherServices } from "@/services/teacher.services";
 import { useParams, useRouter } from "next/navigation";
-import { applicantServices } from "@/services/applicant.services";
+
 import { publicServices } from "@/services/public.services";
 import { DocumentTabsViewer } from "@/components/ui/document-tabs-viewer";
 import PDFViewer from "@/components/ui/pdf-viewer";
@@ -222,7 +222,8 @@ export default function Application() {
   // Pre-populate from backend data
   useEffect(() => {
     if (!appData || hasLoaded) return;
-    const { profile, application, education, employment } = appData;
+    const { application, educationRecords: education, employmentRecords: employment } = appData;
+    const profile = application?.member;
 
     let savedLocal: any = null;
     let savedStep = 0;
@@ -327,9 +328,6 @@ export default function Application() {
 
   const STEPS = useMemo(() => {
     const list = [
-      "Practice Location",
-      "Entity Type",
-      "Category",
       "Personal Info",
     ];
     if (data.entityType === "Individual") {
@@ -406,7 +404,7 @@ export default function Application() {
 
   // ─── Auto-save mutation ────────────────────────────────────────────────────
   const saveMutation = useMutation({
-    mutationFn: applicantServices.saveApplication,
+    mutationFn: teacherServices.saveApplication,
     onSuccess: (res) => {
       // Update appId if newly created
       queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
@@ -418,7 +416,7 @@ export default function Application() {
 
   // ─── Education mutations ───────────────────────────────────────────────────
   const addEduMutation = useMutation({
-    mutationFn: applicantServices.addEducation,
+    mutationFn: (data: any) => teacherServices.addEducation(data.applicationId, data),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
       toast.success("Education record saved");
@@ -438,7 +436,7 @@ export default function Application() {
   });
 
   const delEduMutation = useMutation({
-    mutationFn: applicantServices.deleteEducation,
+    mutationFn: (recordId: string) => teacherServices.deleteEducation(appId!, recordId),
     onSuccess: (_, deletedId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
       toast.success("Education record removed");
@@ -455,7 +453,7 @@ export default function Application() {
 
   // ─── Employment mutations ──────────────────────────────────────────────────
   const addEmpMutation = useMutation({
-    mutationFn: applicantServices.addEmployment,
+    mutationFn: (data: any) => teacherServices.addEmployment(data.applicationId, data),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
       toast.success("Employment record saved");
@@ -475,7 +473,7 @@ export default function Application() {
   });
 
   const delEmpMutation = useMutation({
-    mutationFn: applicantServices.deleteEmployment,
+    mutationFn: (recordId: string) => teacherServices.deleteEmployment(appId!, recordId),
     onSuccess: (_, deletedId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
       toast.success("Employment record removed");
@@ -492,7 +490,7 @@ export default function Application() {
 
   // ─── Mentorship mutation ───────────────────────────────────────────────────
   const mentorshipMutation = useMutation({
-    mutationFn: applicantServices.saveMentorship,
+    mutationFn: (data: any) => teacherServices.saveMentorship(data.applicationId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
       toast.success("Mentor saved successfully!");
@@ -508,7 +506,7 @@ export default function Application() {
   });
 
   const delMentorMutation = useMutation({
-    mutationFn: (regNumber: string) => applicantServices.deleteMentorshipOption(appId!, regNumber),
+    mutationFn: (regNumber: string) => teacherServices.deleteMentorshipOption(appId!, regNumber),
     onSuccess: (_, deletedRegNumber) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
       toast.success("Mentor removed successfully!");
@@ -525,7 +523,7 @@ export default function Application() {
 
   // ─── Submit mutation ───────────────────────────────────────────────────────
   const submitMutation = useMutation({
-    mutationFn: applicantServices.submitApplication,
+    mutationFn: teacherServices.submitApplication,
     onSuccess: () => {
       localStorage.removeItem('riqs_app_draft');
       localStorage.removeItem('riqs_app_step');
@@ -546,14 +544,8 @@ export default function Application() {
       if (rounded < 99.9 || rounded > 100.1) {
          return toast.error("The firm shareholders' shares must sum to 100%.");
       }
-      if (appId) {
-        applicantServices.saveShareholders(appId, data.personal.shareholders.map((s: any) => ({
-          ...s,
-          phoneNumber: s.phone,
-          riqsMembershipId: s.membershipId,
-        }))).catch(err => toast.error("Failed to save firm shareholders: " + (err?.response?.data?.error || err.message)));
-      }
     }
+    // Note: Firm shareholders not supported in teacher registration flow
 
     if (!data.categoryId && step >= 2) {
       // Skip auto-save if no categoryId yet (steps 0-1)
@@ -791,7 +783,7 @@ function WizardContent({
         if (d.documentType === "PassportPhoto") {
           if (!photoPreview) {
             setIsPhotoLoading(true);
-            applicantServices.downloadDocument(d.id)
+            teacherServices.downloadDocument(d.id)
               .then((blob) => setPhotoPreview(URL.createObjectURL(blob)))
               .catch((err) => console.error("Failed to load passport photo", err))
               .finally(() => setIsPhotoLoading(false));
@@ -799,7 +791,7 @@ function WizardContent({
         } else {
           setData((prev: any) => {
             if (!prev.docs[d.documentType]) {
-              applicantServices.downloadDocument(d.id)
+              teacherServices.downloadDocument(d.id)
                 .then((blob) => {
                   const isImg = blob.type.startsWith("image/") || d.fileName?.match(/\.(jpeg|jpg|gif|png)$/i);
                   setData((curr: any) => ({
@@ -840,7 +832,7 @@ function WizardContent({
       formData.append("file", file);
       formData.append("applicationId", appId);
       formData.append("documentType", "PassportPhoto");
-      return applicantServices.uploadDocument(formData);
+      return teacherServices.uploadDocument(formData);
     },
     onSuccess: () => {
       toast.success("Passport photo uploaded successfully!");
@@ -859,7 +851,7 @@ function WizardContent({
       formData.append("file", file);
       formData.append("applicationId", appId);
       formData.append("documentType", documentType);
-      return applicantServices.uploadDocument(formData);
+      return teacherServices.uploadDocument(formData);
     },
     onSuccess: (data, variables) => {
       toast.success(variables.file.name + " uploaded successfully!");
@@ -871,7 +863,7 @@ function WizardContent({
 
   const deleteDocumentMutation = useMutation({
     mutationFn: async ({ appId, documentType }: { appId: string, documentType: string }) => {
-      return applicantServices.deleteDocumentByType(appId, documentType);
+      return teacherServices.deleteDocumentByType(appId, documentType);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });

@@ -113,7 +113,7 @@ export default function MembersPage() {
                     <SelectTrigger className="h-11 w-[160px] border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="Category" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All categories</SelectItem>
-                      {(["Student", "Graduate", "Technologist", "Professional", "Fellow", "Firm"]).map(c => (
+                      {(["Graduate", "Technologist", "Professional", "Firm_Local_Small", "Firm_Local_Medium", "Firm_Local_Large", "Firm_Foreign_Small", "Firm_Foreign_Medium", "Firm_Foreign_Large"]).map(c => (
                         <SelectItem key={c} value={c}>{c}</SelectItem>
                       ))}
                     </SelectContent>

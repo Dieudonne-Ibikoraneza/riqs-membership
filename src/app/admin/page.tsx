@@ -4,23 +4,56 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { APPLICATIONS } from "@/lib/mock-data";
+import { getApplicationsQueue } from "@/lib/api/admin";
+import { useQuery } from "@tanstack/react-query";
 import {
   ClipboardList,
   Users,
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
+  Loader2,
+  Clock,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function AdminOverview() {
-  const pending = APPLICATIONS.filter((a) => a.status === "Pending").length;
-  const review = APPLICATIONS.filter((a) => a.status === "Under Review").length;
-  const correction = APPLICATIONS.filter(
-    (a) => a.status === "Correction Required",
-  ).length;
-  const approved = APPLICATIONS.filter((a) => a.status === "Approved").length;
+  const { data: pendingData } = useQuery({
+    queryKey: ["adminQueue", "Pending"],
+    queryFn: () => getApplicationsQueue(1, 1, "Pending", "all"),
+  });
+  
+  const { data: reviewData } = useQuery({
+    queryKey: ["adminQueue", "Under_Review"],
+    queryFn: () => getApplicationsQueue(1, 1, "Under_Review", "all"),
+  });
+  
+  const { data: correctionData } = useQuery({
+    queryKey: ["adminQueue", "Correction_Required"],
+    queryFn: () => getApplicationsQueue(1, 1, "Correction_Required", "all"),
+  });
+
+  const { data: approvedData } = useQuery({
+    queryKey: ["adminQueue", "Approved"],
+    queryFn: () => getApplicationsQueue(1, 1, "Approved", "all"),
+  });
+  
+  const { data: pendingApprovalData } = useQuery({
+    queryKey: ["adminQueue", "Pending_Approval"],
+    queryFn: () => getApplicationsQueue(1, 1, "Pending_Approval", "all"),
+  });
+
+  const { data: recentData, isLoading: recentLoading } = useQuery({
+    queryKey: ["adminQueue", "recent"],
+    queryFn: () => getApplicationsQueue(1, 6, "all", "all"),
+  });
+
+  const pending = pendingData?.pagination.total || 0;
+  const review = reviewData?.pagination.total || 0;
+  const correction = correctionData?.pagination.total || 0;
+  const pendingApproval = pendingApprovalData?.pagination.total || 0;
+  const approved = approvedData?.pagination.total || 0;
+  const recentApplications = recentData?.queue || [];
 
   const stats = [
     {
@@ -45,6 +78,13 @@ export default function AdminOverview() {
       bg: "bg-orange-50 dark:bg-orange-950/20",
     },
     {
+      i: Clock,
+      label: "Pending Approval",
+      v: pendingApproval,
+      c: "text-purple-600",
+      bg: "bg-purple-50 dark:bg-purple-950/20",
+    },
+    {
       i: CheckCircle2,
       label: "Approved",
       v: approved,
@@ -63,7 +103,7 @@ export default function AdminOverview() {
       </div>
 
       {/* Grid Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5 stagger">
         {stats.map((s, index) => (
           <motion.div
             key={s.label}
@@ -101,7 +141,11 @@ export default function AdminOverview() {
           </Link>
         </CardHeader>
         <CardContent className="space-y-2">
-          {APPLICATIONS.slice(0, 6).map((a, index) => (
+          {recentLoading ? (
+            <div className="flex h-32 items-center justify-center">
+               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : recentApplications.map((a, index) => (
             <motion.div
               key={a.id}
               initial={{ opacity: 0, x: -10 }}
@@ -114,17 +158,17 @@ export default function AdminOverview() {
               >
                 <div>
                   <div className="font-semibold text-zinc-800 dark:text-zinc-200">
-                    {a.applicantName}
+                    {a.full_name}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {a.id} · {a.category} · {a.practiceLocation}
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {a.id.split('-')[0]} · {a.category_name} · {a.location}
                   </div>
                 </div>
                 <Badge
                   variant="outline"
                   className="border-zinc-200 dark:border-zinc-700 bg-white/50 dark:bg-black/50"
                 >
-                  {a.status}
+                  {a.status.replace(/_/g, " ")}
                 </Badge>
               </Link>
             </motion.div>

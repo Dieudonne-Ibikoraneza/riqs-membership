@@ -3,7 +3,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getApplicationDetail, submitReviewDecision } from "@/lib/api/admin";
+import { getApplicationDetail, submitReviewerAction, submitApproverDecision } from "@/lib/api/admin";
+import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import {
   RotateCw,
   RotateCcw,
   Maximize2,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -63,6 +65,7 @@ interface PageProps {
 export default function Review({ params }: PageProps) {
   const { id } = React.use(params);
   const router = useRouter();
+  const { role } = useAuth();
   const [app, setApp] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -70,9 +73,10 @@ export default function Review({ params }: PageProps) {
   const [zoom, setZoom] = useState(1);
   const [rot, setRot] = useState(0);
   const [dialog, setDialog] = useState<
-    null | "approve" | "reject" | "correction"
+    null | "approve" | "reject" | "correction" | "forward"
   >(null);
   const [note, setNote] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const prevDoc = useRef(activeDoc);
   const [direction, setDirection] = useState(0);
@@ -89,6 +93,8 @@ export default function Review({ params }: PageProps) {
           national_id_or_passport: res.application.national_id_or_passport || "Not provided",
           category: res.application.category_name,
           entityType: res.application.cat_entity_type || "Individual",
+          firmName: res.application.firm_name,
+          firmAddress: res.application.firm_address,
           practiceLocation: res.application.location,
           status: res.application.status.replace("_", " "),
           submittedAt: res.application.submittedAt ? new Date(res.application.submittedAt).toISOString().split('T')[0] : "Unknown",
@@ -104,10 +110,13 @@ export default function Review({ params }: PageProps) {
             to: e.endDate ? new Date(e.endDate).toISOString().slice(0, 7) : undefined
           })),
           mentorship: res.mentorship ? {
-            mentor: "Assigned Mentor",
+            mentor: res.mentorship.mentorName || (res.mentorship.requestedInstitutionalAssignment ? "Requested Institutional Assignment" : "Unassigned"),
             startedAt: new Date(res.mentorship.createdAt).toISOString().split('T')[0],
-            progress: 0
+            progress: res.mentorship.completedDurationMonths || 0,
+            contact: res.mentorship.mentorContact || "",
+            qualification: res.mentorship.mentorQualification || ""
           } : null,
+          shareholders: res.shareholders || [],
           documents: (res.documents || []).map((d: any) => {
             const token = typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : '';
             const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
@@ -157,21 +166,27 @@ export default function Review({ params }: PageProps) {
     );
   }
 
-  const handle = async (action: "approve" | "reject" | "correction") => {
-    if (action !== "approve" && !note.trim()) {
+  const handle = async (action: "approve" | "reject" | "correction" | "forward") => {
+    if (action !== "approve" && action !== "forward" && !note.trim()) {
       return toast.error("Please add a note explaining the reason");
     }
 
-    const apiAction = action === "approve" ? "Approve" : action === "reject" ? "Reject" : "Flag";
-
+    setIsSubmitting(true);
     try {
-      await submitReviewDecision(app.id, apiAction, note);
+      if (action === "approve" || action === "reject") {
+        await submitApproverDecision(app.id, action === "approve" ? "Approve" : "Reject", note);
+      } else {
+        await submitReviewerAction(app.id, action === "correction" ? "ReturnForCorrection" : "ForwardToApprover", note);
+      }
+
       const msg =
         action === "approve"
-          ? `Application successfully approved`
+          ? "Application successfully approved"
           : action === "reject"
             ? "Application successfully rejected"
-            : "Correction request successfully sent to applicant";
+            : action === "forward"
+              ? "Application forwarded to Approver"
+              : "Correction request successfully sent to applicant";
 
       toast.success(msg);
       setDialog(null);
@@ -180,6 +195,8 @@ export default function Review({ params }: PageProps) {
       setTimeout(() => router.push("/admin/applications"), 650);
     } catch (err: any) {
       toast.error(err?.response?.data?.error || "Failed to process decision");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -226,29 +243,45 @@ export default function Review({ params }: PageProps) {
         </div>
 
         <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:justify-end justify-center items-center">
-          <Button
-            variant="outline"
-            className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-900/50 dark:text-orange-400 dark:hover:bg-orange-950/20"
-            onClick={() => setDialog("correction")}
-          >
-            <AlertTriangle className="mr-2 h-4 w-4" />
-            Flag correction
-          </Button>
-          <Button
-            variant="outline"
-            className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20"
-            onClick={() => setDialog("reject")}
-          >
-            <X className="mr-2 h-4 w-4" />
-            Reject
-          </Button>
-          <Button
-            className="bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-emerald"
-            onClick={() => setDialog("approve")}
-          >
-            <Check className="mr-2 h-4 w-4" />
-            Approve
-          </Button>
+          {app.status === "Under Review" && (role === "Reviewer" || role === "Admin") && (
+            <>
+              <Button
+                variant="outline"
+                className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-900/50 dark:text-orange-400 dark:hover:bg-orange-950/20"
+                onClick={() => setDialog("correction")}
+              >
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                Flag correction
+              </Button>
+              <Button
+                className="bg-navy hover:bg-navy/90 text-white border-none"
+                onClick={() => setDialog("forward")}
+              >
+                <Check className="mr-2 h-4 w-4" />
+                Forward to Approver
+              </Button>
+            </>
+          )}
+
+          {app.status === "Pending Approval" && (role === "Approver" || role === "Admin") && (
+            <>
+              <Button
+                variant="outline"
+                className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20"
+                onClick={() => setDialog("reject")}
+              >
+                <X className="mr-2 h-4 w-4" />
+                Reject
+              </Button>
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-emerald"
+                onClick={() => setDialog("approve")}
+              >
+                <Check className="mr-2 h-4 w-4" />
+                Approve
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -271,75 +304,85 @@ export default function Review({ params }: PageProps) {
                 <Row k="Phone" v={app.phone} />
                 <Row k="Category" v={app.category} highlight />
                 <Row k="Entity" v={app.entityType} />
-                <Row k="National ID/Passport" v={app.national_id_or_passport} />
+                {app.entityType !== "Firm" && <Row k="National ID/Passport" v={app.national_id_or_passport} />}
+                {app.entityType === "Firm" && app.firmName && <Row k="Firm Name" v={app.firmName} />}
+                {app.entityType === "Firm" && app.firmAddress && <Row k="Firm Address" v={app.firmAddress} />}
                 <Row k="Practice location" v={app.practiceLocation} />
               </CardContent>
             </Card>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, x: -15 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.05 }}
-          >
-            <Card className="border-zinc-100 dark:border-zinc-800">
-              <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
-                <CardTitle className="text-sm font-bold text-navy">
-                  Education Background
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 space-y-2 text-sm">
-                {app.education.map((e: any, i: number) => (
-                  <div
-                    key={i}
-                    className="rounded border border-zinc-100 dark:border-zinc-800 p-2.5 bg-zinc-50/55"
-                  >
-                    <div className="font-semibold text-zinc-850 dark:text-zinc-200">
-                      {e.degree}
+          {app.entityType === "Individual" && (
+            <motion.div
+              initial={{ opacity: 0, x: -15 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.05 }}
+            >
+              <Card className="border-zinc-100 dark:border-zinc-800">
+                <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
+                  <CardTitle className="text-sm font-bold text-navy">
+                    Education Background
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-2 text-sm">
+                  {app.education.length > 0 ? app.education.map((e: any, i: number) => (
+                    <div
+                      key={i}
+                      className="rounded border border-zinc-100 dark:border-zinc-800 p-2.5 bg-zinc-50/55"
+                    >
+                      <div className="font-semibold text-zinc-850 dark:text-zinc-200">
+                        {e.degree}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {e.institution} ·{" "}
+                        {e.startMonthYear
+                          ? formatMonthYear(e.startMonthYear)
+                          : e.year}
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {e.institution} ·{" "}
-                      {e.startMonthYear
-                        ? formatMonthYear(e.startMonthYear)
-                        : e.year}
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </motion.div>
+                  )) : (
+                    <div className="text-muted-foreground italic">No education records provided.</div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
-          <motion.div
-            initial={{ opacity: 0, x: -15 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <Card className="border-zinc-100 dark:border-zinc-800">
-              <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
-                <CardTitle className="text-sm font-bold text-navy">
-                  Employment History
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 space-y-2 text-sm">
-                {app.employment.map((e: any, i: number) => (
-                  <div
-                    key={i}
-                    className="rounded border border-zinc-100 dark:border-zinc-800 p-2.5 bg-zinc-50/55"
-                  >
-                    <div className="font-semibold text-zinc-850 dark:text-zinc-200">
-                      {e.role}
+          {app.entityType === "Individual" && (
+            <motion.div
+              initial={{ opacity: 0, x: -15 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="border-zinc-100 dark:border-zinc-800">
+                <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
+                  <CardTitle className="text-sm font-bold text-navy">
+                    Employment History
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-2 text-sm">
+                  {app.employment.length > 0 ? app.employment.map((e: any, i: number) => (
+                    <div
+                      key={i}
+                      className="rounded border border-zinc-100 dark:border-zinc-800 p-2.5 bg-zinc-50/55"
+                    >
+                      <div className="font-semibold text-zinc-850 dark:text-zinc-200">
+                        {e.role}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {e.company} · {formatMonthYear(e.from)} —{" "}
+                        {formatMonthYear(e.to) || "Present"}
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {e.company} · {formatMonthYear(e.from)} —{" "}
-                      {formatMonthYear(e.to) || "Present"}
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </motion.div>
+                  )) : (
+                    <div className="text-muted-foreground italic">No employment records provided.</div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
-          {app.mentorship && (
+          {app.entityType === "Individual" && app.mentorship && (
             <motion.div
               initial={{ opacity: 0, x: -15 }}
               animate={{ opacity: 1, x: 0 }}
@@ -358,10 +401,55 @@ export default function Review({ params }: PageProps) {
                       {app.mentorship.mentor}
                     </strong>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
+                  {app.mentorship.contact && (
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
+                      {app.mentorship.contact}
+                    </div>
+                  )}
+                  {app.mentorship.qualification && (
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                      {app.mentorship.qualification}
+                    </div>
+                  )}
+                  <div className="text-xs text-muted-foreground mt-1.5 pt-1 border-t border-zinc-100 dark:border-zinc-800/60">
                     Started {app.mentorship.startedAt} ·{" "}
-                    {app.mentorship.progress}% progress logs submitted
+                    {app.mentorship.progress} months completed
                   </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {app.entityType === "Firm" && app.shareholders && (
+            <motion.div
+              initial={{ opacity: 0, x: -15 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="border-zinc-100 dark:border-zinc-800">
+                <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
+                  <CardTitle className="text-sm font-bold text-navy">
+                    Firm Shareholders
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-2 text-sm">
+                  {app.shareholders.length > 0 ? app.shareholders.map((sh: any, i: number) => (
+                    <div
+                      key={i}
+                      className="rounded border border-zinc-100 dark:border-zinc-800 p-2.5 bg-zinc-50/55"
+                    >
+                      <div className="font-semibold text-zinc-850 dark:text-zinc-200 flex justify-between">
+                        <span>{sh.fullName}</span>
+                        <span className="text-gold font-bold">{sh.shareholdingPercentage}%</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {sh.email} {sh.phoneNumber && `· ${sh.phoneNumber}`}
+                        {sh.riqsMembershipId && <span> · ID: {sh.riqsMembershipId}</span>}
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="text-muted-foreground italic">No shareholders provided.</div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
@@ -490,6 +578,7 @@ export default function Review({ params }: PageProps) {
               {dialog === "approve" && "Confirm approval"}
               {dialog === "reject" && "Confirm rejection"}
               {dialog === "correction" && "Request corrections"}
+              {dialog === "forward" && "Forward to Approver"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm py-2">
@@ -500,33 +589,45 @@ export default function Review({ params }: PageProps) {
                 "An administrative reason is required and will be sent directly to the candidate."}
               {dialog === "correction" &&
                 "Specify the files or descriptions requiring update. The registration process will be suspended until complete."}
+              {dialog === "forward" &&
+                "The application will be sent to the Approver queue for final decision. You may include an optional note."}
             </p>
             <Textarea
               rows={4}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder={
-                dialog === "approve"
-                  ? "Optional congratulatory note..."
+                (dialog === "approve" || dialog === "forward")
+                  ? "Optional note..."
                   : "Describe outstanding issues..."
               }
             />
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setDialog(null)}>
+            <Button variant="ghost" onClick={() => setDialog(null)} disabled={isSubmitting}>
               Cancel
             </Button>
             <Button
               onClick={() => dialog && handle(dialog)}
+              disabled={isSubmitting || ((dialog === "correction" || dialog === "reject") && !note.trim())}
               className={
                 dialog === "approve"
                   ? "bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-emerald"
                   : dialog === "reject"
                     ? "bg-red-600 hover:bg-red-700 text-white border-none shadow-destructive"
-                    : "bg-orange-600 hover:bg-orange-700 text-white border-none shadow-orange"
+                    : dialog === "forward"
+                      ? "bg-navy hover:bg-navy/90 text-white border-none"
+                      : "bg-orange-600 hover:bg-orange-700 text-white border-none shadow-orange"
               }
             >
-              Confirm
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Confirm"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

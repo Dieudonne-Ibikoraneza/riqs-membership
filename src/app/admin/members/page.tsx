@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { MEMBERS, type MemberCategory } from "@/lib/mock-data";
+import { useMemo, useState, useEffect } from "react";
+import { getMembersRegistry, type AdminMemberRegistryResponse } from "@/lib/api/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ import {
   CheckCircle2,
   Clock,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,51 +43,47 @@ export default function AdminMembers() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
   const pageSize = 8;
+  
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<AdminMemberRegistryResponse | null>(null);
 
-  // Filter and sort members
-  const filtered = useMemo(() => {
-    const arr = MEMBERS.filter((m) => {
-      // Search by name, membership ID, or email
-      if (
-        q &&
-        !`${m.fullName} ${m.membershipId} ${m.email}`
-          .toLowerCase()
-          .includes(q.toLowerCase())
-      )
-        return false;
-      // Filter by status
-      if (statusFilter !== "all" && m.status !== statusFilter) return false;
-      // Filter by category
-      if (catFilter !== "all" && m.category !== catFilter) return false;
-      // Filter by practice location
-      if (locFilter !== "all" && m.practiceLocation !== locFilter) return false;
-      return true;
-    });
-
-    arr.sort((a, b) => {
-      let comparison = 0;
-      if (sortKey === "name") {
-        comparison = a.fullName.localeCompare(b.fullName);
-      } else if (sortKey === "id") {
-        comparison = a.membershipId.localeCompare(b.membershipId);
-      } else if (sortKey === "expiry") {
-        comparison = a.expiresAt.localeCompare(b.expiresAt);
-      } else if (sortKey === "status") {
-        comparison = a.status.localeCompare(b.status);
+  useEffect(() => {
+    let active = true;
+    const fetchMembers = async () => {
+      setLoading(true);
+      try {
+        const response = await getMembersRegistry(
+          page,
+          pageSize,
+          q,
+          statusFilter,
+          catFilter,
+          locFilter,
+          sortKey,
+          sortDir
+        );
+        if (active) setData(response);
+      } catch (error) {
+        console.error("Failed to fetch members:", error);
+      } finally {
+        if (active) setLoading(false);
       }
-      return sortDir === "asc" ? comparison : -comparison;
-    });
+    };
+    
+    // Simple debounce for search
+    const timer = setTimeout(() => {
+      fetchMembers();
+    }, 300);
+    
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [page, pageSize, q, statusFilter, catFilter, locFilter, sortKey, sortDir]);
 
-    return arr;
-  }, [q, statusFilter, catFilter, locFilter, sortKey, sortDir]);
-
-  // Pagination bounds safety
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const totalPages = data ? Math.max(1, Math.ceil(data.pagination.total / pageSize)) : 1;
   const safePage = Math.min(page, totalPages);
-  const pageData = filtered.slice(
-    (safePage - 1) * pageSize,
-    safePage * pageSize,
-  );
+  const pageData = data?.members || [];
 
   const resetFilters = () => {
     setQ("");
@@ -198,9 +195,13 @@ export default function AdminMembers() {
                         "Graduate",
                         "Technologist",
                         "Professional",
-                        "Fellow",
-                        "Firm",
-                      ] as MemberCategory[]
+                        "Firm_Local_Small",
+                        "Firm_Local_Medium",
+                        "Firm_Local_Large",
+                        "Firm_Foreign_Small",
+                        "Firm_Foreign_Medium",
+                        "Firm_Foreign_Large",
+                      ]
                     ).map((c) => (
                       <SelectItem key={c} value={c}>
                         {c}
@@ -266,9 +267,9 @@ export default function AdminMembers() {
                 <span className="text-muted-foreground font-sans">
                   Showing{" "}
                   <span className="font-semibold text-navy dark:text-gold">
-                    {filtered.length}
+                    {data?.pagination.total || 0}
                   </span>{" "}
-                  member{filtered.length !== 1 && "s"} in directory
+                  member{(data?.pagination.total || 0) !== 1 && "s"} in directory
                 </span>
                 {activeFiltersCount > 0 && (
                   <>
@@ -295,7 +296,16 @@ export default function AdminMembers() {
       </Card>
 
       {/* Members table card */}
-      {pageData.length === 0 ? (
+      {loading ? (
+        <Card className="border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-950/10">
+          <CardContent className="py-24 flex flex-col items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-gold" />
+            <p className="mt-4 text-sm text-muted-foreground font-sans">
+              Loading members...
+            </p>
+          </CardContent>
+        </Card>
+      ) : pageData.length === 0 ? (
         <Card className="border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-950/10">
           <CardContent className="py-16 text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-zinc-100 dark:bg-zinc-800 text-muted-foreground">
@@ -351,7 +361,7 @@ export default function AdminMembers() {
                   >
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <Avatar name={m.fullName} />
+                        <Avatar name={m.fullName} url={m.photo} />
                         <div>
                           <div className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
                             {m.fullName}
@@ -429,7 +439,25 @@ export default function AdminMembers() {
   );
 }
 
-function Avatar({ name }: { name: string }) {
+function Avatar({ name, url }: { name: string; url?: string }) {
+  const [token, setToken] = useState("");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setToken(localStorage.getItem("riqs.auth.token") || "");
+    }
+  }, []);
+
+  const fullUrl = url && token ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/download/${url}?token=${token}` : null;
+
+  if (fullUrl) {
+    return (
+      <img
+        src={fullUrl}
+        alt={name}
+        className="flex h-10 w-10 shrink-0 object-cover rounded-full shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+      />
+    );
+  }
   const initials = name
     .split(" ")
     .map((s) => s[0])

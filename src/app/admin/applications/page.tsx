@@ -86,7 +86,8 @@ export default function AdminApps() {
           practiceLocation: a.location,
           submittedAt: new Date(a.submitted_at).toISOString().split('T')[0],
           status: a.status.replace("_", " "),
-          reviewer: a.reviewer || "Unassigned"
+          reviewer: a.reviewer || "Unassigned",
+          photoId: a.photoId
         }));
         setApplications(mapped);
         setTotalPages(Math.max(1, Math.ceil(res.pagination.total / pageSize)));
@@ -210,9 +211,11 @@ export default function AdminApps() {
           </p>
         </div>
         <Tabs value={view} onValueChange={(v) => { setView(v as any); setPage(1); }} className="w-full sm:w-auto">
-          <TabsList className="grid w-full grid-cols-3 bg-zinc-100 dark:bg-zinc-800">
+          <TabsList className={cn("grid w-full bg-zinc-100 dark:bg-zinc-800", role?.toLowerCase() === "approver" ? "grid-cols-2" : "grid-cols-3")}>
             <TabsTrigger value="queue">Queue</TabsTrigger>
-            <TabsTrigger value="assigned">My Assigned</TabsTrigger>
+            {role?.toLowerCase() !== "approver" && (
+              <TabsTrigger value="assigned">My Assigned</TabsTrigger>
+            )}
             <TabsTrigger value="all">All</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -283,8 +286,12 @@ export default function AdminApps() {
                       "Graduate",
                       "Technologist",
                       "Professional",
-                      "Fellow",
-                      "Firm",
+                      "Firm_Local_Small",
+                      "Firm_Local_Medium",
+                      "Firm_Local_Large",
+                      "Firm_Foreign_Small",
+                      "Firm_Foreign_Medium",
+                      "Firm_Foreign_Large",
                     ].map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
@@ -484,7 +491,7 @@ export default function AdminApps() {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <Avatar name={a.applicantName} />
+                        <Avatar name={a.applicantName} url={a.photoId} />
                         <div>
                           <div className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
                             {a.applicantName}
@@ -551,7 +558,26 @@ export default function AdminApps() {
   );
 }
 
-function Avatar({ name }: { name: string }) {
+function Avatar({ name, url }: { name: string; url?: string }) {
+  const [token, setToken] = useState("");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setToken(localStorage.getItem("riqs.auth.token") || "");
+    }
+  }, []);
+
+  const fullUrl = url && token ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/download/${url}?token=${token}` : null;
+
+  if (fullUrl) {
+    return (
+      <img
+        src={fullUrl}
+        alt={name}
+        className="flex h-10 w-10 shrink-0 object-cover rounded-full shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+      />
+    );
+  }
+
   const initials = name
     .split(" ")
     .map((s) => s[0])

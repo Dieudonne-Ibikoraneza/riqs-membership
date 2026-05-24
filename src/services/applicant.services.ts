@@ -23,6 +23,7 @@ export interface ApplicantProfileResponse {
     category_name: string;
     submittedAt: string | null;
     approvedAt?: string | null;
+    reviewerNotes?: string | null;
   } | null;
   education: Array<{
     id: string;
@@ -93,6 +94,11 @@ export const applicantServices = {
 
   submitApplication: async (applicationId: string): Promise<any> => {
     const response = await axiosClient.post('/applicants/submit', { applicationId });
+    return response.data;
+  },
+
+  saveShareholders: async (applicationId: string, shareholders: any[]): Promise<any> => {
+    const response = await axiosClient.put('/applicants/shareholders', { applicationId, shareholders });
     return response.data;
   },
 
@@ -172,6 +178,11 @@ export const applicantServices = {
 
   getMentorshipProgress: async (): Promise<any> => {
     const response = await axiosClient.get('/progression/mentorship/progress');
+    return response.data;
+  },
+
+  getPaymentHistory: async (): Promise<any> => {
+    const response = await axiosClient.get('/payments/history');
     return response.data;
   },
 };

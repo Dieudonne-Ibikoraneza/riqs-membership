@@ -6,6 +6,7 @@ export const queryKeys = {
   applicant: {
     profile: () => ['applicant', 'profile'] as const,
     applicationStatus: () => ['applicant', 'applicationStatus'] as const,
+    payments: () => ['applicant', 'payments'] as const,
   },
   mentorship: {
     progress: () => ['mentorship', 'progress'] as const,

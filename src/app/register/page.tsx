@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { PasswordStrength } from "@/components/ui/PasswordStrength";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Register() {
   const { startSignup, verifyOtp, pending, cancelPending } = useAuth();
@@ -22,6 +23,8 @@ export default function Register() {
   const [form, setForm] = useState({ name: "", email: "", pw: "", pw2: "" });
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const [showPw2, setShowPw2] = useState(false);
   const upd = (k: string, v: string) => setForm((s) => ({ ...s, [k]: v }));
 
   const submit = async (e: React.FormEvent) => {
@@ -96,26 +99,48 @@ export default function Register() {
                       placeholder="e.g. john@example.com"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Password</Label>
-                      <Input
-                        type="password"
-                        value={form.pw}
-                        onChange={(e) => upd("pw", e.target.value)}
-                        placeholder="Create a password"
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Password</Label>
+                        <div className="relative">
+                          <Input
+                            type={showPw ? "text" : "password"}
+                            value={form.pw}
+                            onChange={(e) => upd("pw", e.target.value)}
+                            placeholder="Create a password"
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPw(!showPw)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                            tabIndex={-1}
+                          >
+                            {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Confirm</Label>
+                        <div className="relative">
+                          <Input
+                            type={showPw2 ? "text" : "password"}
+                            value={form.pw2}
+                            onChange={(e) => upd("pw2", e.target.value)}
+                            placeholder="Confirm password"
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPw2(!showPw2)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                            tabIndex={-1}
+                          >
+                            {showPw2 ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <Label>Confirm</Label>
-                      <Input
-                        type="password"
-                        value={form.pw2}
-                        onChange={(e) => upd("pw2", e.target.value)}
-                        placeholder="Confirm password"
-                      />
-                    </div>
-                  </div>
                   
                   <div className="mt-2">
                     <PasswordStrength password={form.pw} confirmPassword={form.pw2} />

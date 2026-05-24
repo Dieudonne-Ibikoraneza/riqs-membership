@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import Image from "next/image";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const { startLogin, verifyOtp, pending, cancelPending } = useAuth();
@@ -23,6 +24,7 @@ export default function Login() {
   const [pw, setPw] = useState("");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,13 +107,24 @@ export default function Login() {
                         Forgot password?
                       </Link>
                     </div>
-                    <Input
-                      id="pw"
-                      type="password"
-                      value={pw}
-                      onChange={(e) => setPw(e.target.value)}
-                      placeholder="Enter your password"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="pw"
+                        type={showPw ? "text" : "password"}
+                        value={pw}
+                        onChange={(e) => setPw(e.target.value)}
+                        placeholder="Enter your password"
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPw(!showPw)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                        tabIndex={-1}
+                      >
+                        {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                   <Button
                     type="submit"

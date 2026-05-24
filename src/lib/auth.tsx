@@ -60,6 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const startLogin = async (em: string, pw: string) => {
     try {
+      localStorage.removeItem("riqs_app_draft");
+      localStorage.removeItem("riqs_app_step");
       await authServices.login({ email: em, password: pw });
       setPending({ email: em, name: null, role: "Standard", isMentor: false, isTeacher: false, isStudent: false, mode: "login" });
       return true;
@@ -71,6 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const startSignup = async (nm: string, em: string, pw: string) => {
     try {
+      localStorage.removeItem("riqs_app_draft");
+      localStorage.removeItem("riqs_app_step");
       await authServices.register({ fullName: nm, email: em, password: pw });
       setPending({ email: em, name: nm, role: "Standard", isMentor: false, isTeacher: false, isStudent: false, mode: "signup" });
       return true;
@@ -153,6 +157,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsMentor(false); setIsTeacher(false); setIsStudent(false);
     localStorage.removeItem(KEY);
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem("riqs_app_draft");
+    localStorage.removeItem("riqs_app_step");
   };
 
   return (

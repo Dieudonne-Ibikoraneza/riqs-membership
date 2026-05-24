@@ -86,8 +86,7 @@ export default function AdminApps() {
           practiceLocation: a.location,
           submittedAt: new Date(a.submitted_at).toISOString().split('T')[0],
           status: a.status.replace("_", " "),
-          reviewer: a.reviewer || "Unassigned",
-          photoId: a.photoId
+          reviewer: a.reviewer || "Unassigned"
         }));
         setApplications(mapped);
         setTotalPages(Math.max(1, Math.ceil(res.pagination.total / pageSize)));

@@ -106,7 +106,7 @@ export default function Profile() {
   const member = data.profile;
   const eduRecords = data.education || [];
   const empRecords = data.employment || [];
-  const isFirm = data.application?.entity_type === "Firm" || member.membershipClass?.includes("Firm");
+  const isFirm = data.application?.entityType === "Firm" || member.membershipClass?.includes("Firm");
 
   return (
     <div className="space-y-6">

@@ -24,8 +24,8 @@ export default function Payments() {
     queryFn: applicantServices.getProfile,
   });
 
-  const isFirm = data?.application?.entity_type === "Firm" || data?.profile?.membershipClass?.includes("Firm");
-  const feeNumber = data?.application?.annual_renewal_fee || 50000;
+  const isFirm = data?.application?.entityType === "Firm" || data?.profile?.membershipClass?.includes("Firm");
+  const feeNumber = (data?.application as any)?.annual_renewal_fee || 50000;
   const feeAmount = `RWF ${Number(feeNumber).toLocaleString()}`;
   const renewalDesc = isFirm ? "Company Annual Subscription" : "Annual Renewal";
 

@@ -77,7 +77,7 @@ export function AppShell({
     { href: "/dashboard/certificate", label: "Certificate", icon: Award },
     { href: "/dashboard/payments", label: "Payments", icon: Wallet },
     ...(isFirm ? [] : [{ href: "/dashboard/mentorship", label: isMentor ? "My Mentees" : "Mentorship", icon: GraduationCap }]),
-    ...(isTeacher ? [{ href: "/dashboard/students", label: "My Students", icon: Users }] : []),
+    ...(isTeacher ? [{ href: "/teacher", label: "Teacher Workspace", icon: Users }] : []),
     { href: "/dashboard/documents", label: "Documents", icon: Folder },
     { href: "/dashboard/communications", label: "Messages", icon: Mail },
   ];

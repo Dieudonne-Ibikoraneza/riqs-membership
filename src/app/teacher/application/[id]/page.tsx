@@ -44,6 +44,8 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/services/queryKeys";
+import { teacherServices } from "@/services/teacher.services";
+import { useParams, useRouter } from "next/navigation";
 import { applicantServices } from "@/services/applicant.services";
 import { publicServices } from "@/services/public.services";
 import { DocumentTabsViewer } from "@/components/ui/document-tabs-viewer";
@@ -163,15 +165,19 @@ function StatusBanner({ status }: { status: string }) {
 export default function Application() {
   const queryClient = useQueryClient();
 
+  const { id } = useParams() as { id: string };
+
   // Fetch existing application data
-  const { data: profileData, isLoading: profileLoading } = useQuery({
-    queryKey: queryKeys.applicant.profile(),
-    queryFn: applicantServices.getProfile,
+  const { data: appData, isLoading: profileLoading } = useQuery({
+    queryKey: ["teacherApp", id],
+    queryFn: () => teacherServices.getApplicationDetail(id),
   });
 
-  const appStatus = profileData?.application?.status;
-  const appId = profileData?.application?.id;
-  const reviewerNotes = profileData?.application?.reviewerNotes;
+  const activeApp = appData?.application;
+
+  const appStatus = appData?.application?.status;
+  const appId = appData?.application?.id;
+  const reviewerNotes = appData?.application?.reviewerNotes;
   const isEditable = !appStatus || appStatus === "Draft" || appStatus === "Correction_Required";
 
   // Fetch categories
@@ -215,8 +221,8 @@ export default function Application() {
 
   // Pre-populate from backend data
   useEffect(() => {
-    if (!profileData || hasLoaded) return;
-    const { profile, application, education, employment } = profileData;
+    if (!appData || hasLoaded) return;
+    const { profile, application, education, employment } = appData;
 
     let savedLocal: any = null;
     let savedStep = 0;
@@ -286,7 +292,7 @@ export default function Application() {
           to: emp.isCurrent ? "Present" : (emp.endDate ? emp.endDate.split("T")[0].substring(0, 7) : ""),
         })) : [{ company: "", role: "", from: "", to: "" }]),
       mentors: (() => {
-        const backendMentors = profileData?.mentorship?.options || [];
+        const backendMentors = appData?.mentorship?.options || [];
         const localMentors = savedLocal?.mentors?.length ? savedLocal.mentors : null;
         
         if (localMentors) {
@@ -304,12 +310,12 @@ export default function Application() {
         
         return [{ membershipId: "", name: "", contact: "", isSaved: false }];
       })(),
-      mentorPlan: savedLocal?.mentorPlan || profileData?.mentorship?.mentorshipPlan || "",
+      mentorPlan: savedLocal?.mentorPlan || appData?.mentorship?.mentorshipPlan || "",
     }));
     
     setStep(savedStep);
     setHasLoaded(true);
-  }, [profileData, hasLoaded]);
+  }, [appData, hasLoaded]);
 
   // Sync to local storage on every change once loaded
   useEffect(() => {
@@ -682,7 +688,7 @@ export default function Application() {
               submit={submit}
               next={next}
               back={back}
-              documents={profileData?.documents || []}
+              documents={appData?.documents || []}
               reviewerNotes={reviewerNotes}
             />
           </div>
@@ -718,7 +724,7 @@ export default function Application() {
       submit={submit}
       next={next}
       back={back}
-      documents={profileData?.documents || []}
+      documents={appData?.documents || []}
       reviewerNotes={reviewerNotes}
     />
   );

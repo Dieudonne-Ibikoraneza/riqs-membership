@@ -102,8 +102,12 @@ export function AppShell({
     ...(role === "Admin" ? [{ href: "/admin/audit", label: "Audit Log", icon: Shield }] : []),
   ];
 
+  const activeAppMatch = pathname.match(/^\/teacher\/application\/([^/]+)/);
+  const activeAppId = activeAppMatch ? activeAppMatch[1] : null;
+
   const teacherLinks = [
     { href: "/teacher", label: "My Students", icon: Users, exact: true },
+    ...(activeAppId ? [{ href: `/teacher/application/${activeAppId}`, label: "Application", icon: ClipboardList }] : []),
   ];
 
   const links = kind === "admin" ? adminLinks : kind === "teacher" ? teacherLinks : memberLinks;

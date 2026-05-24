@@ -228,9 +228,9 @@ export default function Application() {
     let savedLocal: any = null;
     let savedStep = 0;
     try {
-      const stored = localStorage.getItem('riqs_app_draft');
+      const stored = localStorage.getItem(`riqs_app_draft_${id}`);
       if (stored) savedLocal = JSON.parse(stored);
-      const sStep = localStorage.getItem('riqs_app_step');
+      const sStep = localStorage.getItem(`riqs_app_step_${id}`);
       if (sStep) savedStep = Number(sStep);
 
       // Force step 0 if application just switched to Correction Required
@@ -321,8 +321,8 @@ export default function Application() {
   // Sync to local storage on every change once loaded
   useEffect(() => {
     if (hasLoaded) {
-      localStorage.setItem('riqs_app_draft', JSON.stringify(data));
-      localStorage.setItem('riqs_app_step', step.toString());
+      localStorage.setItem(`riqs_app_draft_${id}`, JSON.stringify(data));
+      localStorage.setItem(`riqs_app_step_${id}`, step.toString());
     }
   }, [data, step, hasLoaded]);
 
@@ -525,8 +525,8 @@ export default function Application() {
   const submitMutation = useMutation({
     mutationFn: teacherServices.submitApplication,
     onSuccess: () => {
-      localStorage.removeItem('riqs_app_draft');
-      localStorage.removeItem('riqs_app_step');
+      localStorage.removeItem(`riqs_app_draft_${appId}`);
+      localStorage.removeItem(`riqs_app_step_${appId}`);
       queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
       toast.success("Application submitted successfully!");
     },
@@ -553,6 +553,7 @@ export default function Application() {
     if (data.categoryId) {
       // Fire and forget, no await or loading state to ensure instant transition
       saveMutation.mutate({
+        applicationId: appId,
         practiceLocation: data.practiceLocation,
         entityType: data.entityType,
         categoryId: data.categoryId,

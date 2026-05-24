@@ -222,8 +222,12 @@ export default function Application() {
   // Pre-populate from backend data
   useEffect(() => {
     if (!appData || hasLoaded) return;
-    const { application, educationRecords: education, employmentRecords: employment } = appData;
+    const application = appData.application;
     const profile = application?.member;
+    const education = application?.educationRecords || [];
+    const employment = application?.employmentRecords || [];
+    const mentorship = application?.mentorshipAssignment || null;
+    const uploadedDocs = application?.uploadedDocuments || [];
 
     let savedLocal: any = null;
     let savedStep = 0;
@@ -293,7 +297,7 @@ export default function Application() {
           to: emp.isCurrent ? "Present" : (emp.endDate ? emp.endDate.split("T")[0].substring(0, 7) : ""),
         })) : [{ company: "", role: "", from: "", to: "" }]),
       mentors: (() => {
-        const backendMentors = appData?.mentorship?.options || [];
+        const backendMentors = mentorship?.preferredMentors || [];
         const localMentors = savedLocal?.mentors?.length ? savedLocal.mentors : null;
         
         if (localMentors) {
@@ -311,7 +315,16 @@ export default function Application() {
         
         return [{ membershipId: "", name: "", contact: "", isSaved: false }];
       })(),
-      mentorPlan: savedLocal?.mentorPlan || appData?.mentorship?.mentorshipPlan || "",
+      mentorPlan: savedLocal?.mentorPlan || mentorship?.mentorshipPlan || "",
+      docs: savedLocal?.docs || (() => {
+        const loadedDocs: any = {};
+        if (uploadedDocs.length > 0) {
+          uploadedDocs.forEach((d: any) => {
+            loadedDocs[d.documentType] = d.fileName; // Put filename as placeholder to make hasDoc truthy
+          });
+        }
+        return loadedDocs;
+      })(),
     }));
     
     setStep(savedStep);
@@ -681,7 +694,7 @@ export default function Application() {
               submit={submit}
               next={next}
               back={back}
-              documents={appData?.documents || []}
+              documents={appData?.application?.uploadedDocuments || []}
               reviewerNotes={reviewerNotes}
             />
           </div>
@@ -717,7 +730,7 @@ export default function Application() {
       submit={submit}
       next={next}
       back={back}
-      documents={appData?.documents || []}
+      documents={appData?.application?.uploadedDocuments || []}
       reviewerNotes={reviewerNotes}
     />
   );

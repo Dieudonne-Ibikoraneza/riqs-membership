@@ -47,8 +47,22 @@ export default function Login() {
     
     toast.success("Welcome back");
     // Redirect based on role or simple default dashboard
-    if (email.toLowerCase().includes("admin") || email.toLowerCase().includes("reviewer") || email.toLowerCase().includes("approver")) {
+    const authDataRaw = localStorage.getItem("riqs.auth");
+    let storedRole = null;
+    let storedIsTeacher = false;
+    
+    if (authDataRaw) {
+      try {
+        const parsed = JSON.parse(authDataRaw);
+        storedRole = parsed.role;
+        storedIsTeacher = parsed.isTeacher;
+      } catch (e) {}
+    }
+
+    if (storedRole && ["Admin", "Reviewer", "Approver"].includes(storedRole)) {
       router.push("/admin");
+    } else if (storedIsTeacher) {
+      router.push("/teacher");
     } else {
       router.push("/dashboard");
     }

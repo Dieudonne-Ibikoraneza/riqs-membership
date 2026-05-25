@@ -70,6 +70,23 @@ export function AppShell({
     setIsFirm(firmStatus || false);
   }, [profileData]);
 
+  // Route protection and workspace boundary enforcement
+  useEffect(() => {
+    if (!role) return; // Wait until auth is hydrated
+
+    if (kind === "admin" && !["Admin", "Reviewer", "Approver"].includes(role)) {
+      router.replace(isTeacher ? "/teacher" : "/dashboard");
+    } else if (kind === "teacher" && !isTeacher) {
+      router.replace(["Admin", "Reviewer", "Approver"].includes(role) ? "/admin" : "/dashboard");
+    } else if (kind === "member" && !isStudent && !isMentor) {
+      if (isTeacher) {
+        router.replace("/teacher");
+      } else if (["Admin", "Reviewer", "Approver"].includes(role)) {
+        router.replace("/admin");
+      }
+    }
+  }, [role, kind, isTeacher, isStudent, isMentor, router]);
+
   const memberLinks = [
     { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
     { href: "/dashboard/profile", label: "My Profile", icon: User2 },

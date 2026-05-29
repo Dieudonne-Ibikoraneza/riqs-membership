@@ -145,34 +145,46 @@ export default function AdminOverview() {
             <div className="flex h-32 items-center justify-center">
                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : recentApplications.map((a, index) => (
-            <motion.div
-              key={a.id}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.03 }}
-            >
-              <Link
-                href={`/admin/applications/${a.id}`}
-                className="flex items-center justify-between rounded-md border border-zinc-100 dark:border-zinc-800 p-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/30"
+          ) : recentApplications.length > 0 ? (
+            recentApplications.map((a: any, index: number) => (
+              <motion.div
+                key={a.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.03 }}
               >
-                <div>
-                  <div className="font-semibold text-zinc-800 dark:text-zinc-200">
-                    {a.full_name}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {a.id.split('-')[0]} · {a.category_name} · {a.location}
-                  </div>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="border-zinc-200 dark:border-zinc-700 bg-white/50 dark:bg-black/50"
+                <Link
+                  href={`/admin/applications/${a.id}`}
+                  className="flex items-center justify-between rounded-md border border-zinc-100 dark:border-zinc-800 p-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/30"
                 >
-                  {a.status.replace(/_/g, " ")}
-                </Badge>
-              </Link>
-            </motion.div>
-          ))}
+                  <div>
+                    <div className="font-semibold text-zinc-800 dark:text-zinc-200">
+                      {a.full_name}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {a.id.split('-')[0]} · {a.category_name} · {a.location}
+                    </div>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="border-zinc-200 dark:border-zinc-700 bg-white/50 dark:bg-black/50"
+                  >
+                    {a.status.replace(/_/g, " ")}
+                  </Badge>
+                </Link>
+              </motion.div>
+            ))
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <div className="bg-zinc-100 dark:bg-zinc-800/50 p-4 rounded-full mb-3">
+                <ClipboardList className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-base font-semibold text-navy">No recent applications</h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-[250px]">
+                There are currently no recent applications to review.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

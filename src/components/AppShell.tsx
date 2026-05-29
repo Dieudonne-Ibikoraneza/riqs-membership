@@ -100,7 +100,7 @@ export function AppShell({
 
   const adminLinks = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
-    { href: "/admin/applications", label: "Applications", icon: ClipboardList },
+    ...(role !== "Admin" ? [{ href: "/admin/applications", label: "Applications", icon: ClipboardList }] : []),
     ...(role === "Admin" ? [{ href: "/admin/payments", label: "Finance & Payments", icon: Wallet }] : []),
     { href: "/admin/members", label: "Members", icon: Users },
     { href: "/admin/email", label: "Email System", icon: Send },

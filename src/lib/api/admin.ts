@@ -253,7 +253,12 @@ export async function createStaffAccount(payload: { fullName: string; email: str
   return data;
 }
 
-export async function deleteStaffAccount(id: string) {
-  const { data } = await axiosClient.delete(`/admin/staff/${id}`);
+export async function lockStaffAccount(id: string, durationDays: number) {
+  const { data } = await axiosClient.patch(`/admin/staff/${id}/lock`, { durationDays });
+  return data;
+}
+
+export async function unlockStaffAccount(id: string) {
+  const { data } = await axiosClient.patch(`/admin/staff/${id}/unlock`);
   return data;
 }

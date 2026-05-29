@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Shield, Plus, Loader2, Copy, Check, Trash2 } from "lucide-react";
-import { getStaffRegistry, createStaffAccount, deleteStaffAccount } from "@/lib/api/admin";
+import { getStaffRegistry, createStaffAccount, lockStaffAccount, unlockStaffAccount } from "@/lib/api/admin";
 import { cn } from "@/lib/utils";
 
 function Avatar({ name }: { name: string }) {
@@ -54,7 +54,8 @@ export default function StaffManagementPage() {
     systemRole: "Reviewer"
   });
 
-  const [staffToDelete, setStaffToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [staffToLock, setStaffToLock] = useState<{ id: string; name: string } | null>(null);
+  const [lockDuration, setLockDuration] = useState<number>(30);
 
   const { data, isLoading } = useQuery({
     queryKey: ["adminStaffList"],
@@ -75,22 +76,33 @@ export default function StaffManagementPage() {
     }
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: deleteStaffAccount,
+  const lockMutation = useMutation({
+    mutationFn: ({ id, duration }: { id: string, duration: number }) => lockStaffAccount(id, duration),
     onSuccess: (res) => {
-      toast.success(res.message || "Staff member deleted successfully!");
-      setStaffToDelete(null);
+      toast.success(res.message || "Staff member locked successfully!");
+      setStaffToLock(null);
       queryClient.invalidateQueries({ queryKey: ["adminStaffList"] });
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.error || "Failed to delete staff member");
-      setStaffToDelete(null);
+      toast.error(err.response?.data?.error || "Failed to lock staff member");
+      setStaffToLock(null);
     }
   });
 
-  const handleConfirmDelete = () => {
-    if (staffToDelete) {
-      deleteMutation.mutate(staffToDelete.id);
+  const unlockMutation = useMutation({
+    mutationFn: unlockStaffAccount,
+    onSuccess: (res) => {
+      toast.success(res.message || "Staff member unlocked successfully!");
+      queryClient.invalidateQueries({ queryKey: ["adminStaffList"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || "Failed to unlock staff member");
+    }
+  });
+
+  const handleConfirmLock = () => {
+    if (staffToLock) {
+      lockMutation.mutate({ id: staffToLock.id, duration: lockDuration });
     }
   };
 
@@ -187,32 +199,50 @@ export default function StaffManagementPage() {
                         {staff.email}
                       </td>
                       <td className="px-5 py-4">
-                        <Badge 
-                          variant="outline" 
-                          className={cn(
-                            "font-semibold",
-                            staff.systemRole === "Admin" ? "border-red-200 bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400" :
-                            staff.systemRole === "Approver" ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400" :
-                            "border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
+                        <div className="flex gap-2">
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "font-semibold",
+                              staff.systemRole === "Admin" ? "border-red-200 bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400" :
+                              staff.systemRole === "Approver" ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400" :
+                              "border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
+                            )}
+                          >
+                            {staff.systemRole}
+                          </Badge>
+                          {staff.isLocked && (
+                            <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400">
+                              Locked
+                            </Badge>
                           )}
-                        >
-                          {staff.systemRole}
-                        </Badge>
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-right text-zinc-500 text-sm">
                         {new Date(staff.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-5 py-4 text-center">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-                          onClick={() => setStaffToDelete({ id: staff.id, name: staff.fullName })}
-                          disabled={deleteMutation.isPending}
-                          title="Delete staff member"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {staff.isLocked ? (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-emerald-600 hover:text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                            onClick={() => unlockMutation.mutate(staff.id)}
+                            disabled={unlockMutation.isPending}
+                          >
+                            Unlock
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-orange-600 hover:text-orange-700 border-orange-200 hover:bg-orange-50"
+                            onClick={() => setStaffToLock({ id: staff.id, name: staff.fullName })}
+                            disabled={lockMutation.isPending}
+                          >
+                            Lock
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -319,29 +349,42 @@ export default function StaffManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!staffToDelete} onOpenChange={(open) => !open && setStaffToDelete(null)}>
+      {/* Lock Confirmation Dialog */}
+      <Dialog open={!!staffToLock} onOpenChange={(open) => !open && setStaffToLock(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogTitle>Lock Staff Account</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-4">
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Are you sure you want to permanently delete the staff member{" "}
-              <strong className="text-navy dark:text-zinc-200">{staffToDelete?.name}</strong>?
-              This action cannot be undone.
+              Are you sure you want to lock the staff member{" "}
+              <strong className="text-navy dark:text-zinc-200">{staffToLock?.name}</strong>?
+              They will not be able to log in.
             </p>
+            <div className="space-y-2">
+              <Label>Lock Duration (Days)</Label>
+              <Input 
+                type="number"
+                min="1"
+                value={lockDuration}
+                onChange={(e) => setLockDuration(parseInt(e.target.value) || 30)}
+              />
+              <p className="text-xs text-muted-foreground">
+                If not unlocked within {lockDuration} days, the account will be permanently deleted.
+              </p>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setStaffToDelete(null)} disabled={deleteMutation.isPending}>
+            <Button variant="outline" onClick={() => setStaffToLock(null)} disabled={lockMutation.isPending}>
               Cancel
             </Button>
             <Button 
-              variant="destructive" 
-              onClick={handleConfirmDelete} 
-              disabled={deleteMutation.isPending}
+              variant="default" 
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+              onClick={handleConfirmLock} 
+              disabled={lockMutation.isPending}
             >
-              {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Delete Staff"}
+              {lockMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Lock Account"}
             </Button>
           </DialogFooter>
         </DialogContent>

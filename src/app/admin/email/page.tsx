@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,13 +47,14 @@ import {
   Mail,
   Sparkles,
 } from "lucide-react";
-import { MEMBERS } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { RichTextEditor } from "@/components/RichTextEditor";
-import { useConfig } from "@/lib/config-store";
 import { TemplateSidebar } from "@/components/TemplateSidebar";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { getTemplates } from "@/services/template.services";
+import { getMembersRegistry, sendAdminEmail } from "@/lib/api/admin";
 
 
 
@@ -116,11 +117,22 @@ function AttachmentChip({
 /* ─────────────────────── Main Page ─────────────────────── */
 
 export default function Email() {
-  const { config } = useConfig();
-  const TEMPLATES = config.emailTemplates;
+  const { data: TEMPLATES = [], isLoading: isTemplatesLoading } = useQuery({
+    queryKey: ["emailTemplates"],
+    queryFn: getTemplates,
+  });
+
+  const { data: membersData, isLoading: isMembersLoading } = useQuery({
+    queryKey: ["adminMembersList"],
+    queryFn: () => getMembersRegistry(1, 100, "", "all", "all", "all", "name", "asc"),
+  });
+  const members = membersData?.members || [];
+
   const [activeTpl, setActiveTpl] = useState<string | null>(null);
   
   // Independent States for Single Member Compose
+  const [selectedMemberId, setSelectedMemberId] = useState("");
+  const [singleRecipientEmail, setSingleRecipientEmail] = useState("");
   const [singleSubject, setSingleSubject] = useState("");
   const [singleBody, setSingleBody] = useState("");
   
@@ -132,31 +144,52 @@ export default function Email() {
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const recipients =
-    filter === "all"
-      ? MEMBERS.length
-      : filter === "active"
-        ? MEMBERS.filter((m) => m.status === "Active").length
-        : filter === "mentorship"
-          ? MEMBERS.filter((m) => m.status === "In Mentorship").length
-          : MEMBERS.filter((m) => m.status === "Expired").length;
+  const [memberSearch, setMemberSearch] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const filteredMembers = useMemo(() => {
+    if (!memberSearch) return members;
+
+    if (selectedMemberId) {
+      const selectedMember = members.find((m: any) => m.id === selectedMemberId);
+      if (selectedMember && memberSearch === `${selectedMember.fullName} - ${selectedMember.email}`) {
+        return members;
+      }
+    }
+
+    return members.filter((m: any) => {
+      const combined = `${m.fullName} - ${m.email}`.toLowerCase();
+      return combined.includes(memberSearch.toLowerCase());
+    });
+  }, [members, memberSearch, selectedMemberId]);
+
+  const recipients = useMemo(() => {
+    if (filter === "all") return members.length;
+    if (filter === "active") return members.filter((m: any) => m.status === "Active").length;
+    if (filter === "mentorship") return members.filter((m: any) => m.status === "In Mentorship").length;
+    return 0; // Expired or none
+  }, [filter, members]);
 
   const handleSelectTemplate = useCallback((tpl: any) => {
     setActiveTpl(tpl.id);
     const template = TEMPLATES.find((t) => t.id === tpl.id);
     if (template) {
+      // If we have a single member selected, let's substitute {{name}} helper if present
+      let finalBody = template.body;
+      if (selectedMemberId) {
+        const member = members.find((m: any) => m.id === selectedMemberId);
+        if (member) {
+          finalBody = finalBody.replace(/\{\{name\}\}/g, member.fullName);
+        }
+      }
       setSingleSubject(template.subject);
-      setSingleBody(template.body);
+      setSingleBody(finalBody);
       setBulkSubject(template.subject);
       setBulkBody(template.body);
     }
-  }, [TEMPLATES]);
+  }, [TEMPLATES, selectedMemberId, members]);
 
   const [activeTab, setActiveTab] = useState<"single" | "bulk">("bulk");
-
-  // No longer need a useEffect that depends on activeTab, which caused state race conditions
-  // when switching tabs because RichTextEditor would mount and then asynchronously receive new state.
-
 
   const handleClearTemplate = useCallback(() => {
     setActiveTpl(null);
@@ -192,21 +225,55 @@ export default function Email() {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
+  const sendMutation = useMutation({
+    mutationFn: sendAdminEmail,
+    onSuccess: (resData) => {
+      toast.success(resData.message || "Email dispatched successfully.");
+      setSingleSubject("");
+      setSingleBody("");
+      setBulkSubject("");
+      setBulkBody("");
+      setAttachments([]);
+      setActiveTpl(null);
+      setSelectedMemberId("");
+      setSingleRecipientEmail("");
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || "Failed to send email");
+    }
+  });
+
   const handleSend = useCallback(
     (mode: "single" | "bulk") => {
       if (mode === "bulk") {
-        toast.success(`Bulk email queued to ${recipients} members`);
-        setBulkSubject("");
-        setBulkBody("");
+        if (!bulkSubject || !bulkBody) {
+          toast.error("Subject and body are required for bulk email.");
+          return;
+        }
+        sendMutation.mutate({
+          recipientType: "bulk",
+          groupFilter: filter,
+          subject: bulkSubject,
+          body: bulkBody
+        });
       } else {
-        toast.success("Email sent successfully");
-        setSingleSubject("");
-        setSingleBody("");
+        if (!singleRecipientEmail) {
+          toast.error("Please select a recipient member.");
+          return;
+        }
+        if (!singleSubject || !singleBody) {
+          toast.error("Subject and body are required for single email.");
+          return;
+        }
+        sendMutation.mutate({
+          recipientType: "single",
+          recipientEmail: singleRecipientEmail,
+          subject: singleSubject,
+          body: singleBody
+        });
       }
-      setAttachments([]);
-      setActiveTpl(null);
     },
-    [recipients],
+    [bulkSubject, bulkBody, singleRecipientEmail, singleSubject, singleBody, filter, sendMutation]
   );
 
   return (
@@ -252,12 +319,63 @@ export default function Email() {
                   <CardTitle className="text-navy">Direct email</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 relative">
                     <Label htmlFor="to-member">To (member)</Label>
-                    <Input
-                      id="to-member"
-                      placeholder="Search member by name or ID..."
-                    />
+                    <div className="relative">
+                      <Input
+                        id="to-member"
+                        placeholder="Search by name or email..."
+                        value={memberSearch}
+                        onChange={(e) => {
+                          setMemberSearch(e.target.value);
+                          setIsDropdownOpen(true);
+                          setSelectedMemberId("");
+                          setSingleRecipientEmail("");
+                        }}
+                        onFocus={() => setIsDropdownOpen(true)}
+                        onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                        className="w-full border-zinc-200 dark:border-zinc-800"
+                        autoComplete="off"
+                      />
+                      <AnimatePresence>
+                        {isDropdownOpen && memberSearch.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="absolute top-full left-0 w-full mt-1 max-h-60 overflow-y-auto bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-lg z-50"
+                          >
+                            {filteredMembers.length > 0 ? (
+                              filteredMembers.map((m: any) => (
+                                <div
+                                  key={m.id}
+                                  onClick={() => {
+                                    setSelectedMemberId(m.id);
+                                    setSingleRecipientEmail(m.email);
+                                    setMemberSearch(`${m.fullName} - ${m.email}`);
+                                    setIsDropdownOpen(false);
+                                    if (activeTpl) {
+                                      const template = TEMPLATES.find((t) => t.id === activeTpl);
+                                      if (template) {
+                                        setSingleBody(template.body.replace(/\{\{name\}\}/g, m.fullName));
+                                      }
+                                    }
+                                  }}
+                                  className="px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 cursor-pointer flex flex-col"
+                                >
+                                  <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{m.fullName}</span>
+                                  <span className="text-xs text-muted-foreground">{m.email}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                                No members found matching "{memberSearch}"
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">
@@ -336,12 +454,13 @@ export default function Email() {
                         </Button>
                       )}
                     </div>
-                    <Button
+                     <Button
                       className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none font-semibold"
                       onClick={() => handleSend("single")}
+                      disabled={sendMutation.isPending}
                     >
                       <Send className="mr-2 h-4 w-4" />
-                      Send Email
+                      {sendMutation.isPending ? "Sending..." : "Send Email"}
                     </Button>
                   </div>
                 </CardContent>
@@ -460,12 +579,13 @@ export default function Email() {
                         </Button>
                       )}
                     </div>
-                    <Button
+                     <Button
                       className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none font-semibold"
                       onClick={() => handleSend("bulk")}
+                      disabled={sendMutation.isPending}
                     >
                       <Send className="mr-2 h-4 w-4" />
-                      Send to {recipients}
+                      {sendMutation.isPending ? "Sending..." : `Send to ${recipients}`}
                     </Button>
                   </div>
                 </CardContent>

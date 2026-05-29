@@ -281,19 +281,19 @@ export default function AdminApps() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All categories</SelectItem>
-                    {[
-                      "Graduate",
-                      "Technologist",
-                      "Professional",
-                      "Firm_Local_Small",
-                      "Firm_Local_Medium",
-                      "Firm_Local_Large",
-                      "Firm_Foreign_Small",
-                      "Firm_Foreign_Medium",
-                      "Firm_Foreign_Large",
-                    ].map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
+                    {Object.entries({
+                      Graduate: "Graduate",
+                      Technologist: "Technologist",
+                      Professional: "Professional",
+                      Firm_Local_Small: "Rwandan Small Firm",
+                      Firm_Local_Medium: "Rwandan Medium Firm",
+                      Firm_Local_Large: "Rwandan Large Firm",
+                      Firm_Foreign_Small: "Non-Rwandan Small Firm",
+                      Firm_Foreign_Medium: "Non-Rwandan Medium Firm",
+                      Firm_Foreign_Large: "Non-Rwandan Large Firm",
+                    }).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -311,8 +311,8 @@ export default function AdminApps() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Locations</SelectItem>
-                    <SelectItem value="Local">Local (Rwanda)</SelectItem>
-                    <SelectItem value="Foreign">Foreign</SelectItem>
+                    <SelectItem value="Rwandan">Rwandan (Local)</SelectItem>
+                    <SelectItem value="Non_Rwandan">Non-Rwandan (Foreign)</SelectItem>
                   </SelectContent>
                 </Select>
 

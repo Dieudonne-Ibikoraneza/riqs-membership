@@ -185,4 +185,21 @@ export const applicantServices = {
     const response = await axiosClient.get('/payments/history');
     return response.data;
   },
+
+  submitPayment: async (data: {
+    applicationId?: string;
+    amount: number;
+    currency: string;
+    txType: string;
+    paymentMethod: string;
+    transactionReference: string;
+  }): Promise<any> => {
+    const response = await axiosClient.post('/payments/submit', data);
+    return response.data;
+  },
+
+  getApcStatus: async (): Promise<any> => {
+    const response = await axiosClient.get('/progression/apc/status');
+    return response.data;
+  }
 };

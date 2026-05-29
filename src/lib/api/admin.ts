@@ -123,3 +123,137 @@ export async function getMembersRegistry(
   const { data } = await axiosClient.get<AdminMemberRegistryResponse>(`/admin/members?${params.toString()}`);
   return data;
 }
+
+export async function sendAdminEmail(payload: {
+  recipientType: 'single' | 'bulk';
+  recipientEmail?: string;
+  groupFilter?: string;
+  subject: string;
+  body: string;
+}): Promise<any> {
+  const { data } = await axiosClient.post('/admin/email/send', payload);
+  return data;
+}
+
+export interface AuditLogItem {
+  id: string;
+  memberId: string | null;
+  actionByEmail: string;
+  actionType: string;
+  details: string | null;
+  createdAt: string;
+  member: {
+    fullName: string;
+    email: string;
+  } | null;
+}
+
+export interface AdminAuditLogsResponse {
+  logs: AuditLogItem[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+}
+
+export async function getAuditLogs(
+  page: number = 1,
+  limit: number = 20
+): Promise<AdminAuditLogsResponse> {
+  const { data } = await axiosClient.get<AdminAuditLogsResponse>(
+    `/admin/audit-logs?page=${page}&limit=${limit}`
+  );
+  return data;
+}
+
+export interface AdminPaymentTransaction {
+  id: string;
+  amount: number;
+  currency: string;
+  txType: string;
+  paymentMethod: string;
+  transactionReference: string;
+  status: string;
+  createdAt: string;
+  full_name?: string;
+  email?: string;
+}
+
+export interface AdminPaymentsResponse {
+  transactions: AdminPaymentTransaction[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+}
+
+export async function getPendingPayments(
+  page: number = 1,
+  limit: number = 20,
+  status: string = "Pending_Verification"
+): Promise<AdminPaymentsResponse> {
+  const { data } = await axiosClient.get<AdminPaymentsResponse>(
+    `/payments/queue?page=${page}&limit=${limit}&status=${status}`
+  );
+  return data;
+}
+
+export async function verifyPayment(
+  transactionId: string,
+  action: "Cleared" | "Failed" | "Refunded",
+  rejectionReason?: string
+): Promise<any> {
+  const { data } = await axiosClient.post(`/payments/verify`, {
+    transactionId,
+    action,
+    rejectionReason,
+  });
+  return data;
+}
+
+// --- APC Endpoints ---
+
+export async function getApcForApplication(applicationId: string): Promise<any> {
+  const { data } = await axiosClient.get(`/admin/apc/${applicationId}`);
+  return data;
+}
+
+export async function scheduleApc(payload: {
+  applicationId: string;
+  assessmentDate: string;
+  panelChair?: string;
+  examiner1?: string;
+  examiner2?: string;
+}): Promise<any> {
+  const { data } = await axiosClient.post(`/progression/apc/register`, payload);
+  return data;
+}
+
+export async function gradeApc(payload: {
+  assessmentId: string;
+  status: "Attended" | "Passed" | "Failed" | "No Show";
+  scorePercentage?: number;
+  assessmentNotes?: string;
+  stampFeePaid?: boolean;
+  licenseIssued?: boolean;
+}): Promise<any> {
+  const { data } = await axiosClient.post(`/progression/apc/grade`, payload);
+  return data;
+}
+
+export async function getStaffRegistry() {
+  const { data } = await axiosClient.get("/admin/staff");
+  return data;
+}
+
+export async function createStaffAccount(payload: { fullName: string; email: string; systemRole: string }) {
+  const { data } = await axiosClient.post("/admin/staff", payload);
+  return data;
+}
+
+export async function deleteStaffAccount(id: string) {
+  const { data } = await axiosClient.delete(`/admin/staff/${id}`);
+  return data;
+}

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 export function PublicHeader() {
   const [open, setOpen] = useState(false);
-  const { role } = useAuth();
+  const { role, isTeacher } = useAuth();
   const pathname = usePathname();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -75,7 +75,7 @@ export function PublicHeader() {
 
         <div className="hidden items-center gap-2 md:flex">
           {role ? (
-            <Link href={role === "Admin" || role === "Reviewer" || role === "Approver" ? "/admin" : "/dashboard"}>
+            <Link href={role === "Admin" || role === "Reviewer" || role === "Approver" ? "/admin" : isTeacher ? "/teacher" : "/dashboard"}>
               <Button className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-0">
                 Go to dashboard
               </Button>
@@ -131,16 +131,26 @@ export function PublicHeader() {
               );
             })}
             <div className="flex gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 mt-2">
-              <Link href="/login" className="flex-1">
-                <Button variant="outline" className="w-full">
-                  Login
-                </Button>
-              </Link>
-              <Link href="/register" className="flex-1">
-                <Button className="w-full bg-gold text-[#1a1a1a] hover:bg-gold/90 border-0">
-                  Register
-                </Button>
-              </Link>
+              {role ? (
+                <Link href={role === "Admin" || role === "Reviewer" || role === "Approver" ? "/admin" : isTeacher ? "/teacher" : "/dashboard"} className="flex-1">
+                  <Button className="w-full bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-0">
+                    Go to dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login" className="flex-1">
+                    <Button variant="outline" className="w-full">
+                      Login
+                    </Button>
+                  </Link>
+                  <Link href="/register" className="flex-1">
+                    <Button className="w-full bg-gold text-[#1a1a1a] hover:bg-gold/90 border-0">
+                      Register
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

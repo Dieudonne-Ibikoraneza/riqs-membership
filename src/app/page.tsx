@@ -17,7 +17,7 @@ import { queryKeys } from "@/services/queryKeys";
 import { cn } from "@/lib/utils";
 
 export default function Home() {
-  const [location, setLocation] = useState<"Local" | "Foreign">("Local");
+  const [location, setLocation] = useState<"Rwandan" | "Non_Rwandan">("Rwandan");
   const [entityType, setEntityType] = useState<"Individual" | "Firm">("Individual");
 
   const { data: categories, isLoading: isLoadingCategories } = useQuery({
@@ -168,16 +168,16 @@ export default function Home() {
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-6">
               <div className="flex items-center gap-2 border border-zinc-200 dark:border-zinc-800 p-1 rounded-md bg-white dark:bg-zinc-950 shadow-sm">
                 <button
-                  onClick={() => setLocation("Local")}
-                  className={cn("px-4 py-1.5 text-sm font-semibold transition-colors rounded", location === "Local" ? "bg-navy text-white shadow" : "text-muted-foreground hover:text-navy dark:hover:text-white")}
+                  onClick={() => setLocation("Rwandan")}
+                  className={cn("px-4 py-1.5 text-sm font-semibold transition-colors rounded", location === "Rwandan" ? "bg-navy text-white shadow" : "text-muted-foreground hover:text-navy dark:hover:text-white")}
                 >
-                  Local
+                  Rwandan
                 </button>
                 <button
-                  onClick={() => setLocation("Foreign")}
-                  className={cn("px-4 py-1.5 text-sm font-semibold transition-colors rounded", location === "Foreign" ? "bg-navy text-white shadow" : "text-muted-foreground hover:text-navy dark:hover:text-white")}
+                  onClick={() => setLocation("Non_Rwandan")}
+                  className={cn("px-4 py-1.5 text-sm font-semibold transition-colors rounded", location === "Non_Rwandan" ? "bg-navy text-white shadow" : "text-muted-foreground hover:text-navy dark:hover:text-white")}
                 >
-                  Foreign
+                  Non-Rwandan
                 </button>
               </div>
 

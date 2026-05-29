@@ -7,6 +7,12 @@ export interface Category {
   processing_fee: string | number;
   first_year_fee: string | number;
   annual_renewal_fee: string | number;
+  location?: 'Rwandan' | 'Non_Rwandan';
+  entity_type?: 'Individual' | 'Firm';
+  entityType?: 'Individual' | 'Firm';
+  stamp_fee?: string | number;
+  currency?: string;
+  required_documents?: string[];
 }
 
 export interface PublicMember {

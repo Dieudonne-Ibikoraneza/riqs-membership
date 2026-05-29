@@ -24,11 +24,12 @@ interface AuthState {
   isTeacher: boolean;
   isStudent: boolean;
   pending: Pending | null;
-  startLogin: (email: string, password: string) => Promise<boolean>;
+  startLogin: (email: string, password: string) => Promise<boolean | "requirePasswordChange">;
   startSignup: (name: string, email: string, password: string) => Promise<boolean>;
   verifyOtp: (code: string) => Promise<boolean>;
   startForgotPassword: (email: string) => Promise<boolean>;
   resetPassword: (password: string) => Promise<boolean>;
+  resendOtp: () => Promise<boolean>;
   cancelPending: () => void;
   logout: () => void;
 }
@@ -58,11 +59,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
-  const startLogin = async (em: string, pw: string) => {
+  const startLogin = async (em: string, pw: string): Promise<boolean | "requirePasswordChange"> => {
     try {
       localStorage.removeItem("riqs_app_draft");
       localStorage.removeItem("riqs_app_step");
-      await authServices.login({ email: em, password: pw });
+      const res = await authServices.login({ email: em, password: pw });
+      
+      if (res.requirePasswordChange) {
+        setPending({ email: em, name: "CHANGE", role: "Standard", isMentor: false, isTeacher: false, isStudent: false, mode: "forgot_password" });
+        return "requirePasswordChange";
+      }
+
       setPending({ email: em, name: null, role: "Standard", isMentor: false, isTeacher: false, isStudent: false, mode: "login" });
       return true;
     } catch (error: any) {
@@ -150,6 +157,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resendOtp = async () => {
+    if (!pending) return false;
+    try {
+      const type = pending.mode === "forgot_password" ? "reset" : "verification";
+      await authServices.resendOtp({ email: pending.email, type });
+      toast.success("A new OTP has been sent to your email.");
+      return true;
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to resend OTP");
+      return false;
+    }
+  };
+
   const cancelPending = () => setPending(null);
   
   const logout = () => {
@@ -164,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{
       role, name, email, isMentor, isTeacher, isStudent, pending,
-      startLogin, startSignup, verifyOtp, startForgotPassword, resetPassword, cancelPending, logout
+      startLogin, startSignup, verifyOtp, startForgotPassword, resetPassword, resendOtp, cancelPending, logout
     }}>
       {children}
     </Ctx.Provider>

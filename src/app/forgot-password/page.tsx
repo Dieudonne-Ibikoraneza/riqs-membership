@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,11 +17,13 @@ import { toast } from "sonner";
 import { PasswordStrength } from "@/components/ui/PasswordStrength";
 import { Eye, EyeOff } from "lucide-react";
 
-export default function ForgotPassword() {
-  const { startForgotPassword, verifyOtp, resetPassword, cancelPending } = useAuth();
+function ForgotPasswordContent() {
+  const { startForgotPassword, verifyOtp, resetPassword, cancelPending, resendOtp } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isFirstLogin = searchParams.get("reason") === "first-login";
   
-  const [step, setStep] = useState<"email" | "otp" | "reset">("email");
+  const [step, setStep] = useState<"email" | "otp" | "reset">(isFirstLogin ? "reset" : "email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -29,6 +31,22 @@ export default function ForgotPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [showPw2, setShowPw2] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendTimer]);
+
+  const handleResend = async () => {
+    if (resendTimer > 0) return;
+    const success = await resendOtp();
+    if (success) {
+      setResendTimer(60);
+    }
+  };
 
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,10 +204,24 @@ export default function ForgotPassword() {
                     >
                       {isLoading ? "Verifying..." : "Verify Code"}
                     </Button>
+                    <div className="mt-4 flex flex-col items-center gap-2">
+                      <div className="text-sm text-muted-foreground">
+                        Didn't receive the code?
+                      </div>
+                      <Button
+                        type="button"
+                        variant="link"
+                        onClick={handleResend}
+                        disabled={resendTimer > 0}
+                        className="h-auto p-0 text-navy font-semibold"
+                      >
+                        {resendTimer > 0 ? `Resend Code (${resendTimer}s)` : "Resend Code"}
+                      </Button>
+                    </div>
                     <Button 
                       type="button" 
                       variant="outline" 
-                      className="w-full"
+                      className="w-full mt-4"
                       onClick={() => {
                         cancelPending();
                         setStep("email");
@@ -206,9 +238,13 @@ export default function ForgotPassword() {
             {/* STEP 3: RESET PASSWORD */}
             {step === "reset" && (
               <>
-                <h1 className="text-2xl font-bold text-navy">Create New Password</h1>
+                <h1 className="text-2xl font-bold text-navy">
+                  {isFirstLogin ? "Change Default Password" : "Create New Password"}
+                </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Please secure your account with a strong password.
+                  {isFirstLogin 
+                    ? "Please change your temporary password to a secure one before proceeding." 
+                    : "Please secure your account with a strong password."}
                 </p>
                 <form onSubmit={handleResetPassword} className="mt-6 space-y-4">
                   <div className="space-y-2">
@@ -286,5 +322,17 @@ export default function ForgotPassword() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function ForgotPassword() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-navy border-t-transparent"></div>
+      </div>
+    }>
+      <ForgotPasswordContent />
+    </Suspense>
   );
 }

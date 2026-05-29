@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,13 +18,29 @@ import Image from "next/image";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
-  const { startLogin, verifyOtp, pending, cancelPending } = useAuth();
+  const { startLogin, verifyOtp, pending, cancelPending, resendOtp } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendTimer]);
+
+  const handleResend = async () => {
+    if (resendTimer > 0) return;
+    const success = await resendOtp();
+    if (success) {
+      setResendTimer(60);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +48,11 @@ export default function Login() {
     setIsLoading(true);
     const success = await startLogin(email, pw);
     setIsLoading(false);
-    if (success) {
+    
+    if (success === "requirePasswordChange") {
+      toast.info("Please change your temporary password to continue.");
+      router.push("/forgot-password?reason=first-login");
+    } else if (success) {
       toast.success(`We sent a 6-digit code to ${email}`);
     }
   };
@@ -187,10 +207,23 @@ export default function Login() {
                     >
                       {isLoading ? "Verifying..." : "Verify"}
                     </Button>
+                <div className="mt-4 flex flex-col items-center gap-2">
+                  <div className="text-sm text-muted-foreground">
+                    Didn't receive the code?
+                  </div>
+                  <Button
+                    variant="link"
+                    onClick={handleResend}
+                    disabled={resendTimer > 0}
+                    className="h-auto p-0 text-navy font-semibold"
+                  >
+                    {resendTimer > 0 ? `Resend Code (${resendTimer}s)` : "Resend Code"}
+                  </Button>
+                </div>
                 <Button
                   variant="ghost"
                   onClick={cancelPending}
-                  className="mt-2 w-full"
+                  className="mt-4 w-full"
                 >
                   Use a different email
                 </Button>

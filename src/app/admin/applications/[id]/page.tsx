@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getApplicationDetail, submitReviewerAction, submitApproverDecision } from "@/lib/api/admin";
+import { getApplicationDetail, submitReviewerAction, submitApproverDecision, getApcForApplication, scheduleApc, gradeApc } from "@/lib/api/admin";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import PDFViewer from "@/components/ui/pdf-viewer";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   ArrowLeft,
   Check,
@@ -81,10 +83,26 @@ export default function Review({ params }: PageProps) {
   const prevDoc = useRef(activeDoc);
   const [direction, setDirection] = useState(0);
 
+  // APC State
+  const [apcDialog, setApcDialog] = useState<null | "schedule" | "grade">(null);
+  const [selectedApc, setSelectedApc] = useState<any>(null);
+  const [apcForm, setApcForm] = useState({
+    date: "",
+    chair: "",
+    exam1: "",
+    exam2: "",
+    status: "Passed",
+    score: "",
+    notes: ""
+  });
+
   useEffect(() => {
     async function loadData() {
       try {
-        const res = await getApplicationDetail(id);
+        const [res, apcRes] = await Promise.all([
+          getApplicationDetail(id),
+          getApcForApplication(id).catch(() => ({ assessments: [] }))
+        ]);
         const mappedApp = {
           id: res.application.id,
           applicantName: res.application.full_name,
@@ -126,7 +144,8 @@ export default function Review({ params }: PageProps) {
               url: `${baseUrl}/files/download/${d.id}?token=${token}`,
               originalFileUrl: d.fileUrl
             };
-          })
+          }),
+          apcAssessments: apcRes.assessments || []
         };
         setApp(mappedApp);
       } catch (err) {
@@ -195,6 +214,38 @@ export default function Review({ params }: PageProps) {
       setTimeout(() => router.push("/admin/applications"), 650);
     } catch (err: any) {
       toast.error(err?.response?.data?.error || "Failed to process decision");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleApcSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      if (apcDialog === "schedule") {
+        await scheduleApc({
+          applicationId: app.id,
+          assessmentDate: new Date(apcForm.date).toISOString(),
+          panelChair: apcForm.chair,
+          examiner1: apcForm.exam1,
+          examiner2: apcForm.exam2
+        });
+        toast.success("APC Board successfully scheduled.");
+      } else if (apcDialog === "grade" && selectedApc) {
+        await gradeApc({
+          assessmentId: selectedApc.id,
+          status: apcForm.status as any,
+          scorePercentage: apcForm.score ? Number(apcForm.score) : undefined,
+          assessmentNotes: apcForm.notes
+        });
+        toast.success("APC results successfully recorded.");
+      }
+      setApcDialog(null);
+      // Refresh Data
+      const apcRes = await getApcForApplication(id).catch(() => ({ assessments: [] }));
+      setApp((prev: any) => ({ ...prev, apcAssessments: apcRes.assessments }));
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to process APC action");
     } finally {
       setIsSubmitting(false);
     }
@@ -598,40 +649,116 @@ export default function Review({ params }: PageProps) {
               onChange={(e) => setNote(e.target.value)}
               placeholder={
                 (dialog === "approve" || dialog === "forward")
-                  ? "Optional note..."
-                  : "Describe outstanding issues..."
+                  ? "Add an optional note (e.g. well qualified candidate)"
+                  : "Please provide a reason for the applicant..."
               }
             />
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setDialog(null)} disabled={isSubmitting}>
+            <Button
+              variant="outline"
+              onClick={() => setDialog(null)}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button
-              onClick={() => dialog && handle(dialog)}
-              disabled={isSubmitting || ((dialog === "correction" || dialog === "reject") && !note.trim())}
+              onClick={() => handle(dialog!)}
+              disabled={isSubmitting}
               className={
                 dialog === "approve"
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-emerald"
-                  : dialog === "reject"
-                    ? "bg-red-600 hover:bg-red-700 text-white border-none shadow-destructive"
-                    : dialog === "forward"
-                      ? "bg-navy hover:bg-navy/90 text-white border-none"
-                      : "bg-orange-600 hover:bg-orange-700 text-white border-none shadow-orange"
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  : dialog === "reject" || dialog === "correction"
+                    ? "bg-red-600 hover:bg-red-700 text-white"
+                    : "bg-navy hover:bg-navy/90 text-white"
               }
             >
               {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                "Confirm"
+                <Check className="mr-2 h-4 w-4" />
               )}
+              {dialog === "approve" && "Approve Applicant"}
+              {dialog === "reject" && "Reject Applicant"}
+              {dialog === "correction" && "Request Corrections"}
+              {dialog === "forward" && "Forward Application"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={apcDialog === "schedule"} onOpenChange={(o) => !o && setApcDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule APC Board Assessment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Assessment Date & Time</Label>
+              <Input type="datetime-local" value={apcForm.date} onChange={e => setApcForm({...apcForm, date: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label>Panel Chair Name</Label>
+              <Input placeholder="e.g. John Doe (PrQS)" value={apcForm.chair} onChange={e => setApcForm({...apcForm, chair: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Examiner 1 Name</Label>
+                <Input value={apcForm.exam1} onChange={e => setApcForm({...apcForm, exam1: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>Examiner 2 Name</Label>
+                <Input value={apcForm.exam2} onChange={e => setApcForm({...apcForm, exam2: e.target.value})} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApcDialog(null)} disabled={isSubmitting}>Cancel</Button>
+            <Button onClick={handleApcSubmit} disabled={isSubmitting || !apcForm.date} className="bg-navy hover:bg-navy/90 text-white">
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />} Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={apcDialog === "grade"} onOpenChange={(o) => !o && setApcDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Grade APC Assessment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Final Status</Label>
+              <select 
+                className="flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent dark:border-zinc-800 dark:bg-zinc-950"
+                value={apcForm.status} 
+                onChange={e => setApcForm({...apcForm, status: e.target.value})}
+              >
+                <option value="Passed">Passed</option>
+                <option value="Failed">Failed</option>
+                <option value="No Show">No Show</option>
+              </select>
+            </div>
+            {apcForm.status !== "No Show" && (
+              <div className="space-y-2">
+                <Label>Score Percentage (%)</Label>
+                <Input type="number" min="0" max="100" placeholder="e.g. 75" value={apcForm.score} onChange={e => setApcForm({...apcForm, score: e.target.value})} />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Examiner Notes / Feedback</Label>
+              <Textarea rows={3} placeholder="Enter any specific feedback or rationale..." value={apcForm.notes} onChange={e => setApcForm({...apcForm, notes: e.target.value})} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApcDialog(null)} disabled={isSubmitting}>Cancel</Button>
+            <Button onClick={handleApcSubmit} disabled={isSubmitting} className="bg-navy hover:bg-navy/90 text-white">
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />} Save Grade
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

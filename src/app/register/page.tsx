@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,13 +18,30 @@ import { PasswordStrength } from "@/components/ui/PasswordStrength";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function Register() {
-  const { startSignup, verifyOtp, pending, cancelPending } = useAuth();
+  const { startSignup, verifyOtp, pending, cancelPending, resendOtp } = useAuth();
   const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", pw: "", pw2: "" });
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [showPw2, setShowPw2] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendTimer]);
+
+  const handleResend = async () => {
+    if (resendTimer > 0) return;
+    const success = await resendOtp();
+    if (success) {
+      setResendTimer(60);
+    }
+  };
+
   const upd = (k: string, v: string) => setForm((s) => ({ ...s, [k]: v }));
 
   const submit = async (e: React.FormEvent) => {
@@ -202,10 +219,23 @@ export default function Register() {
                 >
                   {isLoading ? "Verifying..." : "Verify & complete setup"}
                 </Button>
+                <div className="mt-4 flex flex-col items-center gap-2">
+                  <div className="text-sm text-muted-foreground">
+                    Didn't receive the code?
+                  </div>
+                  <Button
+                    variant="link"
+                    onClick={handleResend}
+                    disabled={resendTimer > 0}
+                    className="h-auto p-0 text-navy font-semibold"
+                  >
+                    {resendTimer > 0 ? `Resend Code (${resendTimer}s)` : "Resend Code"}
+                  </Button>
+                </div>
                 <Button
                   variant="ghost"
                   onClick={cancelPending}
-                  className="mt-2 w-full"
+                  className="mt-4 w-full"
                 >
                   Back
                 </Button>

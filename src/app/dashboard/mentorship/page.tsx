@@ -15,7 +15,9 @@ import {
   Check, 
   Mail, 
   Phone,
-  GraduationCap
+  GraduationCap,
+  Calendar,
+  Award,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -119,6 +121,13 @@ export default function Mentorship() {
   const { data: profileData, isLoading: isProfileLoading } = useQuery({
     queryKey: queryKeys.applicant.profile(),
     queryFn: applicantServices.getProfile,
+    enabled: !isMentor,
+  });
+
+  // 2b. Fetch APC status
+  const { data: apcData, isLoading: isApcLoading } = useQuery({
+    queryKey: ["apcStatus"],
+    queryFn: applicantServices.getApcStatus,
     enabled: !isMentor,
   });
 
@@ -481,6 +490,60 @@ export default function Mentorship() {
               Request Upgrade
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* APC Assessment History Panel */}
+      <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm mt-8">
+        <CardHeader className="pb-4 border-b border-zinc-100 dark:border-zinc-800/60">
+          <CardTitle className="text-navy dark:text-zinc-150 text-base font-bold font-sans flex items-center gap-2">
+            <Award className="h-5 w-5 text-gold" /> APC Assessment History
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isApcLoading ? (
+            <div className="p-10 flex justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : !apcData?.assessments || apcData.assessments.length === 0 ? (
+            <div className="p-8 text-center text-sm text-muted-foreground">
+              No APC assessments scheduled yet. Request an upgrade to initiate your board review.
+            </div>
+          ) : (
+            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {apcData.assessments.map((apc: any) => (
+                <div key={apc.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-100 font-sans">Board Review Assessment</span>
+                      {apc.status === "Passed" && <span className="text-xs font-semibold px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full">Passed</span>}
+                      {apc.status === "Failed" && <span className="text-xs font-semibold px-2 py-0.5 bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded-full">Failed</span>}
+                      {apc.status === "Scheduled" && <span className="text-xs font-semibold px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">Scheduled</span>}
+                      {apc.status === "No_Show" && <span className="text-xs font-semibold px-2 py-0.5 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 rounded-full">No Show</span>}
+                    </div>
+                    <div className="text-xs text-muted-foreground font-sans flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5" /> 
+                      {new Date(apc.assessmentDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-6">
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
+                      <div><span className="font-medium">Chair:</span> {apc.panelChairName}</div>
+                      <div><span className="font-medium">Examiners:</span> {apc.examiner1Name}, {apc.examiner2Name}</div>
+                    </div>
+                    
+                    {apc.status !== "Scheduled" && (
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-navy dark:text-gold">{apc.scorePercentage ? `${apc.scorePercentage}%` : 'N/A'}</div>
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Final Score</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

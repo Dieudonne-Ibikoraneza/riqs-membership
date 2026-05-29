@@ -4,6 +4,7 @@ export interface AuthResponse {
   message: string;
   member?: any;
   token?: string;
+  requirePasswordChange?: boolean;
 }
 
 export const authServices = {
@@ -29,6 +30,11 @@ export const authServices = {
 
   resetPassword: async (data: any): Promise<AuthResponse> => {
     const response = await axiosClient.post('/auth/reset-password', data);
+    return response.data;
+  },
+
+  resendOtp: async (data: { email: string; type: 'verification' | 'reset' }): Promise<AuthResponse> => {
+    const response = await axiosClient.post('/auth/resend-otp', data);
     return response.data;
   }
 };

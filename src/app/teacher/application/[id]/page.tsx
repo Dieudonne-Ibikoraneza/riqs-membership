@@ -192,7 +192,7 @@ export default function Application() {
   const [hasLoaded, setHasLoaded] = useState(false);
 
   const [data, setData] = useState<any>({
-    practiceLocation: "Local",
+    practiceLocation: "Rwandan",
     entityType: "Individual",
     categoryId: "",
     categoryName: "",
@@ -258,7 +258,7 @@ export default function Application() {
 
     setData((prev: any) => ({
       ...prev,
-      practiceLocation: savedLocal?.practiceLocation || application?.practiceLocation || "Local",
+      practiceLocation: savedLocal?.practiceLocation || application?.practiceLocation || "Rwandan",
       entityType: savedLocal?.entityType || application?.entityType || "Individual",
       categoryId: savedLocal?.categoryId || application?.categoryId || "",
       categoryName: catName,
@@ -368,7 +368,7 @@ export default function Application() {
     return categories.filter(
       (c: any) =>
         c.location === data.practiceLocation &&
-        c.entityType === data.entityType
+        (c.entityType || c.entity_type) === data.entityType
     );
   }, [categories, data.practiceLocation, data.entityType]);
 
@@ -595,10 +595,31 @@ export default function Application() {
   };
 
   const documentChecklist = useMemo(() => {
+    // Find active category from backend configuration if loaded
+    const activeCategory = categories?.find((c: any) => c.id === data.categoryId);
+    
+    // If active category exists and has dynamic required documents, use them!
+    if (activeCategory && activeCategory.required_documents && activeCategory.required_documents.length > 0) {
+      return activeCategory.required_documents.map((docName: string) => {
+        let k = docName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+        // Maintain compatibility for the uploader step routing keys
+        if (docName.toLowerCase().includes("degree") || docName.toLowerCase().includes("diploma")) {
+          k = "degree";
+        } else if (docName.toLowerCase().includes("passport") || docName.toLowerCase().includes("photo")) {
+          k = "photo";
+        }
+        return {
+          k,
+          l: docName.replace(/_/g, " "),
+          r: true
+        };
+      });
+    }
+
     const catName = data.categoryName || "";
     const list = [];
     if (data.entityType === "Individual") {
-      if (data.practiceLocation === "Local") {
+      if (data.practiceLocation === "Rwandan") {
         if (catName === "Graduate") {
           list.push({ k: "degree", l: "Notarized Degree/Diploma (HEC equivalency if foreign)", r: true });
           list.push({ k: "transcripts", l: "Notarized Academic Transcripts showing subjects", r: false });
@@ -635,7 +656,7 @@ export default function Application() {
         list.push({ k: "payment", l: `Proof of Payment (${isProf ? "50 USD" : "30 USD"} Application Fee)`, r: true });
       }
     } else {
-      const isLocal = data.practiceLocation === "Local";
+      const isLocal = data.practiceLocation === "Rwandan";
       list.push({ k: "firmCert", l: isLocal ? "Firm Business Registration Certificate by RDB" : "Firm Business Registration Certificate", r: true });
       list.push({ k: "taxClearance", l: "Tax Clearance Certificate", r: true });
       list.push({ k: "beneficialOwnerIds", l: "Identity documents of beneficial owners / shareholders", r: true });
@@ -648,7 +669,7 @@ export default function Application() {
       list.push({ k: "payment", l: isLocal ? `Proof of Momo Payment (${fee} via Momo Code: 604516)` : `Proof of Payment (${fee} Application Fee)`, r: true });
     }
     return list;
-  }, [data.practiceLocation, data.entityType, data.categoryName]);
+  }, [categories, data.categoryId, data.practiceLocation, data.entityType, data.categoryName]);
 
   const currentStepName = STEPS[step];
 
@@ -1021,16 +1042,16 @@ function WizardContent({
               {/* ── Practice Location ── */}
               {currentStepName === "Practice Location" && (
                 <RadioGroup value={data.practiceLocation} onValueChange={updateLocation} className="grid gap-3 md:grid-cols-2">
-                  {["Local", "Foreign"].map((o) => (
+                  {["Rwandan", "Non_Rwandan"].map((o) => (
                     <label key={o} className={cn(
                       "flex cursor-pointer items-start gap-3 border p-5 transition-all rounded-md",
                       data.practiceLocation === o ? "border-gold bg-gold/5 shadow-gold/20" : "border-zinc-200 dark:border-zinc-800 hover:border-navy/35 hover:bg-zinc-50/50",
                     )}>
                       <RadioGroupItem value={o} className="mt-0.5" />
                       <div>
-                        <div className="font-semibold text-navy">{o} Practitioner</div>
+                        <div className="font-semibold text-navy">{o === "Rwandan" ? "Rwandan" : "Non-Rwandan"} Practitioner</div>
                         <div className="text-sm text-muted-foreground mt-0.5 font-sans">
-                          {o === "Local" ? "Practicing Quantity Surveying inside Rwanda" : "Practicing/based outside Rwanda"}
+                          {o === "Rwandan" ? "Practicing Quantity Surveying inside Rwanda" : "Practicing/based outside Rwanda"}
                         </div>
                       </div>
                     </label>
@@ -1191,21 +1212,21 @@ function WizardContent({
 
                     {/* Additional Details */}
                     <div className="md:col-span-12 grid gap-4 mt-2">
-                      {data.practiceLocation === "Foreign" && (
+                      {data.practiceLocation === "Non_Rwandan" && (
                       <div className="space-y-1">
                         <Label htmlFor="app-origin">Country of Origin</Label>
                         <Input id="app-origin" placeholder="e.g. Kenya" value={data.personal.countryOfOrigin}
-                          onChange={(e) => setData({ ...data, personal: { ...data.personal, countryOfOrigin: e.target.value } })} />
+                           onChange={(e) => setData({ ...data, personal: { ...data.personal, countryOfOrigin: e.target.value } })} />
                       </div>
                     )}
                     {(data.categoryName === "Technologist" || data.categoryName === "Professional") && (
                       <div className="space-y-1">
                         <Label htmlFor="app-years">Years in Profession</Label>
                         <Input id="app-years" type="number" min={0} placeholder="e.g. 5" value={data.personal.yearsInProfession}
-                          onChange={(e) => setData({ ...data, personal: { ...data.personal, yearsInProfession: e.target.value } })} />
+                           onChange={(e) => setData({ ...data, personal: { ...data.personal, yearsInProfession: e.target.value } })} />
                       </div>
                     )}
-                    {data.practiceLocation === "Local" && (
+                    {data.practiceLocation === "Rwandan" && (
                       <>
                         <div className="md:col-span-2 border border-zinc-100 dark:border-zinc-800 p-4 rounded-md bg-zinc-50/50 space-y-3">
                           <h4 className="font-semibold text-sm text-navy">Resident Address (Optional)</h4>

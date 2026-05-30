@@ -549,6 +549,41 @@ export default function Application() {
       }
     }
 
+    if (currentStepName === "Education" && appId) {
+      for (const ed of data.education) {
+        if (!ed.id && ed.institution && ed.studyField && ed.degree && ed.startDateRaw) {
+          const endDate = ed.startMonthYear && ed.startMonthYear.toLowerCase() !== "present" 
+            ? (ed.startMonthYear.split('-').length === 3 ? ed.startMonthYear : `${ed.startMonthYear}-01`) 
+            : new Date().toISOString().split("T")[0];
+          
+          applicantServices.addEducation({
+            applicationId: appId,
+            institution: ed.institution,
+            qualificationType: ed.degree,
+            fieldOfStudy: ed.studyField,
+            startDate: ed.startDateRaw.split('-').length === 3 ? ed.startDateRaw : `${ed.startDateRaw}-01`,
+            endDate,
+          }).catch(err => console.error("Auto-save education failed", err));
+        }
+      }
+    }
+
+    if (currentStepName === "Employment Record" && appId) {
+      for (const em of data.employment) {
+        if (!em.id && em.company && em.role && em.from) {
+          const isCurrent = em.to?.toLowerCase() === "present";
+          applicantServices.addEmployment({
+            applicationId: appId,
+            companyName: em.company,
+            jobTitle: em.role,
+            startDate: em.from.split('-').length === 3 ? em.from : `${em.from}-01`,
+            endDate: isCurrent ? undefined : (em.to ? (em.to.split('-').length === 3 ? em.to : `${em.to}-01`) : undefined),
+            isCurrent,
+          }).catch(err => console.error("Auto-save employment failed", err));
+        }
+      }
+    }
+
     if (currentStepName === "Mentorship Plan" && appId) {
       const validMentors = data.mentors.map((opt: any) => ({
         regNumber: opt.membershipId,

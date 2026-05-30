@@ -267,7 +267,7 @@ export default function Application() {
       },
       hasNoEmployment: savedLocal?.hasNoEmployment || false,
       dynamicTabs: savedLocal?.dynamicTabs || [],
-      education: savedLocal?.education?.length ? savedLocal.education : 
+      education: (savedLocal?.education && savedLocal.education.some((e: any) => e.institution || e.id)) ? savedLocal.education : 
         (education?.length ? education.map((e: any) => ({
           id: e.id,
           degree: e.qualificationType,
@@ -277,7 +277,7 @@ export default function Application() {
           startDateRaw: e.startDate ? e.startDate.split("T")[0] : "",
           year: e.endDate ? new Date(e.endDate).getFullYear() : 2026,
         })) : [{ institution: "", studyField: "", degree: "Bachelor's Degree", startMonthYear: "", startDateRaw: "" }]),
-      employment: savedLocal?.employment?.length ? savedLocal.employment : 
+      employment: (savedLocal?.employment && savedLocal.employment.some((e: any) => e.company || e.id)) ? savedLocal.employment : 
         (employment?.length ? employment.map((emp: any) => ({
           id: emp.id,
           company: emp.companyName,

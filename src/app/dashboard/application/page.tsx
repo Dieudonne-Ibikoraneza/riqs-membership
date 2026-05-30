@@ -736,6 +736,7 @@ export default function Application() {
         {appStatus === "Correction_Required" && (
           <div className="mt-8 pt-8 border-t border-zinc-200 dark:border-zinc-800">
             <WizardContent
+              goToStep={setStep}
               step={step}
               STEPS={STEPS}
               pct={pct}

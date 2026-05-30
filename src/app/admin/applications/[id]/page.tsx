@@ -119,7 +119,8 @@ export default function Review({ params }: PageProps) {
           education: (res.education || []).map((e: any) => ({
             degree: e.qualificationType,
             institution: e.institution,
-            startMonthYear: new Date(e.startDate).toISOString().slice(0, 7)
+            startMonthYear: new Date(e.startDate).toISOString().slice(0, 7),
+            endMonthYear: e.endDate ? new Date(e.endDate).toISOString().slice(0, 7) : undefined
           })),
           employment: (res.employment || []).map((e: any) => ({
             role: e.jobTitle,
@@ -388,9 +389,7 @@ export default function Review({ params }: PageProps) {
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {e.institution} ·{" "}
-                        {e.startMonthYear
-                          ? formatMonthYear(e.startMonthYear)
-                          : e.year}
+                        {e.startMonthYear ? formatMonthYear(e.startMonthYear) : e.year} — {e.endMonthYear ? formatMonthYear(e.endMonthYear) : "Present"}
                       </div>
                     </div>
                   )) : (

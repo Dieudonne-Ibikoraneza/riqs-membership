@@ -39,7 +39,7 @@ import { cn } from "@/lib/utils";
 
 export default function AdminPaymentsPage() {
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState("Pending_Verification");
+  const [status, setStatus] = useState("All");
   const [selectedTx, setSelectedTx] = useState<AdminPaymentTransaction | null>(null);
   const [verifyAction, setVerifyAction] = useState<"Cleared" | "Failed" | "Refunded">("Cleared");
   const [rejectionReason, setRejectionReason] = useState("");
@@ -114,10 +114,12 @@ export default function AdminPaymentsPage() {
                 <SelectValue placeholder="Filter Status" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="All">All Transactions</SelectItem>
                 <SelectItem value="Pending_Verification">Pending Verification</SelectItem>
                 <SelectItem value="Cleared">Cleared</SelectItem>
                 <SelectItem value="Failed">Failed</SelectItem>
                 <SelectItem value="Refunded">Refunded</SelectItem>
+                <SelectItem value="Unpaid">Unpaid</SelectItem>
               </SelectContent>
             </Select>
           </div>

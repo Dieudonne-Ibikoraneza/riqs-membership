@@ -411,7 +411,7 @@ export default function SettingsPage() {
           <div className="grid gap-6 md:grid-cols-[260px_1fr] items-start">
             
             {/* Sidebar of Categories */}
-            <Card className="sticky top-24 border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 max-h-[calc(100vh-140px)] overflow-y-auto flex flex-col">
+            <Card className="sticky top-6 border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 max-h-[calc(100vh-140px)] overflow-y-auto flex flex-col">
               <CardHeader className="p-4 border-b">
                 <CardTitle className="text-sm font-bold text-navy">Registry Categories</CardTitle>
                 <p className="text-xs text-muted-foreground">Select a pricing category tier to edit.</p>

@@ -176,9 +176,17 @@ export default function SettingsPage() {
   // Document Helpers
   const addDocument = () => {
     if (draft) {
-      const docs = draft.required_documents ? [...draft.required_documents] : [];
-      docs.push("New Required Document");
-      updateDraftField("required_documents", docs);
+      const currentDocs = draft.required_documents && draft.required_documents.length > 0 
+        ? [...draft.required_documents] 
+        : getDefaultDocuments(draft);
+      currentDocs.push("New Required Document");
+      updateDraftField("required_documents", currentDocs);
+    }
+  };
+
+  const customizeDefaults = () => {
+    if (draft) {
+      updateDraftField("required_documents", getDefaultDocuments(draft));
     }
   };
 
@@ -403,7 +411,7 @@ export default function SettingsPage() {
           <div className="grid gap-6 md:grid-cols-[260px_1fr] items-start">
             
             {/* Sidebar of Categories */}
-            <Card className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 max-h-[calc(100vh-140px)] overflow-y-auto flex flex-col">
+            <Card className="sticky top-24 border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 max-h-[calc(100vh-140px)] overflow-y-auto flex flex-col">
               <CardHeader className="p-4 border-b">
                 <CardTitle className="text-sm font-bold text-navy">Registry Categories</CardTitle>
                 <p className="text-xs text-muted-foreground">Select a pricing category tier to edit.</p>
@@ -570,9 +578,16 @@ export default function SettingsPage() {
                         <h3 className="text-sm font-bold text-navy">Required Documents Checklist</h3>
                         <p className="text-xs text-muted-foreground">List of dynamic documentation required in the registration uploader.</p>
                       </div>
-                      <Button onClick={addDocument} size="sm" variant="outline" className="border-dashed border-gold text-gold hover:bg-gold/5 font-semibold text-xs py-1">
-                        <Plus className="mr-1 h-3.5 w-3.5" /> Add Required Doc
-                      </Button>
+                      <div className="flex gap-2">
+                        {(!draft.required_documents || draft.required_documents.length === 0) && (
+                          <Button onClick={customizeDefaults} size="sm" variant="outline" className="text-xs py-1">
+                            <SettingsIcon className="mr-1 h-3.5 w-3.5" /> Customize Defaults
+                          </Button>
+                        )}
+                        <Button onClick={addDocument} size="sm" variant="outline" className="border-dashed border-gold text-gold hover:bg-gold/5 font-semibold text-xs py-1">
+                          <Plus className="mr-1 h-3.5 w-3.5" /> Add Required Doc
+                        </Button>
+                      </div>
                     </div>
 
                     {draft.required_documents && draft.required_documents.length > 0 ? (

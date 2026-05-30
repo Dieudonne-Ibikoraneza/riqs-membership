@@ -32,8 +32,10 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertCircle, CheckCircle2, Search, XCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, CheckCircle2, Search, XCircle, RefreshCw, FileText } from "lucide-react";
 import { format } from "date-fns";
+import { axiosClient } from "@/lib/axiosClient";
+import { cn } from "@/lib/utils";
 
 export default function AdminPaymentsPage() {
   const [page, setPage] = useState(1);
@@ -122,59 +124,65 @@ export default function AdminPaymentsPage() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-muted/50">
-                <TableRow>
-                  <TableHead className="w-[180px]">Reference</TableHead>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <table className="w-full text-sm">
+              <thead className="bg-navy text-white">
+                <tr>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider w-[180px]">Reference</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Member</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Type</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Method</th>
+                  <th className="px-5 py-3.5 text-right text-xs font-bold uppercase tracking-wider">Amount</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Status</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Date</th>
+                  <th className="px-5 py-3.5 text-right text-xs font-bold uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
                 {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-32 text-center">
-                      <div className="flex flex-col items-center justify-center text-muted-foreground">
+                  <tr>
+                    <td colSpan={8} className="px-5 py-10 h-32 text-center text-muted-foreground">
+                      <div className="flex flex-col items-center justify-center">
                         <RefreshCw className="mb-2 h-6 w-6 animate-spin" />
                         Loading queue...
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ) : isError ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-32 text-center text-red-500">
+                  <tr>
+                    <td colSpan={8} className="px-5 py-10 h-32 text-center text-red-500">
                       Failed to load transactions.
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ) : data?.transactions.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                  <tr>
+                    <td colSpan={8} className="px-5 py-10 h-32 text-center text-muted-foreground">
                       No transactions found for this status.
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ) : (
-                  data?.transactions.map((tx) => (
-                    <TableRow key={tx.id}>
-                      <TableCell className="font-medium font-mono text-xs">{tx.transactionReference}</TableCell>
-                      <TableCell>
+                  data?.transactions.map((tx: any, i: number) => (
+                    <tr
+                      key={tx.id}
+                      className={cn(
+                        "border-b border-zinc-100 dark:border-zinc-800/80 transition-colors hover:bg-gold/5",
+                        i % 2 === 1 && "bg-zinc-50/20 dark:bg-zinc-950/10"
+                      )}
+                    >
+                      <td className="px-5 py-4 text-xs font-semibold text-navy dark:text-gold">{tx.transactionReference}</td>
+                      <td className="px-5 py-4">
                         <div className="flex flex-col">
-                          <span className="font-medium text-sm">{tx.full_name || "Unknown"}</span>
+                          <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{tx.full_name || "Unknown"}</span>
                           <span className="text-xs text-muted-foreground">{tx.email || "No email"}</span>
                         </div>
-                      </TableCell>
-                      <TableCell>{formatTxType(tx.txType)}</TableCell>
-                      <TableCell>{formatMethod(tx.paymentMethod)}</TableCell>
-                      <TableCell className="text-right font-medium">{formatAmount(tx.amount, tx.currency)}</TableCell>
-                      <TableCell>{getStatusBadge(tx.status)}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
+                      </td>
+                      <td className="px-5 py-4 text-sm">{formatTxType(tx.txType)}</td>
+                      <td className="px-5 py-4 text-sm text-zinc-600 dark:text-zinc-400">{formatMethod(tx.paymentMethod)}</td>
+                      <td className="px-5 py-4 text-right font-medium text-zinc-900 dark:text-zinc-100">{formatAmount(tx.amount, tx.currency)}</td>
+                      <td className="px-5 py-4">{getStatusBadge(tx.status)}</td>
+                      <td className="px-5 py-4 text-xs text-muted-foreground">
                         {format(new Date(tx.createdAt), "MMM d, yyyy")}
-                      </TableCell>
-                      <TableCell className="text-right">
+                      </td>
+                      <td className="px-5 py-4 text-right">
                         {tx.status === "Pending_Verification" ? (
                           <Button size="sm" onClick={() => openVerifyDialog(tx)}>
                             Verify
@@ -184,12 +192,12 @@ export default function AdminPaymentsPage() {
                             Resolved
                           </Button>
                         )}
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))
                 )}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>
@@ -209,7 +217,7 @@ export default function AdminPaymentsPage() {
               <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Reference:</span>
-                  <span className="font-mono font-medium">{selectedTx.transactionReference}</span>
+                  <span className="font-semibold text-navy dark:text-gold">{selectedTx.transactionReference}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Amount:</span>
@@ -227,6 +235,27 @@ export default function AdminPaymentsPage() {
                   <span className="text-muted-foreground">Member:</span>
                   <span>{selectedTx.full_name}</span>
                 </div>
+                {selectedTx.receiptUrl && (
+                  <div className="flex justify-between items-center mt-3 pt-3 border-t border-muted/50">
+                    <span className="text-muted-foreground">Uploaded Receipt:</span>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={async () => {
+                        try {
+                          const res = await axiosClient.get(`/files/download/${selectedTx.receiptUrl}`, { responseType: 'blob' });
+                          const url = window.URL.createObjectURL(res.data);
+                          window.open(url, '_blank');
+                        } catch (err) {
+                          toast.error("Failed to load receipt document");
+                        }
+                      }}
+                    >
+                      <FileText className="mr-2 h-4 w-4 text-blue-500" />
+                      View Document
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-2">

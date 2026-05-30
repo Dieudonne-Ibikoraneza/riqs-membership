@@ -549,6 +549,22 @@ export default function Application() {
       }
     }
 
+    if (currentStepName === "Mentorship Plan" && appId) {
+      const validMentors = data.mentors.map((opt: any) => ({
+        regNumber: opt.membershipId,
+        name: opt.name,
+        contact: opt.contact
+      })).filter((opt: any) => opt.regNumber);
+      
+      if (validMentors.length > 0 || data.mentorPlan) {
+        applicantServices.saveMentorship({
+          applicationId: appId,
+          mentorshipPlan: data.mentorPlan,
+          options: validMentors
+        }).catch(err => console.error("Auto-save mentorship failed", err));
+      }
+    }
+
     if (!data.categoryId && step >= 2) {
       // Skip auto-save if no categoryId yet (steps 0-1)
     }
@@ -586,19 +602,25 @@ export default function Application() {
     const activeCategory = categories?.find((c: any) => c.id === data.categoryId);
     
     // If active category exists and has dynamic required documents, use them!
-    if (activeCategory && activeCategory.required_documents && activeCategory.required_documents.length > 0) {
-      return activeCategory.required_documents.map((docName: string) => {
-        let k = docName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    if (activeCategory && ((activeCategory.required_documents && activeCategory.required_documents.length > 0) || (activeCategory.optional_documents && activeCategory.optional_documents.length > 0))) {
+      const docs = [
+        ...(activeCategory.required_documents || []).map((d: string) => ({ name: d, req: true })),
+        ...(activeCategory.optional_documents || []).map((d: string) => ({ name: d, req: false }))
+      ];
+      return docs.map((doc: { name: string, req: boolean }) => {
+        const cleanName = doc.name;
+        
+        let k = cleanName.toLowerCase().replace(/[^a-z0-9]/g, "_");
         // Maintain compatibility for the uploader step routing keys
-        if (docName.toLowerCase().includes("degree") || docName.toLowerCase().includes("diploma")) {
+        if (cleanName.toLowerCase().includes("degree") || cleanName.toLowerCase().includes("diploma")) {
           k = "degree";
-        } else if (docName.toLowerCase().includes("passport") || docName.toLowerCase().includes("photo")) {
+        } else if (cleanName.toLowerCase().includes("passport") || cleanName.toLowerCase().includes("photo")) {
           k = "photo";
         }
         return {
           k,
-          l: docName.replace(/_/g, " "),
-          r: true
+          l: cleanName.replace(/_/g, " "),
+          r: doc.req
         };
       });
     }
@@ -1629,20 +1651,26 @@ function WizardContent({
                                 <Upload className="h-5 w-5" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-navy truncate">{d.l} {d.r && <span className="text-red-500">*</span>}</p>
+                                <p className="text-sm font-semibold text-navy flex items-center gap-1">
+                                  <span className="truncate">{d.l}</span>
+                                  {d.r && <span className="text-red-500 shrink-0">*</span>}
+                                </p>
                                 <p className="text-xs text-muted-foreground truncate">Click to upload</p>
                               </div>
                             </div>
                           ) : (
                             <div className="space-y-3 relative z-10">
                               <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
                                   <div className="w-10 h-10 flex items-center justify-center bg-green-50 text-green-600 rounded-sm shrink-0 cursor-pointer" onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.k]: !prev[d.k] }))}>
                                     {isPending ? <Loader2 className="h-5 w-5 animate-spin text-gold" /> : <CheckCircle2 className="h-5 w-5" />}
                                   </div>
-                                  <div className={cn("select-none flex-1", !isPending && "cursor-pointer")} onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.k]: !prev[d.k] }))}>
-                                    <p className="text-sm font-semibold text-navy truncate">{d.l}</p>
-                                    <p className="text-xs text-green-600">
+                                  <div className={cn("select-none flex-1 min-w-0", !isPending && "cursor-pointer")} onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.k]: !prev[d.k] }))}>
+                                    <p className="text-sm font-semibold text-navy flex items-center gap-1">
+                                      <span className="truncate">{d.l}</span>
+                                      {d.r && <span className="text-red-500 shrink-0">*</span>}
+                                    </p>
+                                    <p className="text-xs text-green-600 truncate">
                                       {isUploading ? "Uploading document..." : isLoadingBackend ? "Loading document..." : "Successfully uploaded"}
                                     </p>
                                   </div>
@@ -1727,14 +1755,34 @@ function WizardContent({
                     ))}
                   </div>
                   <div className="border-l-4 border-gold bg-gold/10 p-4 text-sm text-[#8a5c00] rounded-r-md leading-relaxed">
-                    <FileText className="mr-2 inline h-4 w-4 text-gold" />
-                    By submitting this application, you declare that all uploaded certifications and declarations represent legal facts. RIQS Councils will complete the review queue within 5–10 working days.
+                    <FileText className="mr-2 inline h-4 w-4 text-gold mb-1" />
+                    {data.entityType === "Individual" ? (
+                      <div className="mt-1">
+                        <strong className="block mb-1 text-navy">DECLARATION BY APPLICANT</strong>
+                        I hereby declare that all information provided in this application is true, complete, and accurate. I understand that any false declaration may lead to rejection, suspension, or cancellation of registration. I also agree to comply with all professional, ethical, and regulatory requirements governing Quantity Surveying practice.
+                      </div>
+                    ) : (
+                      <div className="space-y-3 mt-1">
+                        <div>
+                          <strong className="block mb-1 text-navy">BENEFICIAL OWNERSHIP DECLARATION (ANTI-FRONTING CLAUSE)</strong>
+                          I/We hereby declare that all listed individuals/shareholders are the true and lawful beneficial owners of the firm; no undisclosed party exercises ownership or control through nominees or proxies; the firm is not acting as a front for any undisclosed entity or individual; and the ownership structure provided represents the complete and accurate beneficial ownership of the firm.
+                        </div>
+                        <div>
+                          <strong className="block mb-1 text-navy">COMPLIANCE UNDERTAKING</strong>
+                          The firm acknowledges that any misrepresentation shall constitute fraudulent declaration; the regulatory authority reserves the right to reject, suspend, or revoke registration; and the firm may be subject to legal and regulatory action if false information is identified.
+                        </div>
+                        <div>
+                          <strong className="block mb-1 text-navy">DECLARATION BY APPLICANT</strong>
+                          I hereby confirm that all information provided is true, complete, and accurate. I agree to comply with all applicable professional, legal, and regulatory requirements governing Quantity Surveying practice.
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-start space-x-3 mt-4 mb-2">
+                  <div className="flex items-start space-x-3 mt-4 mb-4">
                     <Checkbox id="terms" checked={data.agreedToTerms}
                       onCheckedChange={(checked) => setData({ ...data, agreedToTerms: checked === true })} />
-                    <Label htmlFor="terms" className="text-sm leading-snug cursor-pointer -mt-0.5 text-navy">
-                      I agree to the terms and conditions of RIQS. I declare that all provided information is true. I understand that submitting false information will lead to application rejection and potential legal action.
+                    <Label htmlFor="terms" className="text-sm leading-snug cursor-pointer -mt-0.5 text-navy font-semibold">
+                      I have read, understood, and agree to the declarations above.
                     </Label>
                   </div>
                   <Button
@@ -1765,7 +1813,7 @@ function WizardContent({
           tabs={[
             ...contextualChecklist.map((d: any) => {
               let label = d.l;
-              if (d.k === "degree") label = "Degree 1";
+              if (d.k === "degree") label = "Supporting Certificate";
               if (d.k === "transcripts") label = "Transcript 1";
               return {
                 k: d.k,
@@ -1814,6 +1862,21 @@ function WizardContent({
             if (!baseTab) baseTab = contextualChecklist[0];
             if (!baseTab) return;
             
+            if (!appId) {
+              toast.error("Please save the first step before uploading documents.");
+              return;
+            }
+
+            const isImg = file.type.startsWith("image/") || file.name.match(/\.(jpeg|jpg|gif|png)$/i);
+            const url = URL.createObjectURL(file) + (isImg ? "#image" : "#pdf");
+
+            // If the base tab is empty, upload there directly instead of creating a new tab
+            if (!data.docs[baseTab.k]) {
+              setData({ ...data, docs: { ...data.docs, [baseTab.k]: url } });
+              uploadFileMutation.mutate({ file, documentType: baseTab.k });
+              return;
+            }
+
             const existingDynamicCount = (data.dynamicTabs || []).filter((t: any) => t.base === baseTab.k).length;
             const newKey = `${baseTab.k}_${Date.now()}`;
             
@@ -1823,14 +1886,6 @@ function WizardContent({
             if (cleanLabel.toLowerCase().includes("certificate")) cleanLabel = "Certificate";
             
             const newLabel = `${cleanLabel} ${existingDynamicCount + 2}`;
-
-            const isImg = file.type.startsWith("image/") || file.name.match(/\.(jpeg|jpg|gif|png)$/i);
-            const url = URL.createObjectURL(file) + (isImg ? "#image" : "#pdf");
-
-            if (!appId) {
-              toast.error("Please save the first step before uploading documents.");
-              return;
-            }
 
             setData({
               ...data,

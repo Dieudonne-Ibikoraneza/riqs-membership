@@ -181,20 +181,19 @@ export function AppShell({
       </AnimatePresence>
 
       {/* Sidebar with dynamic collapsibility */}
-      <motion.aside
-        animate={{ width: collapsed ? 76 : 256 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col brand-gradient text-white md:relative md:translate-x-0",
-          "transition-transform duration-300 ease-in-out md:transition-none",
+          "fixed inset-y-0 left-0 z-50 flex flex-col brand-gradient text-white md:relative",
+          "transition-all duration-300 ease-in-out md:transition-none",
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+          collapsed ? "md:w-[76px] w-64" : "w-64"
         )}
       >
         {/* Brand */}
         <div
           className={cn(
             "relative h-20 shrink-0 bg-white flex items-center justify-center overflow-hidden",
-            collapsed && "hidden",
+            collapsed && "md:hidden",
           )}
         >
           <Link
@@ -338,7 +337,7 @@ export function AppShell({
             </button>
           )}
         </div>
-      </motion.aside>
+      </aside>
 
       {/* Main column */}
       <div className="relative flex flex-1 flex-col overflow-hidden">

@@ -4,6 +4,7 @@ import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
 import { ConfigProvider } from "@/lib/config-store";
 import { QueryProvider } from "@/providers/QueryProvider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -50,8 +51,10 @@ export default function RootLayout({
         <QueryProvider>
           <ConfigProvider>
             <AuthProvider>
-              {children}
-              <Toaster richColors position="top-right" />
+              <TooltipProvider>
+                {children}
+                <Toaster richColors position="top-right" />
+              </TooltipProvider>
             </AuthProvider>
           </ConfigProvider>
         </QueryProvider>

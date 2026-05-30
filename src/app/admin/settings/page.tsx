@@ -620,6 +620,11 @@ export default function SettingsPage() {
                     )}
                   </div>
                 </CardContent>
+                <div className="border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 p-4 rounded-b-xl flex justify-end">
+                  <Button onClick={handleSave} disabled={updateMutation.isPending} className="bg-navy text-white hover:bg-navy/90 font-bold text-xs px-6 py-2">
+                    {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />} Save All Changes
+                  </Button>
+                </div>
               </Card>
             ) : (
               <Card className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 p-8 text-center text-sm text-muted-foreground">

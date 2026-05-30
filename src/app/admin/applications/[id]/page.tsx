@@ -132,7 +132,9 @@ export default function Review({ params }: PageProps) {
             startedAt: new Date(res.mentorship.createdAt).toISOString().split('T')[0],
             progress: res.mentorship.completedDurationMonths || 0,
             contact: res.mentorship.mentorContact || "",
-            qualification: res.mentorship.mentorQualification || ""
+            qualification: res.mentorship.mentorQualification || "",
+            preferredMentors: res.mentorship.preferredMentors || [],
+            isSelfAssigned: res.mentorship.isSelfAssigned
           } : null,
           shareholders: res.shareholders || [],
           documents: (res.documents || []).map((d: any) => {
@@ -447,7 +449,7 @@ export default function Review({ params }: PageProps) {
                 </CardHeader>
                 <CardContent className="p-4 text-sm">
                   <div className="font-medium">
-                    Mentor:{" "}
+                    Assigned Mentor:{" "}
                     <strong className="text-zinc-800 dark:text-zinc-200">
                       {app.mentorship.mentor}
                     </strong>
@@ -462,7 +464,23 @@ export default function Review({ params }: PageProps) {
                       {app.mentorship.qualification}
                     </div>
                   )}
-                  <div className="text-xs text-muted-foreground mt-1.5 pt-1 border-t border-zinc-100 dark:border-zinc-800/60">
+                  {app.mentorship.preferredMentors?.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
+                      <div className="text-xs font-semibold text-navy mb-1.5">Preferred Mentors:</div>
+                      <div className="space-y-1.5">
+                        {app.mentorship.preferredMentors.map((pm: any, idx: number) => (
+                          <div key={idx} className="text-xs flex flex-col">
+                            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                              {idx + 1}. {pm.name || pm.regNumber}
+                            </span>
+                            {pm.regNumber && <span className="text-muted-foreground ml-3">ID: {pm.regNumber}</span>}
+                            {pm.contact && <span className="text-muted-foreground ml-3">Contact: {pm.contact}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-xs text-muted-foreground mt-2 pt-1 border-t border-zinc-100 dark:border-zinc-800/60">
                     Started {app.mentorship.startedAt} ·{" "}
                     {app.mentorship.progress} months completed
                   </div>
@@ -533,8 +551,19 @@ export default function Review({ params }: PageProps) {
               <TabsList className="flex w-full h-auto flex-wrap bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-lg mb-4 gap-1">
                 {app.documents.map((d: any, i: number) => {
                   const formatName = (n: string) => {
+                    if (!n) return 'Document';
                     if (n.toLowerCase() === 'id') return 'ID Document';
-                    const spaced = n.replace(/([a-z])([A-Z])/g, '$1 $2');
+                    
+                    let cleanName = n.replace(/_\d+$/, '').replace(/_+$/, '');
+                    
+                    if (cleanName.toLowerCase().includes('proof_of_momo_payment') || cleanName.toLowerCase().includes('processingfeeproof')) {
+                      return 'Application Fee Proof';
+                    }
+                    if (cleanName.toLowerCase().includes('certificate_of_rqssa')) {
+                      return 'RQSSA Certificate';
+                    }
+
+                    const spaced = cleanName.replace(/_+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim();
                     return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
                   };
                   return (

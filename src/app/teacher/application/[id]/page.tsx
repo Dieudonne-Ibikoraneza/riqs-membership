@@ -599,8 +599,13 @@ export default function Application() {
     const activeCategory = categories?.find((c: any) => c.id === data.categoryId);
     
     // If active category exists and has dynamic required documents, use them!
-    if (activeCategory && activeCategory.required_documents && activeCategory.required_documents.length > 0) {
-      return activeCategory.required_documents.map((docName: string) => {
+    if (activeCategory && ((activeCategory.required_documents && activeCategory.required_documents.length > 0) || (activeCategory.optional_documents && activeCategory.optional_documents.length > 0))) {
+      const docs = [
+        ...(activeCategory.required_documents || []).map((d: string) => ({ name: d, req: true })),
+        ...(activeCategory.optional_documents || []).map((d: string) => ({ name: d, req: false }))
+      ];
+      return docs.map((doc: { name: string, req: boolean }) => {
+        const docName = doc.name;
         let k = docName.toLowerCase().replace(/[^a-z0-9]/g, "_");
         // Maintain compatibility for the uploader step routing keys
         if (docName.toLowerCase().includes("degree") || docName.toLowerCase().includes("diploma")) {
@@ -611,7 +616,7 @@ export default function Application() {
         return {
           k,
           l: docName.replace(/_/g, " "),
-          r: true
+          r: doc.req
         };
       });
     }
@@ -1791,7 +1796,7 @@ function WizardContent({
           tabs={[
             ...contextualChecklist.map((d: any) => {
               let label = d.l;
-              if (d.k === "degree") label = "Degree 1";
+              if (d.k === "degree") label = "Supporting Certificate";
               if (d.k === "transcripts") label = "Transcript 1";
               return {
                 k: d.k,
@@ -1840,6 +1845,21 @@ function WizardContent({
             if (!baseTab) baseTab = contextualChecklist[0];
             if (!baseTab) return;
             
+            if (!appId) {
+              toast.error("Please save the first step before uploading documents.");
+              return;
+            }
+
+            const isImg = file.type.startsWith("image/") || file.name.match(/\.(jpeg|jpg|gif|png)$/i);
+            const url = URL.createObjectURL(file) + (isImg ? "#image" : "#pdf");
+
+            // If the base tab is empty, upload there directly instead of creating a new tab
+            if (!data.docs[baseTab.k]) {
+              setData({ ...data, docs: { ...data.docs, [baseTab.k]: url } });
+              uploadFileMutation.mutate({ file, documentType: baseTab.k });
+              return;
+            }
+
             const existingDynamicCount = (data.dynamicTabs || []).filter((t: any) => t.base === baseTab.k).length;
             const newKey = `${baseTab.k}_${Date.now()}`;
             
@@ -1849,14 +1869,6 @@ function WizardContent({
             if (cleanLabel.toLowerCase().includes("certificate")) cleanLabel = "Certificate";
             
             const newLabel = `${cleanLabel} ${existingDynamicCount + 2}`;
-
-            const isImg = file.type.startsWith("image/") || file.name.match(/\.(jpeg|jpg|gif|png)$/i);
-            const url = URL.createObjectURL(file) + (isImg ? "#image" : "#pdf");
-
-            if (!appId) {
-              toast.error("Please save the first step before uploading documents.");
-              return;
-            }
 
             setData({
               ...data,

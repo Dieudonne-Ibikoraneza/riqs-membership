@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Shield, Plus, Loader2, Copy, Check, Trash2 } from "lucide-react";
+import { Shield, Plus, Loader2, Copy, Check, Trash2, AlertCircle } from "lucide-react";
 import { getStaffRegistry, createStaffAccount, lockStaffAccount, unlockStaffAccount } from "@/lib/api/admin";
 import { cn } from "@/lib/utils";
 
@@ -212,9 +212,16 @@ export default function StaffManagementPage() {
                             {staff.systemRole}
                           </Badge>
                           {staff.isLocked && (
-                            <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400">
-                              Locked
-                            </Badge>
+                            <div className="group relative flex items-center">
+                              <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400 mr-1">
+                                Locked
+                              </Badge>
+                              <AlertCircle className="h-4 w-4 text-orange-500 cursor-help" />
+                              <div className="pointer-events-none absolute bottom-full mb-2 hidden w-48 rounded bg-zinc-900 px-3 py-2 text-xs font-normal text-white shadow-lg group-hover:block z-10 left-1/2 -translate-x-1/2 text-center">
+                                Locked until {new Date(staff.lockedUntil).toLocaleDateString()}. Account will be permanently deleted without further action if not unlocked.
+                                <div className="absolute top-full left-1/2 -mt-[1px] -translate-x-1/2 border-4 border-transparent border-t-zinc-900" />
+                              </div>
+                            </div>
                           )}
                         </div>
                       </td>

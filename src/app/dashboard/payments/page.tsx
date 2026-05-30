@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,7 @@ import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
+import { cn } from "@/lib/utils";
 
 // ─── Payment Dialog ──────────────────────────────────────────────────────────
 
@@ -44,23 +45,37 @@ function PaymentSubmitDialog({
   applicationId,
   isFirm,
   practiceLocation,
+  defaultTxType,
+  defaultAmount,
 }: {
   open: boolean;
   onClose: () => void;
   applicationId?: string;
   isFirm: boolean;
   practiceLocation: string;
+  defaultTxType?: string;
+  defaultAmount?: number;
 }) {
   const queryClient = useQueryClient();
   const isRwandan = practiceLocation === "Rwandan";
 
   const [form, setForm] = useState({
-    amount: "",
+    amount: defaultAmount ? String(defaultAmount) : "",
     currency: isRwandan ? "RWF" : "USD",
-    txType: "Annual_Renewal",
+    txType: defaultTxType || "Annual_Renewal",
     paymentMethod: isRwandan ? "MTN_Momo" : "Bank_Transfer",
     transactionReference: "",
   });
+
+  useEffect(() => {
+    if (open) {
+      setForm((f) => ({
+        ...f,
+        amount: defaultAmount ? String(defaultAmount) : "",
+        txType: defaultTxType || "Annual_Renewal",
+      }));
+    }
+  }, [open, defaultTxType, defaultAmount]);
 
   const { mutate: submit, isPending } = useMutation({
     mutationFn: applicantServices.submitPayment,
@@ -69,10 +84,10 @@ function PaymentSubmitDialog({
       queryClient.invalidateQueries({ queryKey: queryKeys.applicant.payments() });
       onClose();
       setForm({
-        amount: "",
+        amount: defaultAmount ? String(defaultAmount) : "",
         currency: isRwandan ? "RWF" : "USD",
-      txType: "Annual_Renewal",
-      paymentMethod: isRwandan ? "MTN_Momo" : "Bank_Transfer",
+        txType: defaultTxType || "Annual_Renewal",
+        paymentMethod: isRwandan ? "MTN_Momo" : "Bank_Transfer",
         transactionReference: "",
       });
     },
@@ -297,6 +312,22 @@ export default function Payments() {
   });
 
   const transactions = paymentsData?.transactions || [];
+  const unpaidTx = transactions.find((tx: any) => tx.status === "Unpaid");
+
+  let displayDesc = renewalDesc;
+  let displayAmount = feeAmount;
+  let displayButtonText = "Submit payment record";
+  let defaultTxType = "Annual_Renewal";
+  let defaultAmountNum = feeNumber;
+
+  if (unpaidTx) {
+    displayDesc = unpaidTx.txType.replace(/_/g, " ") + " Due";
+    displayAmount = `${unpaidTx.currency} ${Number(unpaidTx.amount).toLocaleString()}`;
+    displayButtonText = `Pay ${unpaidTx.txType.replace(/_/g, " ")}`;
+    defaultTxType = unpaidTx.txType;
+    defaultAmountNum = unpaidTx.amount;
+  }
+
   const totalPaid = transactions
     .filter((tx: any) => tx.status === "Cleared")
     .reduce((acc: number, tx: any) => acc + Number(tx.amount), 0);
@@ -312,6 +343,8 @@ export default function Payments() {
         applicationId={data?.application?.id}
         isFirm={!!isFirm}
         practiceLocation={practiceLocation}
+        defaultTxType={defaultTxType}
+        defaultAmount={defaultAmountNum}
       />
 
       <div className="space-y-6">
@@ -346,9 +379,9 @@ export default function Payments() {
                   <Wallet className="h-6 w-6" />
                 </div>
                 <div className="flex-1">
-                  <div className="text-sm text-muted-foreground">{renewalDesc}</div>
+                  <div className="text-sm text-muted-foreground">{displayDesc}</div>
                   <div className="text-lg font-bold text-navy mt-0.5">
-                    {isLoading ? "Loading…" : feeAmount}
+                    {isLoading ? "Loading…" : displayAmount}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {isRwandan ? "Pay via MoMo Code: 604516" : "Pay via international bank transfer"}
@@ -360,7 +393,7 @@ export default function Payments() {
                 onClick={() => setDialogOpen(true)}
               >
                 <Upload className="mr-2 h-4 w-4" />
-                Submit payment record
+                {displayButtonText}
               </Button>
             </CardContent>
           </Card>
@@ -395,71 +428,73 @@ export default function Payments() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-navy/5 dark:bg-navy/10 border-b border-zinc-100 dark:border-zinc-800">
-                    <TableHead className="text-navy font-semibold">Reference</TableHead>
-                    <TableHead className="text-navy font-semibold">Date</TableHead>
-                    <TableHead className="text-navy font-semibold">Type</TableHead>
-                    <TableHead className="text-navy font-semibold">Method</TableHead>
-                    <TableHead className="text-navy font-semibold">Amount</TableHead>
-                    <TableHead className="text-navy font-semibold">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <table className="w-full text-sm">
+                <thead className="bg-navy text-white">
+                  <tr>
+                    {["Reference", "Date", "Type", "Method", "Amount", "Status"].map((h) => (
+                      <th key={h} className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
                   {isPaymentsLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                    <tr>
+                      <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
                         <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
                         Loading payment history…
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ) : transactions.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                    <tr>
+                      <td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">
                         <Wallet className="h-8 w-8 mx-auto mb-2 opacity-30" />
                         <div className="font-medium">No payment records yet</div>
                         <div className="text-xs mt-1">
                           Use the button above to record your annual payment after completing the transfer.
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ) : (
-                    transactions.map((tx: any, index: number) => (
+                    transactions.map((tx: any, i: number) => (
                       <motion.tr
                         key={tx.id}
                         initial={{ opacity: 0, x: -6 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.03 }}
-                        className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 border-b border-zinc-100 dark:border-zinc-800"
+                        transition={{ delay: i * 0.03 }}
+                        className={cn(
+                          "border-b border-zinc-100 dark:border-zinc-800/80 transition-colors hover:bg-gold/5",
+                          i % 2 === 1 && "bg-zinc-50/20 dark:bg-zinc-950/10"
+                        )}
                       >
-                        <TableCell className="text-xs text-zinc-600 dark:text-zinc-400 font-mono">
+                        <td className="px-5 py-4 text-xs font-semibold text-navy dark:text-gold">
                           {tx.transactionReference}
-                        </TableCell>
-                        <TableCell className="text-sm text-zinc-700 dark:text-zinc-350 whitespace-nowrap">
+                        </td>
+                        <td className="px-5 py-4 text-sm text-zinc-700 dark:text-zinc-350 whitespace-nowrap">
                           {new Date(tx.createdAt).toLocaleDateString("en-GB", {
                             day: "2-digit",
                             month: "short",
                             year: "numeric",
                           })}
-                        </TableCell>
-                        <TableCell className="text-sm">
+                        </td>
+                        <td className="px-5 py-4 text-sm">
                           {tx.txType.replace(/_/g, " ")}
-                        </TableCell>
-                        <TableCell className="text-sm text-zinc-600 dark:text-zinc-400">
+                        </td>
+                        <td className="px-5 py-4 text-sm text-zinc-600 dark:text-zinc-400">
                           {tx.paymentMethod?.replace(/_/g, " ") || "—"}
-                        </TableCell>
-                        <TableCell className="font-semibold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                        </td>
+                        <td className="px-5 py-4 font-semibold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
                           {tx.currency} {Number(tx.amount).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="px-5 py-4">
                           <StatusBadge status={tx.status} />
-                        </TableCell>
+                        </td>
                       </motion.tr>
                     ))
                   )}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           </CardContent>
         </Card>

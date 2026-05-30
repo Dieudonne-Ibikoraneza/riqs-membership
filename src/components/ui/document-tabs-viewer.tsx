@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Check, Upload, FileText, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PDFViewer from "@/components/ui/pdf-viewer";
+import ImageViewer from "@/components/ui/image-viewer";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -165,7 +166,7 @@ export function DocumentTabsViewer({ tabs, onUpload, onDelete, onAddTab, isUploa
         {tabs.map((tab) => {
           const isActive = tab.k === activeTabKey;
           const url = tab.url;
-          const isImage = url?.toLowerCase().match(/\.(jpeg|jpg|gif|png)$/i) || url?.startsWith("data:image");
+          const isImage = url?.toLowerCase().match(/\.(jpeg|jpg|gif|png)$/i) || url?.startsWith("data:image") || url?.includes('#image');
           const isUploaded = !!url;
           
           return (
@@ -191,7 +192,7 @@ export function DocumentTabsViewer({ tabs, onUpload, onDelete, onAddTab, isUploa
               ) : isUploaded ? (
                 <div className="w-full h-full p-0 flex-1 relative overflow-hidden flex items-center justify-center">
                   {isImage ? (
-                    <img src={url!} alt={tab.l} className="max-w-full max-h-full object-contain p-4" />
+                    <ImageViewer src={url!} alt={tab.l} fileName={tab.l + ".png"} />
                   ) : (
                     <PDFViewer src={url!} fileName={tab.l + ".pdf"} />
                   )}

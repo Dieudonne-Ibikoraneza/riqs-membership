@@ -13,6 +13,7 @@ export interface Category {
   stamp_fee?: string | number;
   currency?: string;
   required_documents?: string[];
+  optional_documents?: string[];
 }
 
 export interface PublicMember {

@@ -152,18 +152,28 @@ function CertificateContent() {
   const appStatus = profileData?.application?.status || "None";
   const isApproved = appStatus === "Approved";
 
+  // Check if Processing_Fee (application fee) is cleared
+  const processingFeeTx = profileData?.financialTransactions?.find(
+    (tx: any) => tx.txType === "Processing_Fee"
+  );
+  
+  // Default to true for backward compatibility if no tx is found
+  const isProcessingFeeCleared = processingFeeTx ? processingFeeTx.status === "Cleared" : true;
+
+  const isFullyActive = isApproved && isProcessingFeeCleared;
+
   // Lazy-load passport photo if approved
   useEffect(() => {
-    if (isLoading) return; // Wait until profileData query has completed to avoid state updates and flickering
+    if (isLoading) return;
 
-    if (!isApproved || !profileData?.documents) {
+    if (!isFullyActive || !profileData?.documents) {
       setPassportLoading(false);
       return;
     }
 
-    let passportDoc = profileData.documents.find(d => d.documentType === "PassportPhoto");
+    let passportDoc = profileData.documents.find((d: any) => d.documentType === "PassportPhoto");
     if (!passportDoc) {
-      passportDoc = profileData.documents.find(d => 
+      passportDoc = profileData.documents.find((d: any) => 
         d.documentType === "Passport" || 
         d.documentType === "id" || 
         d.documentType.toLowerCase().includes("passport") ||
@@ -195,17 +205,16 @@ function CertificateContent() {
     return () => {
       active = false;
     };
-  }, [profileData, isApproved, isLoading]);
+  }, [profileData, isFullyActive, isLoading]);
 
   // Dynamic scale calculation based on parent container width
   useEffect(() => {
     const zone = zoneRef.current;
-    if (!zone || !isApproved) return;
+    if (!zone || !isFullyActive) return;
 
     function updateCertScale() {
       if (!zone) return;
       const containerWidth = zone.clientWidth;
-      // Ignore zero-width layout measurements on initial rendering mounts to prevent scale from dropping to 0
       if (containerWidth === 0) return;
 
       const certWidth = 1200;
@@ -221,7 +230,7 @@ function CertificateContent() {
     return () => {
       ro.disconnect();
     };
-  }, [isApproved, isLoading, passportLoading]);
+  }, [isFullyActive, isLoading, passportLoading]);
 
   const handleDownloadPDF = useCallback(async () => {
     if (!certRef.current || !profileData?.profile?.fullName) return;
@@ -276,7 +285,7 @@ function CertificateContent() {
   }, []);
 
   // 1. Loading State Screen (waits for both profileData and passport image download if approved)
-  if (isLoading || (isApproved && passportLoading)) {
+  if (isLoading || (isFullyActive && passportLoading)) {
     return (
       <div className="flex flex-col items-center justify-center h-80 gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-gold" />
@@ -286,10 +295,12 @@ function CertificateContent() {
   }
 
   // 2. UNREADY / PENDING APP SCREEN
-  if (!isApproved) {
+  if (!isFullyActive) {
     let badgeText = "Under Board Review";
     let descText = "Your application has been locked and submitted to the RIQS Governing Board. Our reviewers are verifying your credentials and logbooks. We appreciate your patience during this process.";
     let showButton = false;
+    let buttonLabel = "Go to Application";
+    let buttonHref = "/dashboard/application";
 
     if (appStatus === "Draft") {
       badgeText = "Draft Registration";
@@ -306,6 +317,12 @@ function CertificateContent() {
       badgeText = "No Application Found";
       descText = "You have not started your professional membership application yet. To get licensed, you must submit an application packet.";
       showButton = true;
+    } else if (appStatus === "Approved" && !isProcessingFeeCleared) {
+      badgeText = "Pending Application Fee";
+      descText = "Congratulations! Your application has been approved by the Governing Council. However, your initial application fee (Processing Fee) has not yet been cleared by the admin. Please ensure you have uploaded your proof of payment on the payments page, and wait for administrative clearance to receive your practicing license.";
+      showButton = true;
+      buttonLabel = "Go to Payments";
+      buttonHref = "/dashboard/payments";
     }
 
     return (
@@ -333,9 +350,9 @@ function CertificateContent() {
             </div>
 
             {showButton && (
-              <Link href="/dashboard/application" className="mt-2">
+              <Link href={buttonHref} className="mt-2">
                 <Button className="bg-gold text-[#1a1a1a] hover:bg-gold/90 font-bold gap-1.5 shadow-gold border-none">
-                  Go to Application <ArrowRight className="h-4 w-4" />
+                  {buttonLabel} <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
             )}

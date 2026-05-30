@@ -12,6 +12,7 @@ export interface Category {
   annual_renewal_fee: number;
   stamp_fee: number;
   required_documents: string[];
+  optional_documents: string[];
 }
 
 export const adminCategoryServices = {

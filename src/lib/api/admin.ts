@@ -176,6 +176,7 @@ export interface AdminPaymentTransaction {
   transactionReference: string;
   status: string;
   createdAt: string;
+  receiptUrl?: string;
   full_name?: string;
   email?: string;
 }

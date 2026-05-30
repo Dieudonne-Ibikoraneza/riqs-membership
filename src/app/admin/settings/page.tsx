@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminCategoryServices, type Category } from "@/services/adminCategory.services";
@@ -19,10 +19,13 @@ import {
 } from "@/components/ui/select";
 import {
   Dialog,
+  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
+  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Trash2,
@@ -35,7 +38,7 @@ import {
   Globe,
   MapPin,
   Loader2,
-  DollarSign,
+  BadgeDollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -70,6 +73,7 @@ export default function SettingsPage() {
     annual_renewal_fee: 0,
     stamp_fee: 0,
     required_documents: [],
+    optional_documents: []
   });
 
   // Set the first category as active once loaded
@@ -127,6 +131,7 @@ export default function SettingsPage() {
         annual_renewal_fee: 0,
         stamp_fee: 0,
         required_documents: [],
+        optional_documents: []
       });
     },
     onError: (err: any) => {
@@ -162,7 +167,7 @@ export default function SettingsPage() {
   };
 
   const handleDelete = () => {
-    if (activeId && window.confirm("Are you sure you want to delete this category? This action is permanent.")) {
+    if (activeId) {
       deleteMutation.mutate(activeId);
     }
   };
@@ -173,35 +178,74 @@ export default function SettingsPage() {
     }
   };
 
+  const hasChanges = useMemo(() => {
+    if (!draft || !activeId) return false;
+    const original = categories.find((c) => c.id === activeId);
+    if (!original) return false;
+    return JSON.stringify(original) !== JSON.stringify(draft);
+  }, [draft, activeId, categories]);
+
   // Document Helpers
   const addDocument = () => {
     if (draft) {
-      const currentDocs = draft.required_documents && draft.required_documents.length > 0 
-        ? [...draft.required_documents] 
-        : getDefaultDocuments(draft);
-      currentDocs.push("New Required Document");
-      updateDraftField("required_documents", currentDocs);
+      const currentReq = [...(draft.required_documents || [])];
+      currentReq.push("New Required Document");
+      updateDraftField("required_documents", currentReq);
     }
   };
 
   const customizeDefaults = () => {
     if (draft) {
-      updateDraftField("required_documents", getDefaultDocuments(draft));
+      const defaults = getDefaultDocuments(draft);
+      setDraft({
+        ...draft,
+        required_documents: defaults.required_documents,
+        optional_documents: defaults.optional_documents,
+      });
     }
   };
 
-  const updateDocumentName = (idx: number, name: string) => {
-    if (draft && draft.required_documents) {
-      const docs = [...draft.required_documents];
-      docs[idx] = name;
-      updateDraftField("required_documents", docs);
+  const updateDocumentName = (isOpt: boolean, idx: number, name: string) => {
+    if (draft) {
+      if (isOpt && draft.optional_documents) {
+        const docs = [...draft.optional_documents];
+        docs[idx] = name;
+        updateDraftField("optional_documents", docs);
+      } else if (!isOpt && draft.required_documents) {
+        const docs = [...draft.required_documents];
+        docs[idx] = name;
+        updateDraftField("required_documents", docs);
+      }
     }
   };
 
-  const removeDocument = (idx: number) => {
-    if (draft && draft.required_documents) {
-      const docs = draft.required_documents.filter((_, i) => i !== idx);
-      updateDraftField("required_documents", docs);
+  const toggleOptional = (isOpt: boolean, idx: number) => {
+    if (draft) {
+      if (isOpt && draft.optional_documents) {
+        // Move from optional to required
+        const doc = draft.optional_documents[idx];
+        const newOpt = draft.optional_documents.filter((_, i) => i !== idx);
+        const newReq = [...(draft.required_documents || []), doc];
+        setDraft({ ...draft, optional_documents: newOpt, required_documents: newReq });
+      } else if (!isOpt && draft.required_documents) {
+        // Move from required to optional
+        const doc = draft.required_documents[idx];
+        const newReq = draft.required_documents.filter((_, i) => i !== idx);
+        const newOpt = [...(draft.optional_documents || []), doc];
+        setDraft({ ...draft, required_documents: newReq, optional_documents: newOpt });
+      }
+    }
+  };
+
+  const removeDocument = (isOpt: boolean, idx: number) => {
+    if (draft) {
+      if (isOpt && draft.optional_documents) {
+        const docs = draft.optional_documents.filter((_, i) => i !== idx);
+        updateDraftField("optional_documents", docs);
+      } else if (!isOpt && draft.required_documents) {
+        const docs = draft.required_documents.filter((_, i) => i !== idx);
+        updateDraftField("required_documents", docs);
+      }
     }
   };
 
@@ -219,29 +263,29 @@ export default function SettingsPage() {
       if (draft.location === "Rwandan") {
         if (catName.includes("Graduate")) {
           list.push("Notarized Degree/Diploma (HEC equivalency if foreign)");
-          list.push("Notarized Academic Transcripts showing subjects");
+          list.push("Notarized Academic Transcripts showing subjects (Optional)");
           list.push("Certificate of RQSSA (or equivalent student membership proof)");
           list.push("Application Letter");
           list.push("Copy of ID / Passport");
-          list.push("Curriculum Vitae (CV)");
+          list.push("Curriculum Vitae (CV) (Optional)");
           list.push("Proof of Momo Payment (10,000 RWF via Momo Code: 604516)");
         } else if (catName.includes("Technologist")) {
           list.push("Diploma Certificate (HEC equivalency if foreign)");
           list.push("Notarized Academic Transcripts showing subjects");
-          list.push("At least 2 CPD Activities certificate copies");
-          list.push("Logbook of records");
+          list.push("At least 2 CPD Activities certificate copies (Optional)");
+          list.push("Logbook of records (Optional)");
           list.push("Application Letter");
           list.push("Copy of ID / Passport");
-          list.push("Curriculum Vitae (CV)");
+          list.push("Curriculum Vitae (CV) (Optional)");
           list.push("Proof of Momo Payment (10,000 RWF via Momo Code: 604516)");
         } else {
           list.push("Notarized Degree Certificate (HEC equivalent if foreign)");
           list.push("Notarized Academic Transcripts showing subjects");
-          list.push("At least 2 CPD Activities certificate copies");
-          list.push("Logbook of records");
+          list.push("At least 2 CPD Activities certificate copies (Optional)");
+          list.push("Logbook of records (Optional)");
           list.push("Application Letter");
           list.push("Copy of ID / Passport");
-          list.push("Curriculum Vitae (CV)");
+          list.push("Curriculum Vitae (CV) (Optional)");
           list.push("Proof of Momo Payment (10,000 RWF via Momo Code: 604516)");
         }
       } else {
@@ -249,7 +293,7 @@ export default function SettingsPage() {
         list.push(isProf ? "Notarized Degree Certificate" : "Notarized Diploma Certificate");
         list.push("Valid Membership Certificate from country of origin");
         list.push("Visa & Work Permit (PDF)");
-        list.push("CV & References (PDF)");
+        list.push("CV & References (PDF) (Optional)");
         list.push(`Proof of Payment (${isProf ? "50 USD" : "30 USD"} Application Fee)`);
       }
     } else {
@@ -258,14 +302,24 @@ export default function SettingsPage() {
       list.push("Tax Clearance Certificate");
       list.push("Identity documents of beneficial owners / shareholders");
       list.push("Share certificates or company registry extract");
-      list.push(isLocal ? "RSSB Tax Clearance Certificate" : "Social Security Clearance Certificate");
-      if (isLocal) list.push("RIQS Members working in the firm (Certificates)");
+      list.push(isLocal ? "RSSB Tax Clearance Certificate (Optional)" : "Social Security Clearance Certificate (Optional)");
+      if (isLocal) list.push("RIQS Members working in the firm (Certificates) (Optional)");
       const fee = catName.includes("Small") ? (isLocal ? "50,000 RWF" : "100 USD")
         : catName.includes("Medium") ? (isLocal ? "100,000 RWF" : "200 USD")
         : isLocal ? "200,000 RWF" : "400 USD";
       list.push(isLocal ? `Proof of Momo Payment (${fee} via Momo Code: 604516)` : `Proof of Payment (${fee} Application Fee)`);
     }
-    return list;
+    
+    const required_documents: string[] = [];
+    const optional_documents: string[] = [];
+    for (const doc of list) {
+      if (doc.endsWith(" (Optional)")) {
+        optional_documents.push(doc.replace(" (Optional)", ""));
+      } else {
+        required_documents.push(doc);
+      }
+    }
+    return { required_documents, optional_documents };
   };
 
   return (
@@ -501,12 +555,32 @@ export default function SettingsPage() {
                     <CardTitle className="text-lg font-bold text-navy mt-1.5">{draft.category_name}</CardTitle>
                   </div>
                   <div className="flex gap-2">
-                    <Button onClick={handleDelete} variant="ghost" className="text-destructive hover:bg-destructive/5 font-semibold text-xs border border-transparent hover:border-destructive/10">
-                      <Trash2 className="h-4 w-4 mr-1" /> Delete Category
-                    </Button>
-                    <Button onClick={handleSave} disabled={updateMutation.isPending} className="bg-navy text-white hover:bg-navy/90 font-bold text-xs">
-                      {updateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />} Save Changes
-                    </Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" className="text-destructive hover:bg-destructive/5 font-semibold text-xs border border-transparent hover:border-destructive/10">
+                          <Trash2 className="h-4 w-4 mr-1" /> Delete Category
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Delete Category</DialogTitle>
+                          <DialogDescription>
+                            Are you sure you want to delete this category? This action is permanent and cannot be undone.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="mt-4">
+                          <DialogClose asChild>
+                            <Button variant="outline">Cancel</Button>
+                          </DialogClose>
+                          <DialogClose asChild>
+                            <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
+                              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Trash2 className="h-4 w-4 mr-1.5" />}
+                              Confirm Delete
+                            </Button>
+                          </DialogClose>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
@@ -536,7 +610,7 @@ export default function SettingsPage() {
 
                   {/* Pricing Matrix */}
                   <div>
-                    <h3 className="text-sm font-bold text-navy flex items-center gap-1 mb-3"><DollarSign className="h-4 w-4 text-gold" /> Pricing & Fee Matrix</h3>
+                    <h3 className="text-sm font-bold text-navy flex items-center gap-1 mb-3"><BadgeDollarSign className="h-4 w-4 text-gold" /> Pricing & Fee Matrix</h3>
                     <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-5">
                       <div>
                         <Label className="text-[11px] font-bold text-navy">Currency</Label>
@@ -579,24 +653,48 @@ export default function SettingsPage() {
                         <p className="text-xs text-muted-foreground">List of dynamic documentation required in the registration uploader.</p>
                       </div>
                       <div className="flex gap-2">
-                        {(!draft.required_documents || draft.required_documents.length === 0) && (
-                          <Button onClick={customizeDefaults} size="sm" variant="outline" className="text-xs py-1">
-                            <SettingsIcon className="mr-1 h-3.5 w-3.5" /> Customize Defaults
-                          </Button>
-                        )}
+                        <Button onClick={customizeDefaults} size="sm" variant="outline" className="text-xs py-1">
+                          <SettingsIcon className="mr-1 h-3.5 w-3.5" /> 
+                          {((!draft.required_documents || draft.required_documents.length === 0) && (!draft.optional_documents || draft.optional_documents.length === 0)) ? "Customize Defaults" : "Reset Defaults"}
+                        </Button>
                         <Button onClick={addDocument} size="sm" variant="outline" className="border-dashed border-gold text-gold hover:bg-gold/5 font-semibold text-xs py-1">
                           <Plus className="mr-1 h-3.5 w-3.5" /> Add Required Doc
                         </Button>
                       </div>
                     </div>
 
-                    {draft.required_documents && draft.required_documents.length > 0 ? (
+                    {((draft.required_documents && draft.required_documents.length > 0) || (draft.optional_documents && draft.optional_documents.length > 0)) ? (
                       <div className="grid gap-2">
-                        {draft.required_documents.map((doc, idx) => (
-                          <div key={idx} className="flex gap-2 items-center border p-2.5 rounded bg-zinc-50 dark:bg-zinc-950 border-zinc-100 dark:border-zinc-800">
+                        {draft.required_documents?.map((doc, idx) => (
+                          <div key={`req-${idx}`} className="flex gap-2 items-center border p-2.5 rounded bg-zinc-50 dark:bg-zinc-950 border-zinc-100 dark:border-zinc-800">
                             <span className="text-xs font-bold text-navy/70 select-none bg-zinc-200 dark:bg-zinc-800 px-2 py-1 rounded w-6 text-center">{idx + 1}</span>
-                            <Input className="flex-1 text-xs" value={doc} onChange={(e) => updateDocumentName(idx, e.target.value)} />
-                            <Button size="icon" variant="ghost" onClick={() => removeDocument(idx)} className="text-destructive hover:bg-destructive/5 h-8 w-8">
+                            <Input className="flex-1 text-xs" value={doc} onChange={(e) => updateDocumentName(false, idx, e.target.value)} />
+                            <Button 
+                              variant="default"
+                              size="sm"
+                              onClick={() => toggleOptional(false, idx)}
+                              className="text-xs px-3 h-9 bg-gold text-navy hover:bg-gold/90 font-bold"
+                            >
+                              Required
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => removeDocument(false, idx)} className="text-destructive hover:bg-destructive/5 h-9 w-9">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        {draft.optional_documents?.map((doc, idx) => (
+                          <div key={`opt-${idx}`} className="flex gap-2 items-center border p-2.5 rounded bg-zinc-50 dark:bg-zinc-950 border-zinc-100 dark:border-zinc-800">
+                            <span className="text-xs font-bold text-navy/70 select-none bg-zinc-200 dark:bg-zinc-800 px-2 py-1 rounded w-6 text-center">{(draft.required_documents?.length || 0) + idx + 1}</span>
+                            <Input className="flex-1 text-xs" value={doc} onChange={(e) => updateDocumentName(true, idx, e.target.value)} />
+                            <Button 
+                              variant="outline"
+                              size="sm"
+                              onClick={() => toggleOptional(true, idx)}
+                              className="text-xs px-3 h-9 text-muted-foreground"
+                            >
+                              Optional
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => removeDocument(true, idx)} className="text-destructive hover:bg-destructive/5 h-9 w-9">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -609,19 +707,28 @@ export default function SettingsPage() {
                            <p>No custom documents are configured. The system will automatically require the following default documents during application:</p>
                         </div>
                         <div className="grid gap-2 opacity-80 pointer-events-none grayscale-[30%]">
-                          {getDefaultDocuments(draft).map((doc, idx) => (
-                            <div key={idx} className="flex gap-2 items-center border p-2.5 rounded bg-zinc-50 dark:bg-zinc-950 border-zinc-100 dark:border-zinc-800">
-                              <span className="text-xs font-bold text-navy/70 select-none bg-zinc-200 dark:bg-zinc-800 px-2 py-1 rounded w-6 text-center">{idx + 1}</span>
-                              <Input className="flex-1 text-xs" value={doc} readOnly />
-                            </div>
-                          ))}
+                          {(() => {
+                            const defaults = getDefaultDocuments(draft);
+                            return [
+                              ...(defaults.required_documents.map(d => ({ name: d, req: true }))),
+                              ...(defaults.optional_documents.map(d => ({ name: d, req: false })))
+                            ].map((doc, idx) => (
+                              <div key={idx} className="flex gap-2 items-center border p-2.5 rounded bg-zinc-50 dark:bg-zinc-950 border-zinc-100 dark:border-zinc-800">
+                                <span className="text-xs font-bold text-navy/70 select-none bg-zinc-200 dark:bg-zinc-800 px-2 py-1 rounded w-6 text-center">{idx + 1}</span>
+                                <Input className="flex-1 text-xs" value={doc.name} readOnly />
+                                <div className={`text-[10px] font-bold px-2 py-1.5 rounded uppercase ${!doc.req ? "bg-zinc-200 dark:bg-zinc-800 text-muted-foreground" : "bg-gold/20 text-gold"}`}>
+                                  {!doc.req ? "Optional" : "Required"}
+                                </div>
+                              </div>
+                            ));
+                          })()}
                         </div>
                       </div>
                     )}
                   </div>
                 </CardContent>
                 <div className="border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 p-4 rounded-b-xl flex justify-end">
-                  <Button onClick={handleSave} disabled={updateMutation.isPending} className="bg-navy text-white hover:bg-navy/90 font-bold text-xs px-6 py-2">
+                  <Button onClick={handleSave} disabled={updateMutation.isPending || !hasChanges} className="bg-navy text-white hover:bg-navy/90 font-bold text-xs px-6 py-2">
                     {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />} Save All Changes
                   </Button>
                 </div>
@@ -716,7 +823,18 @@ export default function SettingsPage() {
           </div>
           <DialogFooter className="mt-4 pt-3 border-t">
             <Button onClick={() => setIsCreateOpen(false)} variant="outline" className="text-xs font-semibold">Cancel</Button>
-            <Button onClick={() => createMutation.mutate(newCategory)} disabled={createMutation.isPending || !newCategory.category_name || !newCategory.category_code} className="bg-navy text-white hover:bg-navy/90 text-xs font-bold">
+            <Button 
+              onClick={() => {
+                const defaults = getDefaultDocuments(newCategory);
+                createMutation.mutate({
+                  ...newCategory,
+                  required_documents: defaults.required_documents,
+                  optional_documents: defaults.optional_documents,
+                });
+              }} 
+              disabled={createMutation.isPending || !newCategory.category_name || !newCategory.category_code} 
+              className="bg-navy text-white hover:bg-navy/90 text-xs font-bold"
+            >
               {createMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Plus className="h-3.5 w-3.5 mr-1" />} Create Category
             </Button>
           </DialogFooter>

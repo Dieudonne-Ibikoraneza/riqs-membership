@@ -184,7 +184,7 @@ export function AppShell({
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col brand-gradient text-white md:relative",
-          "transition-all duration-300 ease-in-out md:transition-none",
+          "transition-all duration-300 ease-in-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
           collapsed ? "md:w-[76px] w-64" : "w-64"
         )}

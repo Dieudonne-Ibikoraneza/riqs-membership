@@ -62,6 +62,7 @@ export interface ApplicantProfileResponse {
     mentorRegistrationNumber?: string | null;
     completedDurationMonths?: number | null;
   };
+  financialTransactions?: any[];
 }
 
 export const applicantServices = {

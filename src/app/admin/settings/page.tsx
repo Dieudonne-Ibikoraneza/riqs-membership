@@ -203,6 +203,63 @@ export default function SettingsPage() {
   const nonRwandanIndividuals = categories.filter(c => c.location === "Non_Rwandan" && c.entity_type === "Individual");
   const nonRwandanFirms = categories.filter(c => c.location === "Non_Rwandan" && c.entity_type === "Firm");
 
+  const getDefaultDocuments = (draft: Partial<Category>) => {
+    const list: string[] = [];
+    const catName = draft.category_name || "";
+    
+    if (draft.entity_type === "Individual") {
+      if (draft.location === "Rwandan") {
+        if (catName.includes("Graduate")) {
+          list.push("Notarized Degree/Diploma (HEC equivalency if foreign)");
+          list.push("Notarized Academic Transcripts showing subjects");
+          list.push("Certificate of RQSSA (or equivalent student membership proof)");
+          list.push("Application Letter");
+          list.push("Copy of ID / Passport");
+          list.push("Curriculum Vitae (CV)");
+          list.push("Proof of Momo Payment (10,000 RWF via Momo Code: 604516)");
+        } else if (catName.includes("Technologist")) {
+          list.push("Diploma Certificate (HEC equivalency if foreign)");
+          list.push("Notarized Academic Transcripts showing subjects");
+          list.push("At least 2 CPD Activities certificate copies");
+          list.push("Logbook of records");
+          list.push("Application Letter");
+          list.push("Copy of ID / Passport");
+          list.push("Curriculum Vitae (CV)");
+          list.push("Proof of Momo Payment (10,000 RWF via Momo Code: 604516)");
+        } else {
+          list.push("Notarized Degree Certificate (HEC equivalent if foreign)");
+          list.push("Notarized Academic Transcripts showing subjects");
+          list.push("At least 2 CPD Activities certificate copies");
+          list.push("Logbook of records");
+          list.push("Application Letter");
+          list.push("Copy of ID / Passport");
+          list.push("Curriculum Vitae (CV)");
+          list.push("Proof of Momo Payment (10,000 RWF via Momo Code: 604516)");
+        }
+      } else {
+        const isProf = catName.includes("Professional");
+        list.push(isProf ? "Notarized Degree Certificate" : "Notarized Diploma Certificate");
+        list.push("Valid Membership Certificate from country of origin");
+        list.push("Visa & Work Permit (PDF)");
+        list.push("CV & References (PDF)");
+        list.push(`Proof of Payment (${isProf ? "50 USD" : "30 USD"} Application Fee)`);
+      }
+    } else {
+      const isLocal = draft.location === "Rwandan";
+      list.push(isLocal ? "Firm Business Registration Certificate by RDB" : "Firm Business Registration Certificate");
+      list.push("Tax Clearance Certificate");
+      list.push("Identity documents of beneficial owners / shareholders");
+      list.push("Share certificates or company registry extract");
+      list.push(isLocal ? "RSSB Tax Clearance Certificate" : "Social Security Clearance Certificate");
+      if (isLocal) list.push("RIQS Members working in the firm (Certificates)");
+      const fee = catName.includes("Small") ? (isLocal ? "50,000 RWF" : "100 USD")
+        : catName.includes("Medium") ? (isLocal ? "100,000 RWF" : "200 USD")
+        : isLocal ? "200,000 RWF" : "400 USD";
+      list.push(isLocal ? `Proof of Momo Payment (${fee} via Momo Code: 604516)` : `Proof of Payment (${fee} Application Fee)`);
+    }
+    return list;
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -531,8 +588,19 @@ export default function SettingsPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-6 border border-dashed rounded text-xs text-muted-foreground bg-zinc-50 dark:bg-zinc-950">
-                        No custom required documents configured for this category yet. It will use registration defaults.
+                      <div className="space-y-4">
+                        <div className="text-xs text-muted-foreground bg-zinc-50 dark:bg-zinc-950 p-3 rounded border border-zinc-100 dark:border-zinc-800 flex items-start gap-2">
+                           <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                           <p>No custom documents are configured. The system will automatically require the following default documents during application:</p>
+                        </div>
+                        <div className="grid gap-2 opacity-80 pointer-events-none grayscale-[30%]">
+                          {getDefaultDocuments(draft).map((doc, idx) => (
+                            <div key={idx} className="flex gap-2 items-center border p-2.5 rounded bg-zinc-50 dark:bg-zinc-950 border-zinc-100 dark:border-zinc-800">
+                              <span className="text-xs font-bold text-navy/70 select-none bg-zinc-200 dark:bg-zinc-800 px-2 py-1 rounded w-6 text-center">{idx + 1}</span>
+                              <Input className="flex-1 text-xs" value={doc} readOnly />
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

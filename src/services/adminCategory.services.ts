@@ -1,5 +1,14 @@
 import { axiosClient } from '@/lib/axiosClient';
 
+/** A single document requirement configured by the admin for a category.
+ *  `name`     — Human-readable label the admin gave it, e.g. "Proof of MoMo Payment"
+ *  `typeCode` — Code of the predefined DocumentType bucket, e.g. "payment"
+ */
+export interface CategoryDocument {
+  name: string;
+  typeCode: string;
+}
+
 export interface Category {
   id: string;
   location: 'Rwandan' | 'Non_Rwandan';
@@ -11,8 +20,15 @@ export interface Category {
   first_year_fee: number;
   annual_renewal_fee: number;
   stamp_fee: number;
-  required_documents: string[];
-  optional_documents: string[];
+  required_documents: CategoryDocument[];
+  optional_documents: CategoryDocument[];
+}
+
+export interface DocumentType {
+  id: string;
+  name: string;
+  code: string;
+  isPaymentProof: boolean;
 }
 
 export const adminCategoryServices = {
@@ -33,6 +49,21 @@ export const adminCategoryServices = {
 
   deleteCategory: async (id: string): Promise<any> => {
     const response = await axiosClient.delete(`/categories/${id}`);
+    return response.data;
+  },
+
+  getDocumentTypes: async (): Promise<DocumentType[]> => {
+    const response = await axiosClient.get('/document-types');
+    return response.data;
+  },
+
+  createDocumentType: async (data: Omit<DocumentType, 'id'>): Promise<DocumentType> => {
+    const response = await axiosClient.post('/document-types', data);
+    return response.data;
+  },
+
+  deleteDocumentType: async (id: string): Promise<any> => {
+    const response = await axiosClient.delete(`/document-types/${id}`);
     return response.data;
   }
 };

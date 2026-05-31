@@ -59,6 +59,11 @@ export default function SettingsPage() {
     queryFn: adminCategoryServices.getCategories,
   });
 
+  const { data: documentTypes = [], isLoading: isLoadingDocs } = useQuery({
+    queryKey: ["adminDocumentTypes"],
+    queryFn: adminCategoryServices.getDocumentTypes,
+  });
+
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<Category> | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -188,9 +193,18 @@ export default function SettingsPage() {
   // Document Helpers
   const addDocument = () => {
     if (draft) {
-      const currentReq = [...(draft.required_documents || [])];
-      currentReq.push("New Required Document");
-      updateDraftField("required_documents", currentReq);
+      const validTypes = documentTypes.filter((dt: any) => !dt.appliesTo || dt.appliesTo === "Both" || dt.appliesTo === draft.entity_type);
+      const currentOpt = [...(draft.optional_documents || [])];
+      currentOpt.push({
+        name: "",
+        typeCode: validTypes.length > 0 ? validTypes[0].code : "other"
+      });
+      updateDraftField("optional_documents", currentOpt);
+      
+      setTimeout(() => {
+        const input = document.getElementById(`opt-input-${currentOpt.length - 1}`);
+        if (input) input.focus();
+      }, 50);
     }
   };
 
@@ -205,15 +219,15 @@ export default function SettingsPage() {
     }
   };
 
-  const updateDocumentName = (isOpt: boolean, idx: number, name: string) => {
+  const updateDocumentField = (isOpt: boolean, idx: number, field: "name" | "typeCode", value: string) => {
     if (draft) {
       if (isOpt && draft.optional_documents) {
         const docs = [...draft.optional_documents];
-        docs[idx] = name;
+        docs[idx] = { ...docs[idx], [field]: value };
         updateDraftField("optional_documents", docs);
       } else if (!isOpt && draft.required_documents) {
         const docs = [...draft.required_documents];
-        docs[idx] = name;
+        docs[idx] = { ...docs[idx], [field]: value };
         updateDraftField("required_documents", docs);
       }
     }
@@ -256,67 +270,67 @@ export default function SettingsPage() {
   const nonRwandanFirms = categories.filter(c => c.location === "Non_Rwandan" && c.entity_type === "Firm");
 
   const getDefaultDocuments = (draft: Partial<Category>) => {
-    const list: string[] = [];
+    const list: {name: string, typeCode: string, isReq: boolean}[] = [];
     const catName = draft.category_name || "";
     
     if (draft.entity_type === "Individual") {
       if (draft.location === "Rwandan") {
         if (catName.includes("Graduate")) {
-          list.push("Notarized Degree/Diploma (HEC equivalency if foreign)");
-          list.push("Notarized Academic Transcripts showing subjects (Optional)");
-          list.push("Certificate of RQSSA (or equivalent student membership proof)");
-          list.push("Application Letter");
-          list.push("Copy of ID / Passport");
-          list.push("Curriculum Vitae (CV) (Optional)");
-          list.push("Proof of Momo Payment (10,000 RWF via Momo Code: 604516)");
+          list.push({name: "Notarized Degree/Diploma (HEC equivalency if foreign)", typeCode: "certificate", isReq: true});
+          list.push({name: "Notarized Academic Transcripts showing subjects", typeCode: "transcript", isReq: false});
+          list.push({name: "Certificate of RQSSA (or equivalent student membership proof)", typeCode: "certificate", isReq: true});
+          list.push({name: "Application Letter", typeCode: "application_letter", isReq: true});
+          list.push({name: "Copy of ID / Passport", typeCode: "id_passport", isReq: true});
+          list.push({name: "Curriculum Vitae (CV)", typeCode: "cv", isReq: false});
+          list.push({name: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", typeCode: "payment", isReq: true});
         } else if (catName.includes("Technologist")) {
-          list.push("Diploma Certificate (HEC equivalency if foreign)");
-          list.push("Notarized Academic Transcripts showing subjects");
-          list.push("At least 2 CPD Activities certificate copies (Optional)");
-          list.push("Logbook of records (Optional)");
-          list.push("Application Letter");
-          list.push("Copy of ID / Passport");
-          list.push("Curriculum Vitae (CV) (Optional)");
-          list.push("Proof of Momo Payment (10,000 RWF via Momo Code: 604516)");
+          list.push({name: "Diploma Certificate (HEC equivalency if foreign)", typeCode: "certificate", isReq: true});
+          list.push({name: "Notarized Academic Transcripts showing subjects", typeCode: "transcript", isReq: true});
+          list.push({name: "At least 2 CPD Activities certificate copies", typeCode: "certificate", isReq: false});
+          list.push({name: "Logbook of records", typeCode: "logbook", isReq: false});
+          list.push({name: "Application Letter", typeCode: "application_letter", isReq: true});
+          list.push({name: "Copy of ID / Passport", typeCode: "id_passport", isReq: true});
+          list.push({name: "Curriculum Vitae (CV)", typeCode: "cv", isReq: false});
+          list.push({name: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", typeCode: "payment", isReq: true});
         } else {
-          list.push("Notarized Degree Certificate (HEC equivalent if foreign)");
-          list.push("Notarized Academic Transcripts showing subjects");
-          list.push("At least 2 CPD Activities certificate copies (Optional)");
-          list.push("Logbook of records (Optional)");
-          list.push("Application Letter");
-          list.push("Copy of ID / Passport");
-          list.push("Curriculum Vitae (CV) (Optional)");
-          list.push("Proof of Momo Payment (10,000 RWF via Momo Code: 604516)");
+          list.push({name: "Notarized Degree Certificate (HEC equivalent if foreign)", typeCode: "certificate", isReq: true});
+          list.push({name: "Notarized Academic Transcripts showing subjects", typeCode: "transcript", isReq: true});
+          list.push({name: "At least 2 CPD Activities certificate copies", typeCode: "certificate", isReq: false});
+          list.push({name: "Logbook of records", typeCode: "logbook", isReq: false});
+          list.push({name: "Application Letter", typeCode: "application_letter", isReq: true});
+          list.push({name: "Copy of ID / Passport", typeCode: "id_passport", isReq: true});
+          list.push({name: "Curriculum Vitae (CV)", typeCode: "cv", isReq: false});
+          list.push({name: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", typeCode: "payment", isReq: true});
         }
       } else {
         const isProf = catName.includes("Professional");
-        list.push(isProf ? "Notarized Degree Certificate" : "Notarized Diploma Certificate");
-        list.push("Valid Membership Certificate from country of origin");
-        list.push("Visa & Work Permit (PDF)");
-        list.push("CV & References (PDF) (Optional)");
-        list.push(`Proof of Payment (${isProf ? "50 USD" : "30 USD"} Application Fee)`);
+        list.push({name: isProf ? "Notarized Degree Certificate" : "Notarized Diploma Certificate", typeCode: "certificate", isReq: true});
+        list.push({name: "Valid Membership Certificate from country of origin", typeCode: "certificate", isReq: true});
+        list.push({name: "Visa & Work Permit (PDF)", typeCode: "permit", isReq: true});
+        list.push({name: "CV & References (PDF)", typeCode: "cv", isReq: false});
+        list.push({name: `Proof of Payment (${isProf ? "50 USD" : "30 USD"} Application Fee)`, typeCode: "payment", isReq: true});
       }
     } else {
       const isLocal = draft.location === "Rwandan";
-      list.push(isLocal ? "Firm Business Registration Certificate by RDB" : "Firm Business Registration Certificate");
-      list.push("Tax Clearance Certificate");
-      list.push("Identity documents of beneficial owners / shareholders");
-      list.push("Share certificates or company registry extract");
-      list.push(isLocal ? "RSSB Tax Clearance Certificate (Optional)" : "Social Security Clearance Certificate (Optional)");
-      if (isLocal) list.push("RIQS Members working in the firm (Certificates) (Optional)");
+      list.push({name: isLocal ? "Firm Business Registration Certificate by RDB" : "Firm Business Registration Certificate", typeCode: "business_registration", isReq: true});
+      list.push({name: "Tax Clearance Certificate", typeCode: "tax_clearance", isReq: true});
+      list.push({name: "Identity documents of beneficial owners / shareholders", typeCode: "id_passport", isReq: true});
+      list.push({name: "Share certificates or company registry extract", typeCode: "certificate", isReq: true});
+      list.push({name: isLocal ? "RSSB Tax Clearance Certificate" : "Social Security Clearance Certificate", typeCode: "tax_clearance", isReq: false});
+      if (isLocal) list.push({name: "RIQS Members working in the firm (Certificates)", typeCode: "certificate", isReq: false});
       const fee = catName.includes("Small") ? (isLocal ? "50,000 RWF" : "100 USD")
         : catName.includes("Medium") ? (isLocal ? "100,000 RWF" : "200 USD")
         : isLocal ? "200,000 RWF" : "400 USD";
-      list.push(isLocal ? `Proof of Momo Payment (${fee} via Momo Code: 604516)` : `Proof of Payment (${fee} Application Fee)`);
+      list.push({name: isLocal ? `Proof of Momo Payment (${fee} via Momo Code: 604516)` : `Proof of Payment (${fee} Application Fee)`, typeCode: "payment", isReq: true});
     }
     
-    const required_documents: string[] = [];
-    const optional_documents: string[] = [];
+    const required_documents: {name: string, typeCode: string}[] = [];
+    const optional_documents: {name: string, typeCode: string}[] = [];
     for (const doc of list) {
-      if (doc.endsWith(" (Optional)")) {
-        optional_documents.push(doc.replace(" (Optional)", ""));
+      if (!doc.isReq) {
+        optional_documents.push({name: doc.name, typeCode: doc.typeCode});
       } else {
-        required_documents.push(doc);
+        required_documents.push({name: doc.name, typeCode: doc.typeCode});
       }
     }
     return { required_documents, optional_documents };
@@ -465,7 +479,7 @@ export default function SettingsPage() {
           <div className="grid gap-6 md:grid-cols-[260px_1fr] items-start">
             
             {/* Sidebar of Categories */}
-            <Card className="sticky top-6 border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 max-h-[calc(100vh-140px)] overflow-y-auto flex flex-col">
+            <Card className="lg:sticky lg:top-6 border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 lg:max-h-[calc(100vh-140px)] max-h-[500px] overflow-y-auto flex flex-col">
               <CardHeader className="p-4 border-b">
                 <CardTitle className="text-sm font-bold text-navy">Registry Categories</CardTitle>
                 <p className="text-xs text-muted-foreground">Select a pricing category tier to edit.</p>
@@ -649,7 +663,7 @@ export default function SettingsPage() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-sm font-bold text-navy">Required Documents Checklist</h3>
+                        <h3 className="text-sm font-bold text-navy">Documents Checklist</h3>
                         <p className="text-xs text-muted-foreground">List of dynamic documentation required in the registration uploader.</p>
                       </div>
                       <div className="flex gap-2">
@@ -658,7 +672,7 @@ export default function SettingsPage() {
                           {((!draft.required_documents || draft.required_documents.length === 0) && (!draft.optional_documents || draft.optional_documents.length === 0)) ? "Customize Defaults" : "Reset Defaults"}
                         </Button>
                         <Button onClick={addDocument} size="sm" variant="outline" className="border-dashed border-gold text-gold hover:bg-gold/5 font-semibold text-xs py-1">
-                          <Plus className="mr-1 h-3.5 w-3.5" /> Add Required Doc
+                          <Plus className="mr-1 h-3.5 w-3.5" /> Add New Document
                         </Button>
                       </div>
                     </div>
@@ -668,7 +682,28 @@ export default function SettingsPage() {
                         {draft.required_documents?.map((doc, idx) => (
                           <div key={`req-${idx}`} className="flex gap-2 items-center border p-2.5 rounded bg-zinc-50 dark:bg-zinc-950 border-zinc-100 dark:border-zinc-800">
                             <span className="text-xs font-bold text-navy/70 select-none bg-zinc-200 dark:bg-zinc-800 px-2 py-1 rounded w-6 text-center">{idx + 1}</span>
-                            <Input className="flex-1 text-xs" value={doc} onChange={(e) => updateDocumentName(false, idx, e.target.value)} />
+                            <Input 
+                              id={`req-input-${idx}`}
+                              className="flex-1 text-xs h-9" 
+                              value={doc?.name || ""} 
+                              onChange={(e) => updateDocumentField(false, idx, "name", e.target.value)} 
+                              placeholder="Document Display Name" 
+                            />
+                            <Select 
+                              value={doc?.typeCode || ""} 
+                              onValueChange={(val) => updateDocumentField(false, idx, "typeCode", val)}
+                            >
+                              <SelectTrigger className="w-[180px] text-xs h-9">
+                                <SelectValue placeholder="System Type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {documentTypes
+                                  .filter((dt: any) => !dt.appliesTo || dt.appliesTo === "Both" || dt.appliesTo === draft.entity_type)
+                                  .map((dt: any) => (
+                                  <SelectItem key={dt.id} value={dt.code}>{dt.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <Button 
                               variant="default"
                               size="sm"
@@ -685,7 +720,28 @@ export default function SettingsPage() {
                         {draft.optional_documents?.map((doc, idx) => (
                           <div key={`opt-${idx}`} className="flex gap-2 items-center border p-2.5 rounded bg-zinc-50 dark:bg-zinc-950 border-zinc-100 dark:border-zinc-800">
                             <span className="text-xs font-bold text-navy/70 select-none bg-zinc-200 dark:bg-zinc-800 px-2 py-1 rounded w-6 text-center">{(draft.required_documents?.length || 0) + idx + 1}</span>
-                            <Input className="flex-1 text-xs" value={doc} onChange={(e) => updateDocumentName(true, idx, e.target.value)} />
+                            <Input 
+                              id={`opt-input-${idx}`}
+                              className="flex-1 text-xs h-9" 
+                              value={doc?.name || ""} 
+                              onChange={(e) => updateDocumentField(true, idx, "name", e.target.value)} 
+                              placeholder="Document Display Name" 
+                            />
+                            <Select 
+                              value={doc?.typeCode || ""} 
+                              onValueChange={(val) => updateDocumentField(true, idx, "typeCode", val)}
+                            >
+                              <SelectTrigger className="w-[180px] text-xs h-9">
+                                <SelectValue placeholder="System Type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {documentTypes
+                                  .filter((dt: any) => !dt.appliesTo || dt.appliesTo === "Both" || dt.appliesTo === draft.entity_type)
+                                  .map((dt: any) => (
+                                  <SelectItem key={dt.id} value={dt.code}>{dt.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <Button 
                               variant="outline"
                               size="sm"
@@ -710,12 +766,13 @@ export default function SettingsPage() {
                           {(() => {
                             const defaults = getDefaultDocuments(draft);
                             return [
-                              ...(defaults.required_documents.map(d => ({ name: d, req: true }))),
-                              ...(defaults.optional_documents.map(d => ({ name: d, req: false })))
+                              ...(defaults.required_documents.map(d => ({ name: d.name, typeCode: d.typeCode, req: true }))),
+                              ...(defaults.optional_documents.map(d => ({ name: d.name, typeCode: d.typeCode, req: false })))
                             ].map((doc, idx) => (
                               <div key={idx} className="flex gap-2 items-center border p-2.5 rounded bg-zinc-50 dark:bg-zinc-950 border-zinc-100 dark:border-zinc-800">
                                 <span className="text-xs font-bold text-navy/70 select-none bg-zinc-200 dark:bg-zinc-800 px-2 py-1 rounded w-6 text-center">{idx + 1}</span>
                                 <Input className="flex-1 text-xs" value={doc.name} readOnly />
+                                <div className="text-[10px] bg-zinc-200 dark:bg-zinc-800 px-2 py-1.5 rounded">{doc.typeCode}</div>
                                 <div className={`text-[10px] font-bold px-2 py-1.5 rounded uppercase ${!doc.req ? "bg-zinc-200 dark:bg-zinc-800 text-muted-foreground" : "bg-gold/20 text-gold"}`}>
                                   {!doc.req ? "Optional" : "Required"}
                                 </div>
@@ -740,6 +797,7 @@ export default function SettingsPage() {
             )}
           </div>
         </TabsContent>
+
       </Tabs>
 
       {/* CREATE DIALOG MODAL */}

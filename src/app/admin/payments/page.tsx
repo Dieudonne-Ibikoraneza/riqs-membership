@@ -32,10 +32,13 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertCircle, CheckCircle2, Search, XCircle, RefreshCw, FileText } from "lucide-react";
+import { AlertCircle, CheckCircle2, Search, XCircle, RefreshCw, FileText, ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 import { axiosClient } from "@/lib/axiosClient";
 import { cn } from "@/lib/utils";
+import PDFViewer from "@/components/ui/pdf-viewer";
+import ImageViewer from "@/components/ui/image-viewer";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function AdminPaymentsPage() {
   const [page, setPage] = useState(1);
@@ -70,7 +73,6 @@ export default function AdminPaymentsPage() {
     setSelectedTx(tx);
     setVerifyAction("Cleared");
     setRejectionReason("");
-    setIsDialogOpen(true);
   };
 
   const getStatusBadge = (s: string) => {
@@ -92,6 +94,190 @@ export default function AdminPaymentsPage() {
   const formatAmount = (amt: number, curr: string) => {
     return new Intl.NumberFormat("en-US", { style: "currency", currency: curr }).format(amt);
   };
+
+  if (selectedTx) {
+    const isImage = selectedTx.receiptUrl?.match(/\.(jpeg|jpg|gif|png)$/i) != null;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : '';
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+    const documentUrl = selectedTx.receiptUrl ? `${baseUrl}/files/download/${selectedTx.receiptUrl}?token=${token}` : null;
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" className="text-navy hover:text-navy hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => { setSelectedTx(null); setRejectionReason(""); setIsDialogOpen(false); }}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to queue
+          </Button>
+          <div className="flex items-center gap-2">
+            {getStatusBadge(selectedTx.status)}
+            {selectedTx.status === "Pending_Verification" && (
+              <>
+                <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20" onClick={() => { setVerifyAction("Failed"); setIsDialogOpen(true); }}>
+                  <XCircle className="mr-1.5 h-3.5 w-3.5" /> Fail
+                </Button>
+                <Button size="sm" variant="outline" className="border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-900/50 dark:text-amber-400 dark:hover:bg-amber-950/20" onClick={() => { setVerifyAction("Refunded"); setIsDialogOpen(true); }}>
+                  <XCircle className="mr-1.5 h-3.5 w-3.5" /> Refund
+                </Button>
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald" onClick={() => { setVerifyAction("Cleared"); setIsDialogOpen(true); }}>
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Clear
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-5">
+          {/* Left Column: Details & Actions */}
+          <div className="space-y-4 lg:col-span-2">
+            <motion.div initial={{ opacity: 0, x: -15 }} animate={{ opacity: 1, x: 0 }}>
+              <Card className="border-zinc-100 dark:border-zinc-800">
+                <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
+                  <CardTitle className="text-sm font-bold text-navy">Transaction Details</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-2.5 text-sm">
+                  <div className="flex justify-between border-b border-zinc-50 pb-2 dark:border-zinc-800/60">
+                    <span className="text-muted-foreground">Reference</span>
+                    <span className="font-semibold text-navy dark:text-gold">{selectedTx.transactionReference}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-zinc-50 pb-2 dark:border-zinc-800/60">
+                    <span className="text-muted-foreground">Member</span>
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100">{selectedTx.full_name}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-zinc-50 pb-2 dark:border-zinc-800/60">
+                    <span className="text-muted-foreground">Email</span>
+                    <span className="text-zinc-700 dark:text-zinc-300">{selectedTx.email || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-zinc-50 pb-2 dark:border-zinc-800/60">
+                    <span className="text-muted-foreground">Type</span>
+                    <span className="text-zinc-900 dark:text-zinc-100">{formatTxType(selectedTx.txType)}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-zinc-50 pb-2 dark:border-zinc-800/60">
+                    <span className="text-muted-foreground">Method</span>
+                    <span className="text-zinc-900 dark:text-zinc-100">{formatMethod(selectedTx.paymentMethod)}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-zinc-50 pb-2 dark:border-zinc-800/60">
+                    <span className="text-muted-foreground">Date</span>
+                    <span className="text-zinc-900 dark:text-zinc-100">{format(new Date(selectedTx.createdAt), "MMM d, yyyy")}</span>
+                  </div>
+                  <div className="flex justify-between pt-1">
+                    <span className="text-muted-foreground">Amount</span>
+                    <span className="font-bold text-navy dark:text-gold text-base">{formatAmount(selectedTx.amount, selectedTx.currency)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+
+          {/* Right Column: Document Viewer */}
+          <div className="lg:col-span-3">
+            <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col sticky top-2 h-[calc(100vh-5rem)]">
+              <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800 py-3 px-4 shrink-0">
+                <CardTitle className="text-sm font-bold text-navy">Receipt Document</CardTitle>
+                {documentUrl && (
+                  <Button variant="ghost" size="sm" onClick={() => window.open(documentUrl, '_blank')} className="h-8">
+                    <FileText className="mr-2 h-4 w-4" />
+                    Open Original
+                  </Button>
+                )}
+              </CardHeader>
+              <CardContent className="p-0 flex-1 flex flex-col overflow-hidden bg-zinc-50 dark:bg-zinc-950/50">
+                {documentUrl ? (
+                  isImage ? (
+                    <div className="w-full h-full p-4 relative flex items-center justify-center">
+                      <ImageViewer src={documentUrl} alt="Receipt" fileName="receipt.png" />
+                    </div>
+                  ) : (
+                    <PDFViewer src={documentUrl} fileName="receipt.pdf" />
+                  )
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-8 text-center">
+                    <FileText className="h-12 w-12 mb-4 opacity-50" />
+                    <p className="text-sm font-medium">No document uploaded</p>
+                    <p className="text-xs mt-1">This transaction does not have an attached receipt.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Verification Dialog */}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Confirm Action</DialogTitle>
+              <DialogDescription>
+                You are about to mark this transaction as <strong>{verifyAction}</strong>.
+                {verifyAction !== "Cleared" && " Please provide a reason below."}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              {verifyAction !== "Cleared" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="dialog-reason">Reason (Required)</Label>
+                  <Textarea
+                    id="dialog-reason"
+                    placeholder={`Enter the reason for ${verifyAction.toLowerCase()}...`}
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    className="resize-none"
+                    rows={4}
+                  />
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isVerifying}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => handleVerify()} 
+                disabled={isVerifying || (verifyAction !== "Cleared" && !rejectionReason.trim())}
+                variant={verifyAction === "Cleared" ? "default" : "destructive"}
+              >
+                {isVerifying && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+                Confirm
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+function Avatar({ name, url }: { name: string; url?: string }) {
+  const [token, setToken] = React.useState("");
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setToken(localStorage.getItem("riqs.auth.token") || "");
+    }
+  }, []);
+
+  const fullUrl = url && token ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/download/${url}?token=${token}` : null;
+
+  if (fullUrl) {
+    return (
+      <img
+        src={fullUrl}
+        alt={name}
+        className="flex h-10 w-10 shrink-0 object-cover rounded-full shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+      />
+    );
+  }
+
+  const initials = name
+    .split(" ")
+    .map((s) => s[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-navy to-[#14467f] text-xs font-bold text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10">
+      {initials}
+    </div>
+  );
+}
 
   return (
     <div className="space-y-6">
@@ -132,17 +318,15 @@ export default function AdminPaymentsPage() {
                   <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider w-[180px]">Reference</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Member</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Type</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Method</th>
                   <th className="px-5 py-3.5 text-right text-xs font-bold uppercase tracking-wider">Amount</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Status</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Date</th>
-                  <th className="px-5 py-3.5 text-right text-xs font-bold uppercase tracking-wider">Actions</th>
+                  <th className="px-5 py-3.5 text-right text-xs font-bold uppercase tracking-wider">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={8} className="px-5 py-10 h-32 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-5 py-10 h-32 text-center text-muted-foreground">
                       <div className="flex flex-col items-center justify-center">
                         <RefreshCw className="mb-2 h-6 w-6 animate-spin" />
                         Loading queue...
@@ -151,13 +335,13 @@ export default function AdminPaymentsPage() {
                   </tr>
                 ) : isError ? (
                   <tr>
-                    <td colSpan={8} className="px-5 py-10 h-32 text-center text-red-500">
+                    <td colSpan={6} className="px-5 py-10 h-32 text-center text-red-500">
                       Failed to load transactions.
                     </td>
                   </tr>
                 ) : data?.transactions.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-5 py-10 h-32 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-5 py-10 h-32 text-center text-muted-foreground">
                       No transactions found for this status.
                     </td>
                   </tr>
@@ -166,34 +350,28 @@ export default function AdminPaymentsPage() {
                     <tr
                       key={tx.id}
                       className={cn(
-                        "border-b border-zinc-100 dark:border-zinc-800/80 transition-colors hover:bg-gold/5",
+                        "border-b border-zinc-100 dark:border-zinc-800/80 transition-colors hover:bg-gold/5 cursor-pointer",
                         i % 2 === 1 && "bg-zinc-50/20 dark:bg-zinc-950/10"
                       )}
+                      onClick={() => openVerifyDialog(tx)}
                     >
                       <td className="px-5 py-4 text-xs font-semibold text-navy dark:text-gold">{tx.transactionReference}</td>
                       <td className="px-5 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{tx.full_name || "Unknown"}</span>
-                          <span className="text-xs text-muted-foreground">{tx.email || "No email"}</span>
+                        <div className="flex items-center gap-3">
+                          <Avatar name={tx.full_name || "Unknown"} />
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{tx.full_name || "Unknown"}</span>
+                            <span className="text-xs text-muted-foreground">{tx.email || "No email"}</span>
+                          </div>
                         </div>
                       </td>
                       <td className="px-5 py-4 text-sm">{formatTxType(tx.txType)}</td>
-                      <td className="px-5 py-4 text-sm text-zinc-600 dark:text-zinc-400">{formatMethod(tx.paymentMethod)}</td>
                       <td className="px-5 py-4 text-right font-medium text-zinc-900 dark:text-zinc-100">{formatAmount(tx.amount, tx.currency)}</td>
-                      <td className="px-5 py-4">{getStatusBadge(tx.status)}</td>
-                      <td className="px-5 py-4 text-xs text-muted-foreground">
+                      <td className="px-5 py-4 text-xs text-zinc-650 dark:text-zinc-400 font-medium">
                         {format(new Date(tx.createdAt), "MMM d, yyyy")}
                       </td>
                       <td className="px-5 py-4 text-right">
-                        {tx.status === "Pending_Verification" ? (
-                          <Button size="sm" onClick={() => openVerifyDialog(tx)}>
-                            Verify
-                          </Button>
-                        ) : (
-                          <Button size="sm" variant="outline" disabled>
-                            Resolved
-                          </Button>
-                        )}
+                        <div className="flex justify-end">{getStatusBadge(tx.status)}</div>
                       </td>
                     </tr>
                   ))
@@ -203,114 +381,6 @@ export default function AdminPaymentsPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Verification Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Verify Payment</DialogTitle>
-            <DialogDescription>
-              Clear or reject this transaction. This action will be recorded in the audit log.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedTx && (
-            <div className="grid gap-4 py-4">
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Reference:</span>
-                  <span className="font-semibold text-navy dark:text-gold">{selectedTx.transactionReference}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Amount:</span>
-                  <span className="font-medium">{formatAmount(selectedTx.amount, selectedTx.currency)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Method:</span>
-                  <span>{formatMethod(selectedTx.paymentMethod)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Type:</span>
-                  <span>{formatTxType(selectedTx.txType)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Member:</span>
-                  <span>{selectedTx.full_name}</span>
-                </div>
-                {selectedTx.receiptUrl && (
-                  <div className="flex justify-between items-center mt-3 pt-3 border-t border-muted/50">
-                    <span className="text-muted-foreground">Uploaded Receipt:</span>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={async () => {
-                        try {
-                          const res = await axiosClient.get(`/files/download/${selectedTx.receiptUrl}`, { responseType: 'blob' });
-                          const url = window.URL.createObjectURL(res.data);
-                          window.open(url, '_blank');
-                        } catch (err) {
-                          toast.error("Failed to load receipt document");
-                        }
-                      }}
-                    >
-                      <FileText className="mr-2 h-4 w-4 text-blue-500" />
-                      View Document
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="action">Action</Label>
-                <Select value={verifyAction} onValueChange={(val: any) => setVerifyAction(val)}>
-                  <SelectTrigger id="action">
-                    <SelectValue placeholder="Select action" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Cleared" className="text-emerald-600 font-medium">Clear Payment</SelectItem>
-                    <SelectItem value="Failed" className="text-red-600 font-medium">Mark as Failed</SelectItem>
-                    <SelectItem value="Refunded" className="text-amber-600 font-medium">Mark as Refunded</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {verifyAction !== "Cleared" && (
-                <div className="grid gap-2">
-                  <Label htmlFor="reason">Reason (Required)</Label>
-                  <Textarea
-                    id="reason"
-                    placeholder="Enter the reason for rejection or refund..."
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    className="resize-none"
-                    rows={3}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isVerifying}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={() => handleVerify()} 
-              disabled={isVerifying || (verifyAction !== "Cleared" && !rejectionReason.trim())}
-              variant={verifyAction === "Cleared" ? "default" : "destructive"}
-            >
-              {isVerifying ? (
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              ) : verifyAction === "Cleared" ? (
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-              ) : (
-                <XCircle className="mr-2 h-4 w-4" />
-              )}
-              {verifyAction === "Cleared" ? "Confirm Clearance" : `Confirm ${verifyAction}`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

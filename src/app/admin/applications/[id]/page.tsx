@@ -350,17 +350,10 @@ export default function Review({ params }: PageProps) {
 
           {app.status === "Pending Approval" && (role === "Approver" || role === "Admin") && (
             <>
-              {!app.processingFeeCleared && (
-                <div className="text-sm font-medium text-amber-700 bg-amber-50 px-3 py-1.5 rounded-md flex items-center gap-2 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-900/50 dark:text-amber-400">
-                  <AlertTriangle className="h-4 w-4 shrink-0" />
-                  <span>Payment pending for this application. You will be informed shortly when it is paid, actions are disabled.</span>
-                </div>
-              )}
               <Button
                 variant="outline"
                 className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20"
                 onClick={() => setDialog("reject")}
-                disabled={!app.processingFeeCleared}
               >
                 <X className="mr-2 h-4 w-4" />
                 Reject
@@ -368,7 +361,6 @@ export default function Review({ params }: PageProps) {
               <Button
                 className="bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-emerald"
                 onClick={() => setDialog("approve")}
-                disabled={!app.processingFeeCleared}
               >
                 <Check className="mr-2 h-4 w-4" />
                 Approve

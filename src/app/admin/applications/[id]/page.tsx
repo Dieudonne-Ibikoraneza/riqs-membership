@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getApplicationDetail, submitReviewerAction, submitApproverDecision, getApcForApplication, scheduleApc, gradeApc } from "@/lib/api/admin";
 import { useAuth } from "@/lib/auth";
+import { useQuery } from "@tanstack/react-query";
+import { applicantServices } from "@/services/applicant.services";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +73,34 @@ export default function Review({ params }: PageProps) {
   const [app, setApp] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Fetch document types to resolve human-readable names
+  const { data: docTypes = [] } = useQuery({
+    queryKey: ["documentTypes"],
+    queryFn: applicantServices.getDocumentTypes,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const docTypeMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const dt of docTypes) {
+      map[dt.code] = dt.name;
+      map[dt.name.toLowerCase().replace(/[^a-z0-9]/g, "_")] = dt.name;
+    }
+    return map;
+  }, [docTypes]);
+
+  // Helper to resolve documentType key -> display name
+  const resolveDocName = (documentType: string): string => {
+    if (docTypeMap[documentType]) return docTypeMap[documentType];
+    const sanitized = documentType.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    if (docTypeMap[sanitized]) return docTypeMap[sanitized];
+    return documentType
+      .replace(/_+/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .trim();
+  };
+
   const [activeDoc, setActiveDoc] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [rot, setRot] = useState(0);
@@ -116,6 +146,7 @@ export default function Review({ params }: PageProps) {
           practiceLocation: res.application.location,
           status: res.application.status.replace("_", " "),
           submittedAt: res.application.submittedAt ? new Date(res.application.submittedAt).toISOString().split('T')[0] : "Unknown",
+          processingFeeCleared: res.application.processing_fee_cleared,
           education: (res.education || []).map((e: any) => ({
             degree: e.qualificationType,
             institution: e.institution,
@@ -319,10 +350,17 @@ export default function Review({ params }: PageProps) {
 
           {app.status === "Pending Approval" && (role === "Approver" || role === "Admin") && (
             <>
+              {!app.processingFeeCleared && (
+                <div className="text-sm font-medium text-amber-700 bg-amber-50 px-3 py-1.5 rounded-md flex items-center gap-2 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-900/50 dark:text-amber-400">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>Payment pending for this application. You will be informed shortly when it is paid, actions are disabled.</span>
+                </div>
+              )}
               <Button
                 variant="outline"
                 className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20"
                 onClick={() => setDialog("reject")}
+                disabled={!app.processingFeeCleared}
               >
                 <X className="mr-2 h-4 w-4" />
                 Reject
@@ -330,6 +368,7 @@ export default function Review({ params }: PageProps) {
               <Button
                 className="bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-emerald"
                 onClick={() => setDialog("approve")}
+                disabled={!app.processingFeeCleared}
               >
                 <Check className="mr-2 h-4 w-4" />
                 Approve
@@ -548,32 +587,15 @@ export default function Review({ params }: PageProps) {
               className="flex-1 flex flex-col"
             >
               <TabsList className="flex w-full h-auto flex-wrap bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-lg mb-4 gap-1">
-                {app.documents.map((d: any, i: number) => {
-                  const formatName = (n: string) => {
-                    if (!n) return 'Document';
-                    if (n.toLowerCase() === 'id') return 'ID Document';
-                    
-                    let cleanName = n.replace(/_\d+$/, '').replace(/_+$/, '');
-                    
-                    if (cleanName.toLowerCase().includes('proof_of_momo_payment') || cleanName.toLowerCase().includes('processingfeeproof')) {
-                      return 'Application Fee Proof';
-                    }
-                    if (cleanName.toLowerCase().includes('certificate_of_rqssa')) {
-                      return 'RQSSA Certificate';
-                    }
-
-                    const spaced = cleanName.replace(/_+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim();
-                    return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
-                  };
-                  return (
+                {app.documents.map((d: any, i: number) => (
                   <TabsTrigger
                     key={i}
                     value={String(i)}
                     className="flex-1 text-xs font-semibold px-3 py-2 whitespace-nowrap"
                   >
-                    {formatName(d.name)}
+                    {resolveDocName(d.name)}
                   </TabsTrigger>
-                )})}
+                ))}
               </TabsList>
               {/* Pre-render all documents so PDFs do not reload when switching tabs */}
               <div className="relative flex-1 mt-0 overflow-hidden">

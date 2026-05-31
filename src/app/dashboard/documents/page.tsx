@@ -12,7 +12,26 @@ import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
 import PDFViewer from "@/components/ui/pdf-viewer";
 
-function DocumentCard({ doc }: { doc: any }) {
+/** Resolve a documentType key to its admin-configured display name.
+ *  Falls back to a prettified version of the key if no match found.
+ */
+function resolveDocName(
+  documentType: string,
+  docTypeMap: Record<string, string>
+): string {
+  if (docTypeMap[documentType]) return docTypeMap[documentType];
+  // Check against sanitized name (lowercase, underscores)
+  const sanitized = documentType.toLowerCase().replace(/[^a-z0-9]/g, "_");
+  if (docTypeMap[sanitized]) return docTypeMap[sanitized];
+  // Fallback: prettify the raw string
+  return documentType
+    .replace(/_+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
+function DocumentCard({ doc, docTypeMap }: { doc: any; docTypeMap: Record<string, string> }) {
   const [expanded, setExpanded] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,7 +49,7 @@ function DocumentCard({ doc }: { doc: any }) {
       } catch (err) {
         console.error("Failed to load document", err);
         setError(true);
-        toast.error(`Failed to load ${doc.documentType}`);
+        toast.error(`Failed to load document`);
       } finally {
         setIsLoading(false);
       }
@@ -55,7 +74,7 @@ function DocumentCard({ doc }: { doc: any }) {
     }
   };
 
-  const friendlyName = doc.documentType.replace(/([A-Z])/g, ' $1').trim();
+  const friendlyName = resolveDocName(doc.documentType, docTypeMap);
 
   return (
     <Card className="border-zinc-200 dark:border-zinc-800">
@@ -148,6 +167,19 @@ export default function Documents() {
     queryFn: applicantServices.getProfile,
   });
 
+  const { data: docTypes = [] } = useQuery({
+    queryKey: ["documentTypes"],
+    queryFn: applicantServices.getDocumentTypes,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Build a lookup map: code -> name and sanitized_name -> name
+  const docTypeMap: Record<string, string> = {};
+  for (const dt of docTypes) {
+    docTypeMap[dt.code] = dt.name;
+    docTypeMap[dt.name.toLowerCase().replace(/[^a-z0-9]/g, "_")] = dt.name;
+  }
+
   const documents = profileData?.documents || [];
 
   return (
@@ -178,7 +210,7 @@ export default function Documents() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.04 }}
             >
-              <DocumentCard doc={d} />
+              <DocumentCard doc={d} docTypeMap={docTypeMap} />
             </motion.div>
           ))}
         </div>

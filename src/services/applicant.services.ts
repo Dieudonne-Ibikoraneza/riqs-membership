@@ -202,5 +202,10 @@ export const applicantServices = {
   getApcStatus: async (): Promise<any> => {
     const response = await axiosClient.get('/progression/apc/status');
     return response.data;
+  },
+
+  getDocumentTypes: async (): Promise<Array<{ id: string; name: string; code: string; isPaymentProof: boolean }>> => {
+    const response = await axiosClient.get('/document-types');
+    return response.data;
   }
 };

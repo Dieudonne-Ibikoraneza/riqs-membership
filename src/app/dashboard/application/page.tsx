@@ -639,8 +639,8 @@ export default function Application() {
     // If active category exists and has dynamic required documents, use them!
     if (activeCategory && ((activeCategory.required_documents && activeCategory.required_documents.length > 0) || (activeCategory.optional_documents && activeCategory.optional_documents.length > 0))) {
       const docs = [
-        ...(activeCategory.required_documents || []).map((d: string) => ({ name: d, req: true })),
-        ...(activeCategory.optional_documents || []).map((d: string) => ({ name: d, req: false }))
+        ...(activeCategory.required_documents || []).map((d: any) => ({ name: d.name, req: true })),
+        ...(activeCategory.optional_documents || []).map((d: any) => ({ name: d.name, req: false }))
       ];
       return docs.map((doc: { name: string, req: boolean }) => {
         const cleanName = doc.name;

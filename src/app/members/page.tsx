@@ -16,6 +16,7 @@ import {
   ArrowUpDown, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 type SortKey = "name" | "id" | "category";
 type View = "cards" | "table";
@@ -23,7 +24,8 @@ type View = "cards" | "table";
 export default function MembersPage() {
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
-  const [cat, setCat] = useState<string>("all");
+  const [primaryCat, setPrimaryCat] = useState<string>("all");
+  const [firmCat, setFirmCat] = useState<string>("all");
   const [view, setView] = useState<View>("table");
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -37,9 +39,11 @@ export default function MembersPage() {
     return () => clearTimeout(handler);
   }, [q]);
 
+  const activeCat = primaryCat === "Firm" ? (firmCat === "all" ? "Firm" : `Firm_${firmCat}`) : primaryCat;
+
   const { data, isLoading } = useQuery({
-    queryKey: queryKeys.public.members({ search: debouncedQ, category: cat, page, limit: pageSize }),
-    queryFn: () => publicServices.getPublicMembers({ search: debouncedQ, category: cat, page, limit: pageSize }),
+    queryKey: queryKeys.public.members({ search: debouncedQ, category: activeCat, page, limit: pageSize }),
+    queryFn: () => publicServices.getPublicMembers({ search: debouncedQ, category: activeCat, page, limit: pageSize }),
   });
 
   const members = data?.members || [];
@@ -51,15 +55,15 @@ export default function MembersPage() {
   const exportCsv = () => {
     // In a real app, this should either hit a dedicated export endpoint or we alert the user that export only covers the current page.
     const rows = [["Membership ID", "Full Name", "Category", "Phone", "Email"]];
-    members.forEach(m => rows.push([m.membership_id || m.id, m.full_name, m.membership_class, m.phone_number ? m.phone_number.replace(/^\+/, '') : "", m.email]));
+    members.forEach(m => rows.push([m.membership_id || m.id, m.full_name, formatMembershipClass(m.membership_class), m.phone_number ? m.phone_number.replace(/^\+/, '') : "", m.email]));
     const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "riqs-members.csv"; a.click();
   };
 
-  const reset = () => { setQ(""); setCat("all"); setPage(1); };
-  const activeFilters = (debouncedQ ? 1 : 0) + (cat !== "all" ? 1 : 0);
+  const reset = () => { setQ(""); setPrimaryCat("all"); setFirmCat("all"); setPage(1); };
+  const activeFilters = (debouncedQ ? 1 : 0) + (activeCat !== "all" ? 1 : 0);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -108,16 +112,51 @@ export default function MembersPage() {
                     </button>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Select value={cat} onValueChange={v => { setCat(v); setPage(1); }}>
-                    <SelectTrigger className="h-11 w-[160px] border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="Category" /></SelectTrigger>
+                
+                <div className="flex flex-wrap gap-2 items-center">
+                  <Select value={primaryCat} onValueChange={v => {
+                    setPrimaryCat(v);
+                    if (v !== "Firm") setFirmCat("all");
+                    setPage(1);
+                  }}>
+                    <SelectTrigger className="h-11 w-[160px] border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All categories</SelectItem>
-                      {(["Graduate", "Technologist", "Professional", "Firm_Local_Small", "Firm_Local_Medium", "Firm_Local_Large", "Firm_Foreign_Small", "Firm_Foreign_Medium", "Firm_Foreign_Large"]).map(c => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                      ))}
+                      <SelectItem value="Graduate">Graduate</SelectItem>
+                      <SelectItem value="Technologist">Technologist</SelectItem>
+                      <SelectItem value="Professional">Professional</SelectItem>
+                      <SelectItem value="Firm">Firm</SelectItem>
                     </SelectContent>
                   </Select>
+
+                  <AnimatePresence>
+                    {primaryCat === "Firm" && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -10, width: 0 }}
+                        animate={{ opacity: 1, x: 0, width: "auto" }}
+                        exit={{ opacity: 0, x: -10, width: 0 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                      >
+                        <Select value={firmCat} onValueChange={v => { setFirmCat(v); setPage(1); }}>
+                          <SelectTrigger className="h-11 w-[240px] border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                            <SelectValue placeholder="Firm Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Firms</SelectItem>
+                            <SelectItem value="Local_Small">Rwandan Small Firm</SelectItem>
+                            <SelectItem value="Local_Medium">Rwandan Medium Firm</SelectItem>
+                            <SelectItem value="Local_Large">Rwandan Large Firm</SelectItem>
+                            <SelectItem value="Foreign_Small">Non-Rwandan Small Firm</SelectItem>
+                            <SelectItem value="Foreign_Medium">Non-Rwandan Medium Firm</SelectItem>
+                            <SelectItem value="Foreign_Large">Non-Rwandan Large Firm</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <Button onClick={exportCsv} variant="outline" className="h-11 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300">
                     <Download className="mr-2 h-4 w-4 text-gold" /> Export
                   </Button>
@@ -132,10 +171,10 @@ export default function MembersPage() {
                   </span>
                   {activeFilters > 0 && (
                     <>
-                      <Badge variant="outline" className="border-gold/45 bg-gold/10 text-gold font-bold">
-                        <Filter className="mr-1.5 h-3 w-3 text-gold" /> {activeFilters} filter{activeFilters > 1 && "s"} active
+                      <Badge variant="outline" className="px-3 py-1.5 text-sm border-gold/45 bg-gold/10 text-gold font-bold">
+                        <Filter className="mr-2 h-4 w-4 text-gold" /> {activeFilters} filter{activeFilters > 1 && "s"} active
                       </Badge>
-                      <button onClick={reset} className="text-xs text-navy dark:text-gold underline-offset-4 hover:underline">Clear all</button>
+                      <button onClick={reset} className="text-sm text-navy dark:text-gold underline-offset-4 hover:underline ml-1">Clear all</button>
                     </>
                   )}
                 </div>
@@ -242,7 +281,7 @@ export default function MembersPage() {
                         </td>
                         <td className="px-5 py-4 text-xs font-semibold text-navy dark:text-gold">{m.membership_id || m.id}</td>
                         <td className="px-5 py-4">
-                          <Badge variant="outline" className="border-navy/20 bg-navy/5 text-navy dark:border-zinc-700 dark:text-zinc-300 font-semibold">{m.membership_class}</Badge>
+                          <Badge variant="outline" className="border-navy/20 bg-navy/5 text-navy dark:border-zinc-700 dark:text-zinc-300 font-semibold">{formatMembershipClass(m.membership_class)}</Badge>
                         </td>
                         <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400">{m.phone_number}</td>
                         <td className="px-5 py-4">
@@ -289,6 +328,19 @@ function Avatar({ name }: { name: string }) {
   );
 }
 
+function formatMembershipClass(cls: string) {
+  if (!cls) return "";
+  const map: Record<string, string> = {
+    "Firm_Local_Small": "Rwandan Small Firm",
+    "Firm_Local_Medium": "Rwandan Medium Firm",
+    "Firm_Local_Large": "Rwandan Large Firm",
+    "Firm_Foreign_Small": "Non-Rwandan Small Firm",
+    "Firm_Foreign_Medium": "Non-Rwandan Medium Firm",
+    "Firm_Foreign_Large": "Non-Rwandan Large Firm",
+  };
+  return map[cls] || cls;
+}
+
 function MemberCard({ m }: { m: any }) {
   return (
     <Card className="group hover-lift overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 shadow-sm">
@@ -306,7 +358,7 @@ function MemberCard({ m }: { m: any }) {
         <div className="text-[10px] uppercase tracking-wider gold-text font-bold">{m.membership_id || m.id}</div>
         <div className="mt-1 text-base font-bold text-navy dark:text-white leading-tight">{m.full_name}</div>
         <div className="mt-1.5">
-          <Badge variant="outline" className="border-navy/15 bg-navy/5 text-navy dark:border-zinc-800 dark:text-zinc-350 text-[10px] font-semibold">{m.membership_class}</Badge>
+          <Badge variant="outline" className="border-navy/15 bg-navy/5 text-navy dark:border-zinc-800 dark:text-zinc-350 text-[10px] font-semibold">{formatMembershipClass(m.membership_class)}</Badge>
         </div>
         <div className="mt-4 space-y-2 text-xs text-muted-foreground font-sans">
           <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-gold shrink-0" /> {m.phone_number}</div>

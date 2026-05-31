@@ -920,6 +920,7 @@ function WizardContent({
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.error || err.message || "Failed to upload photo");
+      setPhotoPreview(null);
     }
   });
 
@@ -937,8 +938,13 @@ function WizardContent({
     onSuccess: (data, variables) => {
       toast.success(variables.file.name + " uploaded successfully!");
     },
-    onError: (err: any) => {
+    onError: (err: any, variables) => {
       toast.error(err.response?.data?.error || err.message || "Failed to upload document");
+      setData((prev: any) => {
+        const newDocs = { ...prev.docs };
+        delete newDocs[variables.documentType];
+        return { ...prev, docs: newDocs };
+      });
     }
   });
 
@@ -1775,8 +1781,8 @@ function WizardContent({
                       ["Primary Contact Email", data.personal.email || "Not Entered"],
                       ...(data.entityType === "Individual"
                         ? [
-                            ["Academic Credentials Added", `${data.education.filter((x: any) => x.id).length} verified`],
-                            ["Employment Record Rows", data.hasNoEmployment ? "None (Never Employed)" : `${data.employment.filter((x: any) => x.id).length} verified`],
+                            ["Academic Credentials Added", `${data.education.filter((x: any) => x.id || (x.institution && x.studyField && x.degree && x.startDateRaw)).length} records`],
+                            ["Employment Record Rows", data.hasNoEmployment ? "None (Never Employed)" : `${data.employment.filter((x: any) => x.id || (x.company && x.role && x.from)).length} records`],
                           ]
                         : [
                             ["Registered Shareholders", `${data.personal.shareholders.filter((x: any) => x.fullName).length} items`],

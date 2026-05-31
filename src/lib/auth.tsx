@@ -59,10 +59,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
+  const clearAuth = () => {
+    setRole(null); setName(null); setEmail(null);
+    setIsMentor(false); setIsTeacher(false); setIsStudent(false);
+    
+    // Preserve UI theme preferences but wipe absolutely everything else (auth, tokens, drafts, etc.)
+    const config = localStorage.getItem("riqs-config");
+    localStorage.clear();
+    if (config) localStorage.setItem("riqs-config", config);
+  };
+
   const startLogin = async (em: string, pw: string): Promise<boolean | "requirePasswordChange"> => {
     try {
-      localStorage.removeItem("riqs_app_draft");
-      localStorage.removeItem("riqs_app_step");
+      clearAuth();
       const res = await authServices.login({ email: em, password: pw });
       
       if (res.requirePasswordChange) {
@@ -80,8 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const startSignup = async (nm: string, em: string, pw: string) => {
     try {
-      localStorage.removeItem("riqs_app_draft");
-      localStorage.removeItem("riqs_app_step");
+      clearAuth();
       await authServices.register({ fullName: nm, email: em, password: pw });
       setPending({ email: em, name: nm, role: "Standard", isMentor: false, isTeacher: false, isStudent: false, mode: "signup" });
       return true;
@@ -173,12 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const cancelPending = () => setPending(null);
   
   const logout = () => {
-    setRole(null); setName(null); setEmail(null);
-    setIsMentor(false); setIsTeacher(false); setIsStudent(false);
-    localStorage.removeItem(KEY);
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem("riqs_app_draft");
-    localStorage.removeItem("riqs_app_step");
+    clearAuth();
   };
 
   return (

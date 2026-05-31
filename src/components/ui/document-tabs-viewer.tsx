@@ -91,6 +91,7 @@ export function DocumentTabsViewer({ tabs, onUpload, onDelete, onAddTab, isUploa
               key={tab.k}
               role="button"
               tabIndex={0}
+              title={tab.l}
               onClick={() => setActiveTabKey(tab.k)}
               className={cn(
                 "group relative flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all flex-1 min-w-[140px] rounded-t-lg border border-transparent cursor-pointer select-none",
@@ -102,14 +103,14 @@ export function DocumentTabsViewer({ tabs, onUpload, onDelete, onAddTab, isUploa
               {/* Status Indicator */}
               <div className={cn(
                 "flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors",
-                done ? "bg-emerald-500 text-white" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400"
+                done ? "bg-emerald-500 text-white" : tab.r ? "bg-red-100 text-red-400" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400"
               )}>
                 {done ? <Check className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
               </div>
               
-              <span className="truncate flex-1 text-left flex items-center">
+              <span className="truncate flex-1 text-left flex items-center gap-0.5">
                 {tab.l}
-                {tab.r && <span className="text-red-500 font-bold ml-1 text-lg leading-none">*</span>}
+                {tab.r && <span className="text-red-500 font-bold ml-0.5 leading-none">*</span>}
               </span>
               
               {done && onDelete && (

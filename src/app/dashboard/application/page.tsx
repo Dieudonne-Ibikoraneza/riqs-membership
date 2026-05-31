@@ -37,6 +37,7 @@ import {
   User,
   Pencil,
   Save,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MonthYearPicker } from "@/components/ui/month-picker";
@@ -633,87 +634,31 @@ export default function Application() {
   };
 
   const documentChecklist = useMemo(() => {
-    // Find active category from backend configuration if loaded
     const activeCategory = categories?.find((c: any) => c.id === data.categoryId);
     
-    // If active category exists and has dynamic required documents, use them!
-    if (activeCategory && ((activeCategory.required_documents && activeCategory.required_documents.length > 0) || (activeCategory.optional_documents && activeCategory.optional_documents.length > 0))) {
+    if (activeCategory) {
       const docs = [
-        ...(activeCategory.required_documents || []).map((d: any) => ({ name: d.name, req: true })),
-        ...(activeCategory.optional_documents || []).map((d: any) => ({ name: d.name, req: false }))
+        ...(activeCategory.required_documents || []).map((d: any) => ({ name: d.name, typeCode: d.typeCode, req: true })),
+        ...(activeCategory.optional_documents || []).map((d: any) => ({ name: d.name, typeCode: d.typeCode, req: false }))
       ];
-      return docs.map((doc: { name: string, req: boolean }) => {
-        const cleanName = doc.name;
-        
-        let k = cleanName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-        // Maintain compatibility for the uploader step routing keys
-        if (cleanName.toLowerCase().includes("degree") || cleanName.toLowerCase().includes("diploma")) {
-          k = "degree";
-        } else if (cleanName.toLowerCase().includes("passport") || cleanName.toLowerCase().includes("photo")) {
-          k = "photo";
-        }
+      // Track how many times each typeCode appears so duplicates get a unique suffix
+      const typeCounts: Record<string, number> = {};
+      return docs.map((doc: any) => {
+        const base = doc.typeCode || doc.name.toLowerCase().replace(/[^a-z0-9]/g, "_");
+        typeCounts[base] = (typeCounts[base] || 0) + 1;
+        // uid is always unique: "certificate_1", "certificate_2", etc.
+        // k stays as the raw typeCode for category-filter logic
+        const uid = typeCounts[base] > 1 ? `${base}_${typeCounts[base]}` : base;
         return {
-          k,
-          l: cleanName.replace(/_/g, " "),
+          k: base,   // typeCode — used for step-routing filter (Education vs Other Docs)
+          uid,       // unique storage key — used as React key AND data.docs key
+          l: doc.name,
           r: doc.req
         };
       });
     }
-
-    const catName = data.categoryName || "";
-    const list = [];
-    if (data.entityType === "Individual") {
-      if (data.practiceLocation === "Rwandan") {
-        if (catName === "Graduate") {
-          list.push({ k: "degree", l: "Notarized Degree/Diploma (HEC equivalency if foreign)", r: true });
-          list.push({ k: "transcripts", l: "Notarized Academic Transcripts showing subjects", r: false });
-          list.push({ k: "rqssa", l: "Certificate of RQSSA (or equivalent student membership proof)", r: true });
-          list.push({ k: "letter", l: "Application Letter", r: true });
-          list.push({ k: "id", l: "Copy of ID / Passport", r: true });
-          list.push({ k: "cv", l: "Curriculum Vitae (CV)", r: false });
-          list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: true });
-        } else if (catName === "Technologist") {
-          list.push({ k: "degree", l: "Diploma Certificate (HEC equivalency if foreign)", r: true });
-          list.push({ k: "transcripts", l: "Notarized Academic Transcripts showing subjects", r: true });
-          list.push({ k: "cpd", l: "At least 2 CPD Activities certificate copies", r: false });
-          list.push({ k: "logbook", l: "Logbook of records", r: false });
-          list.push({ k: "letter", l: "Application Letter", r: true });
-          list.push({ k: "id", l: "Copy of ID / Passport", r: true });
-          list.push({ k: "cv", l: "Curriculum Vitae (CV)", r: false });
-          list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: true });
-        } else {
-          list.push({ k: "degree", l: "Notarized Degree Certificate (HEC equivalent if foreign)", r: true });
-          list.push({ k: "transcripts", l: "Notarized Academic Transcripts showing subjects", r: true });
-          list.push({ k: "cpd", l: "At least 2 CPD Activities certificate copies", r: false });
-          list.push({ k: "logbook", l: "Logbook of records", r: false });
-          list.push({ k: "letter", l: "Application Letter", r: true });
-          list.push({ k: "id", l: "Copy of ID / Passport", r: true });
-          list.push({ k: "cv", l: "Curriculum Vitae (CV)", r: false });
-          list.push({ k: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: true });
-        }
-      } else {
-        const isProf = catName === "Professional";
-        list.push({ k: "degree", l: isProf ? "Notarized Degree Certificate" : "Notarized Diploma Certificate", r: true });
-        list.push({ k: "membershipOrigin", l: "Valid Membership Certificate from country of origin", r: true });
-        list.push({ k: "permit", l: "Visa & Work Permit (PDF)", r: true });
-        list.push({ k: "cv", l: "CV & References (PDF)", r: false });
-        list.push({ k: "payment", l: `Proof of Payment (${isProf ? "50 USD" : "30 USD"} Application Fee)`, r: true });
-      }
-    } else {
-      const isLocal = data.practiceLocation === "Rwandan";
-      list.push({ k: "firmCert", l: isLocal ? "Firm Business Registration Certificate by RDB" : "Firm Business Registration Certificate", r: true });
-      list.push({ k: "taxClearance", l: "Tax Clearance Certificate", r: true });
-      list.push({ k: "beneficialOwnerIds", l: "Identity documents of beneficial owners / shareholders", r: true });
-      list.push({ k: "shareCertificates", l: "Share certificates or company registry extract", r: true });
-      list.push({ k: "socialSecurity", l: isLocal ? "RSSB Tax Clearance Certificate" : "Social Security Clearance Certificate", r: false });
-      if (isLocal) list.push({ k: "staffCertificates", l: "RIQS Members working in the firm (Certificates)", r: false });
-      const fee = catName.includes("Small") ? (isLocal ? "50,000 RWF" : "100 USD")
-        : catName.includes("Medium") ? (isLocal ? "100,000 RWF" : "200 USD")
-        : isLocal ? "200,000 RWF" : "400 USD";
-      list.push({ k: "payment", l: isLocal ? `Proof of Momo Payment (${fee} via Momo Code: 604516)` : `Proof of Payment (${fee} Application Fee)`, r: true });
-    }
-    return list;
-  }, [categories, data.categoryId, data.practiceLocation, data.entityType, data.categoryName]);
+    return [];
+  }, [categories, data.categoryId]);
 
   const currentStepName = STEPS[step];
 
@@ -861,7 +806,7 @@ function WizardContent({
   useEffect(() => {
     if (documents?.length > 0) {
       documents.forEach((d: any) => {
-        if (d.documentType === "PassportPhoto") {
+        if (d.documentType === "photo" || d.documentType === "PassportPhoto") {
           if (!photoPreview) {
             setIsPhotoLoading(true);
             applicantServices.downloadDocument(d.id)
@@ -891,13 +836,14 @@ function WizardContent({
     }
   }, [documents]);
 
-  // Contextual checklist mapping
+  const EDUCATION_DOC_TYPES = ["transcript", "certificate"];
+
   const getContextualChecklist = () => {
     if (currentStepName === "Education") {
-      return documentChecklist.filter((d: any) => ["degree"].includes(d.k));
+      return documentChecklist.filter((d: any) => EDUCATION_DOC_TYPES.includes(d.k));
     }
     if (currentStepName === "Other Documents") {
-      return documentChecklist.filter((d: any) => !["photo", "degree"].includes(d.k));
+      return documentChecklist.filter((d: any) => !["photo", ...EDUCATION_DOC_TYPES].includes(d.k));
     }
     return [];
   };
@@ -912,7 +858,7 @@ function WizardContent({
       const formData = new FormData();
       formData.append("file", file);
       formData.append("applicationId", appId);
-      formData.append("documentType", "PassportPhoto");
+      formData.append("documentType", "photo");
       return applicantServices.uploadDocument(formData);
     },
     onSuccess: () => {
@@ -1151,23 +1097,23 @@ function WizardContent({
                 data.entityType === "Individual" ? (
                   <div className="grid gap-6 md:grid-cols-12">
                     {/* Left Side: Profile Fields */}
-                    <div className="md:col-span-7 grid gap-4">
+                    <div className={documentChecklist.some(d => d.k === "photo") ? "md:col-span-7 grid gap-4" : "md:col-span-12 grid gap-4"}>
                       <div className="space-y-1 md:col-span-2">
-                        <Label htmlFor="app-name">Full Names</Label>
+                        <Label htmlFor="app-name">Full Names <span className="text-red-500">*</span></Label>
                         <Input id="app-name" placeholder="e.g. John Doe" value={data.personal.fullName}
                           onChange={(e) => setData({ ...data, personal: { ...data.personal, fullName: e.target.value } })} />
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor="app-email">Primary Email Address</Label>
+                        <Label htmlFor="app-email">Primary Email Address <span className="text-red-500">*</span></Label>
                         <Input id="app-email" type="email" placeholder="e.g. john.doe@example.com" value={data.personal.email} disabled className="bg-zinc-100" />
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor="app-phone">Mobile Phone</Label>
+                        <Label htmlFor="app-phone">Mobile Phone <span className="text-red-500">*</span></Label>
                         <Input id="app-phone" placeholder="e.g. +250 788 000 000" value={data.personal.phone}
                           onChange={(e) => setData({ ...data, personal: { ...data.personal, phone: e.target.value } })} />
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor="app-nid">National ID / Passport Number</Label>
+                        <Label htmlFor="app-nid">National ID / Passport Number <span className="text-red-500">*</span></Label>
                         <Input id="app-nid" placeholder="e.g. 1199080012345678" value={data.personal.nationalId}
                           onChange={(e) => setData({ ...data, personal: { ...data.personal, nationalId: e.target.value } })} />
                       </div>
@@ -1182,74 +1128,83 @@ function WizardContent({
                       </div>
                     </div>
 
-                    {/* Right Side: Passport Photo */}
-                    <div className="md:col-span-5 flex flex-col">
-                      <Label className="mb-1">Passport Size Photo</Label>
-                      <input
-                        type="file"
-                        accept="image/jpeg, image/png"
-                        className="hidden"
-                        ref={photoInputRef}
-                        onChange={handlePhotoSelect}
-                      />
-                      <div
-                        onClick={() => {
-                          if (!photoPreview && !isPhotoLoading) {
-                            photoInputRef.current?.click();
-                          }
-                        }}
-                        onDragEnter={!photoPreview ? handlePhotoDrag : undefined}
-                        onDragLeave={!photoPreview ? handlePhotoDrag : undefined}
-                        onDragOver={!photoPreview ? handlePhotoDrag : undefined}
-                        onDrop={!photoPreview ? handlePhotoDrop : undefined}
-                        className={cn(
-                          "flex-1 flex flex-col items-center justify-center border-2 border-dashed rounded-md p-6 text-center transition-colors min-h-[220px] relative overflow-hidden group",
-                          !photoPreview && "cursor-pointer",
-                          photoDragActive ? "border-navy bg-navy/5 dark:border-gold dark:bg-gold/5" : "border-zinc-200 hover:border-navy/50 dark:border-zinc-800 bg-zinc-50/50 hover:bg-zinc-100/50 dark:bg-zinc-900/50"
-                        )}
-                      >
-                        {isPhotoLoading ? (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-50/50 dark:bg-zinc-900/50">
-                            <Loader2 className="h-8 w-8 text-navy/40 animate-spin mb-3" />
-                            <span className="text-xs text-muted-foreground font-semibold">Loading photo...</span>
-                          </div>
-                        ) : photoPreview ? (
-                          <>
-                            <img src={photoPreview} alt="Passport preview" className="w-full h-full object-cover absolute inset-0" />
-                            {uploadPhotoMutation.isPending && (
-                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                <Loader2 className="h-8 w-8 text-white animate-spin" />
-                              </div>
-                            )}
-                            <div 
-                              className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 p-2 rounded-full backdrop-blur-sm transition-colors shadow-sm cursor-pointer z-10"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                photoInputRef.current?.click();
-                              }}
-                            >
-                              <Pencil className="h-4 w-4 text-white" />
+                    {/* Right Side: Passport Photo conditionally rendered */}
+                    {(() => {
+                      const photoDoc = documentChecklist.find((d: any) => d.k === "photo");
+                      if (!photoDoc) return null;
+                      return (
+                      <div className="md:col-span-5 flex flex-col">
+                        <Label className="mb-1">
+                          {photoDoc.l}
+                          {photoDoc.r ? <span className="text-red-500 ml-1">*</span> : <span className="text-xs text-muted-foreground font-normal ml-1">(optional)</span>}
+                        </Label>
+                        <input
+                          type="file"
+                          accept="image/jpeg, image/png"
+                          className="hidden"
+                          ref={photoInputRef}
+                          onChange={handlePhotoSelect}
+                        />
+                        <div
+                          onClick={() => {
+                            if (!photoPreview && !isPhotoLoading) {
+                              photoInputRef.current?.click();
+                            }
+                          }}
+                          onDragEnter={!photoPreview ? handlePhotoDrag : undefined}
+                          onDragLeave={!photoPreview ? handlePhotoDrag : undefined}
+                          onDragOver={!photoPreview ? handlePhotoDrag : undefined}
+                          onDrop={!photoPreview ? handlePhotoDrop : undefined}
+                          className={cn(
+                            "flex-1 flex flex-col items-center justify-center border-2 border-dashed rounded-md p-6 text-center transition-colors min-h-[220px] relative overflow-hidden group",
+                            !photoPreview && "cursor-pointer",
+                            photoDragActive ? "border-navy bg-navy/5 dark:border-gold dark:bg-gold/5" : "border-zinc-200 hover:border-navy/50 dark:border-zinc-800 bg-zinc-50/50 hover:bg-zinc-100/50 dark:bg-zinc-900/50"
+                          )}
+                        >
+                          {isPhotoLoading ? (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-50/50 dark:bg-zinc-900/50">
+                              <Loader2 className="h-8 w-8 text-navy/40 animate-spin mb-3" />
+                              <span className="text-xs text-muted-foreground font-semibold">Loading photo...</span>
                             </div>
-                          </>
-                        ) : (
-                          <>
-                            <User className={cn("h-12 w-12 mb-3 transition-colors", photoDragActive ? "text-navy dark:text-gold" : "text-zinc-300 dark:text-zinc-700 group-hover:text-zinc-400")} />
-                            <span className={cn("text-sm font-semibold", photoDragActive ? "text-navy dark:text-gold" : "text-navy dark:text-zinc-300")}>
-                              {photoDragActive ? "Drop photo here" : "Drag & Drop photo here"}
-                            </span>
-                            <span className="text-xs mt-1 font-sans text-muted-foreground">or click anywhere to browse (Max 5MB)</span>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="mt-4 border-zinc-200 dark:border-zinc-700 pointer-events-none"
-                              tabIndex={-1}
-                            >
-                              <Upload className="h-4 w-4 mr-2" /> Select File
-                            </Button>
-                          </>
-                        )}
+                          ) : photoPreview ? (
+                            <>
+                              <img src={photoPreview} alt="Passport preview" className="w-full h-full object-cover absolute inset-0" />
+                              {uploadPhotoMutation.isPending && (
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                  <Loader2 className="h-8 w-8 text-white animate-spin" />
+                                </div>
+                              )}
+                              <div 
+                                className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 p-2 rounded-full backdrop-blur-sm transition-colors shadow-sm cursor-pointer z-10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  photoInputRef.current?.click();
+                                }}
+                              >
+                                <Pencil className="h-4 w-4 text-white" />
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <User className={cn("h-12 w-12 mb-3 transition-colors", photoDragActive ? "text-navy dark:text-gold" : "text-zinc-300 dark:text-zinc-700 group-hover:text-zinc-400")} />
+                              <span className={cn("text-sm font-semibold", photoDragActive ? "text-navy dark:text-gold" : "text-navy dark:text-zinc-300")}>
+                                {photoDragActive ? "Drop photo here" : "Drag & Drop photo here"}
+                              </span>
+                              <span className="text-xs mt-1 font-sans text-muted-foreground">or click anywhere to browse (Max 5MB)</span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="mt-4 border-zinc-200 dark:border-zinc-700 pointer-events-none"
+                                tabIndex={-1}
+                              >
+                                <Upload className="h-4 w-4 mr-2" /> Select File
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                      );
+                    })()}
 
                     {/* Additional Details */}
                     <div className="md:col-span-12 grid gap-4 mt-2">
@@ -1305,12 +1260,12 @@ function WizardContent({
                       <h3 className="font-semibold text-base text-navy">Representative Information</h3>
                       <div className="grid gap-3 md:grid-cols-3">
                         {[
-                          { id: "rep-name", label: "Full Names", field: "fullName", placeholder: "e.g. John Doe" },
-                          { id: "rep-email", label: "Representative Email", field: "email", placeholder: "e.g. rep@firm.com", type: "email" },
-                          { id: "rep-phone", label: "Representative Phone", field: "phone", placeholder: "e.g. +250 788 000 000" },
-                        ].map(({ id, label, field, placeholder, type }) => (
+                          { id: "rep-name", label: "Full Names", field: "fullName", placeholder: "e.g. John Doe", required: true },
+                          { id: "rep-email", label: "Representative Email", field: "email", placeholder: "e.g. rep@firm.com", type: "email", required: true },
+                          { id: "rep-phone", label: "Representative Phone", field: "phone", placeholder: "e.g. +250 788 000 000", required: true },
+                        ].map(({ id, label, field, placeholder, type, required }) => (
                           <div key={id} className="space-y-1">
-                            <Label htmlFor={id}>{label}</Label>
+                            <Label htmlFor={id}>{label} {required && <span className="text-red-500">*</span>}</Label>
                             <Input id={id} type={type} placeholder={placeholder} value={data.personal[field]}
                               disabled={field === "email"}
                               className={field === "email" ? "bg-zinc-100" : ""}
@@ -1323,7 +1278,7 @@ function WizardContent({
                       <h3 className="font-semibold text-base text-navy">Firm Information</h3>
                       <div className="grid gap-3 md:grid-cols-2">
                         <div className="space-y-1">
-                          <Label>Registered Firm Name</Label>
+                          <Label>Registered Firm Name <span className="text-red-500">*</span></Label>
                           <Input placeholder="e.g. Apex Surveyors Ltd" value={data.personal.firmName}
                             onChange={(e) => setData({ ...data, personal: { ...data.personal, firmName: e.target.value } })} />
                         </div>
@@ -1342,14 +1297,14 @@ function WizardContent({
                         return (
                         <div key={i} className="relative grid gap-3 border border-zinc-100 dark:border-zinc-800 p-4 rounded-md md:grid-cols-12 bg-white dark:bg-zinc-900 shadow-sm">
                           {[
-                            { className: "md:col-span-3", label: "Shareholder Name", field: "fullName", placeholder: "e.g. Alice Umuhoza" },
+                            { className: "md:col-span-3", label: "Shareholder Name", field: "fullName", placeholder: "e.g. Alice Umuhoza", required: true },
                             { className: "md:col-span-3", label: "Email Address", field: "email", placeholder: "e.g. alice@example.com", type: "email" },
                             { className: "md:col-span-2", label: "Phone Number", field: "phone", placeholder: "e.g. +250 788 000 000" },
                             { className: "md:col-span-1", label: "Share (%)", field: "shareholdingPercentage", placeholder: "e.g. 50", type: "number" },
                             { className: hasDelete ? "md:col-span-2" : "md:col-span-3", label: "RIQS ID (Optional)", field: "membershipId", placeholder: "e.g. RIQS-2026-M-045" },
-                          ].map(({ className, label, field, placeholder, type }) => (
+                          ].map(({ className, label, field, placeholder, type, required }: any) => (
                             <div key={field} className={`${className} space-y-1`}>
-                              <Label>{label}</Label>
+                              <Label>{label} {required && <span className="text-red-500">*</span>}</Label>
                               <Input type={type} placeholder={placeholder} value={sh[field]}
                                 onChange={(e) => {
                                   const v = [...data.personal.shareholders];
@@ -1471,6 +1426,10 @@ function WizardContent({
               {/* ── Education ── */}
               {currentStepName === "Education" && (
                 <div className="space-y-4">
+                  <div className="flex items-start gap-2 text-xs text-muted-foreground bg-zinc-50 border border-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/50 rounded-md px-3 py-2">
+                    <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-navy/60" />
+                    <span>At least one academic record is required to proceed. Fill in the fields and click <strong>Save</strong> before continuing.</span>
+                  </div>
                   {data.education.map((ed: any, i: number) => (
                     <div key={ed.id || i} className="relative grid gap-4 border border-zinc-150 p-4 rounded-md md:grid-cols-12 bg-zinc-50/50">
                       <div className="md:col-span-12 space-y-1">
@@ -1663,13 +1622,13 @@ function WizardContent({
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                     {contextualChecklist.map((d: any) => {
-                      const hasDoc = !!data.docs[d.k];
-                      const isUploading = data.docs[d.k] === "uploading_from_client";
-                      const isLoadingBackend = data.docs[d.k] === "loading_from_backend";
+                      const hasDoc = !!data.docs[d.uid];
+                      const isUploading = data.docs[d.uid] === "uploading_from_client";
+                      const isLoadingBackend = data.docs[d.uid] === "loading_from_backend";
                       const isPending = isUploading || isLoadingBackend;
-                      const isCollapsed = collapsedDocs[d.k] || false;
+                      const isCollapsed = collapsedDocs[d.uid] || false;
                       return (
-                        <div key={d.k} className={cn("relative border border-dashed border-zinc-300 rounded-sm p-4 bg-white transition-all", hasDoc ? "col-span-1 md:col-span-2" : "")}>
+                        <div key={d.uid} className={cn("relative border border-dashed border-zinc-300 rounded-sm p-4 bg-white transition-all", hasDoc ? "col-span-1 md:col-span-2" : "")}>
                           {!hasDoc ? (
                             <div className="flex items-center gap-4">
                               <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -1677,13 +1636,13 @@ function WizardContent({
                                   if (e.target.files && e.target.files[0]) {
                                     const file = e.target.files[0];
                                     if (!appId) { toast.error("Please save first step before uploading."); return; }
-                                    setData({ ...data, docs: { ...data.docs, [d.k]: "uploading_from_client" } });
-                                    uploadFileMutation.mutate({ file, documentType: d.k }, {
+                                    setData({ ...data, docs: { ...data.docs, [d.uid]: "uploading_from_client" } });
+                                    uploadFileMutation.mutate({ file, documentType: d.uid }, {
                                       onSuccess: () => {
                                         const isImg = file.type.startsWith("image/") || file.name.match(/\.(jpeg|jpg|gif|png)$/i);
-                                        setData((prev: any) => ({ ...prev, docs: { ...prev.docs, [d.k]: URL.createObjectURL(file) + (isImg ? "#image" : "#pdf") } }));
+                                        setData((prev: any) => ({ ...prev, docs: { ...prev.docs, [d.uid]: URL.createObjectURL(file) + (isImg ? "#image" : "#pdf") } }));
                                         // Ensure it's expanded when a new file is uploaded
-                                        setCollapsedDocs(prev => ({ ...prev, [d.k]: false }));
+                                        setCollapsedDocs(prev => ({ ...prev, [d.uid]: false }));
                                       }
                                     });
                                   }
@@ -1704,10 +1663,10 @@ function WizardContent({
                             <div className="space-y-3 relative z-10">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3 min-w-0">
-                                  <div className="w-10 h-10 flex items-center justify-center bg-green-50 text-green-600 rounded-sm shrink-0 cursor-pointer" onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.k]: !prev[d.k] }))}>
+                                  <div className="w-10 h-10 flex items-center justify-center bg-green-50 text-green-600 rounded-sm shrink-0 cursor-pointer" onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.uid]: !prev[d.k] }))}>
                                     {isPending ? <Loader2 className="h-5 w-5 animate-spin text-gold" /> : <CheckCircle2 className="h-5 w-5" />}
                                   </div>
-                                  <div className={cn("select-none flex-1 min-w-0", !isPending && "cursor-pointer")} onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.k]: !prev[d.k] }))}>
+                                  <div className={cn("select-none flex-1 min-w-0", !isPending && "cursor-pointer")} onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.uid]: !prev[d.k] }))}>
                                     <p className="text-sm font-semibold text-navy flex items-center gap-1">
                                       <span className="truncate">{d.l}</span>
                                       {d.r && <span className="text-red-500 shrink-0">*</span>}
@@ -1719,7 +1678,7 @@ function WizardContent({
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {!isPending && (
-                                    <Button variant="ghost" size="sm" onClick={() => setCollapsedDocs(prev => ({ ...prev, [d.k]: !prev[d.k] }))} className="text-muted-foreground hover:bg-zinc-100 hidden sm:flex">
+                                    <Button variant="ghost" size="sm" onClick={() => setCollapsedDocs(prev => ({ ...prev, [d.uid]: !prev[d.k] }))} className="text-muted-foreground hover:bg-zinc-100 hidden sm:flex">
                                       {isCollapsed ? <><ChevronDown className="h-4 w-4 mr-1" /> Expand</> : <><ChevronUp className="h-4 w-4 mr-1" /> Collapse</>}
                                     </Button>
                                   )}
@@ -1728,10 +1687,10 @@ function WizardContent({
                                     delete newDocs[d.k];
                                     setData({ ...data, docs: newDocs });
                                     if (appId) {
-                                      deleteDocumentMutation.mutate({ appId, documentType: d.k });
+                                      deleteDocumentMutation.mutate({ appId, documentType: d.uid });
                                     }
                                   }} className="text-red-500 hover:bg-red-50" disabled={isPending || deleteDocumentMutation.isPending}>
-                                    {deleteDocumentMutation.isPending && deleteDocumentMutation.variables?.documentType === d.k ? <Loader2 className="h-4 w-4 mr-1 md:mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 sm:mr-2" />} <span className="hidden sm:inline">Remove</span>
+                                    {deleteDocumentMutation.isPending && deleteDocumentMutation.variables?.documentType === d.uid ? <Loader2 className="h-4 w-4 mr-1 md:mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 sm:mr-2" />} <span className="hidden sm:inline">Remove</span>
                                   </Button>
                                 </div>
                               </div>
@@ -1750,10 +1709,10 @@ function WizardContent({
                                           <div className="w-full h-12 bg-zinc-200 rounded-md" />
                                           <div className="w-full flex-1 bg-zinc-200 rounded-md" />
                                         </div>
-                                      ) : data.docs[d.k].match(/\.(jpeg|jpg|gif|png)$/i) != null || data.docs[d.k].startsWith('data:image') || data.docs[d.k].includes('#image') ? (
-                                        <img src={data.docs[d.k]} className="w-full h-full object-contain pointer-events-auto" />
+                                      ) : data.docs[d.uid].match(/\.(jpeg|jpg|gif|png)$/i) != null || data.docs[d.uid].startsWith('data:image') || data.docs[d.uid].includes('#image') ? (
+                                        <img src={data.docs[d.uid]} className="w-full h-full object-contain pointer-events-auto" />
                                       ) : (
-                                        <PDFViewer src={data.docs[d.k]} fileName={d.l} />
+                                        <PDFViewer src={data.docs[d.uid]} fileName={d.l} />
                                       )}
                                     </div>
                                   </motion.div>
@@ -1851,19 +1810,28 @@ function WizardContent({
     {/* Right Side: Contextual Document Uploader */}
     {(contextualChecklist.length > 0 && currentStepName !== "Other Documents") && (
       <div className="lg:col-span-7 flex flex-col relative sticky top-6 h-[calc(100vh-48px)]">
+        <div className="flex items-center gap-3 mb-2 px-1">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-100">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+            </span>
+            Red dot = Required document
+          </span>
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500">
+              <Check className="h-2.5 w-2.5 text-white" />
+            </span>
+            Green = Uploaded
+          </span>
+        </div>
         <DocumentTabsViewer 
           tabs={[
-            ...contextualChecklist.map((d: any) => {
-              let label = d.l;
-              if (d.k === "degree") label = "Supporting Certificate";
-              if (d.k === "transcripts") label = "Transcript 1";
-              return {
-                k: d.k,
-                l: label,
-                r: d.r,
-                url: data.docs[d.k] || null
-              };
-            }),
+            ...contextualChecklist.map((d: any) => ({
+              k: d.uid,
+              l: d.l,
+              r: d.r,
+              url: data.docs[d.uid] || null
+            })),
             ...(data.dynamicTabs || [])
               .filter((t: any) => contextualChecklist.some((c: any) => c.k === t.base))
               .map((t: any) => ({
@@ -1952,7 +1920,46 @@ function WizardContent({
         {step < STEPS.length - 1 && (() => {
           const isNextDisabled = () => {
             if (isSaving) return true;
-            if (contextualChecklist.filter((d: any) => d.r).some((d: any) => !data.docs[d.k] || data.docs[d.k] === "loading_from_backend" || data.docs[d.k] === "uploading_from_client")) return true;
+
+            if (currentStepName === "Practice Location") {
+              return !data.practiceLocation;
+            }
+            if (currentStepName === "Entity Type") {
+              return !data.entityType;
+            }
+            if (currentStepName === "Category") {
+              return !data.categoryId;
+            }
+            if (currentStepName === "Personal Info") {
+              const p = data.personal;
+              // Check if photo is required and not yet uploaded
+              const photoDoc = documentChecklist.find((d: any) => d.k === "photo");
+              const photoMissing = photoDoc?.r && (!data.docs["photo"] || data.docs["photo"] === "loading_from_backend" || data.docs["photo"] === "uploading_from_client") && !photoPreview;
+              if (data.entityType === "Individual") {
+                return !p.fullName || !p.phone || !p.email || !p.nationalId || !!photoMissing;
+              } else {
+                // Firm: rep info + firm name + at least one shareholder with name
+                return !p.fullName || !p.phone || !p.firmName || !data.personal.shareholders?.some((s: any) => s.fullName);
+              }
+            }
+            if (currentStepName === "Education") {
+              // At least one saved education entry with required fields
+              const hasSavedEntry = data.education.some((ed: any) =>
+                ed.id || (ed.institution && ed.studyField && ed.degree && ed.startDateRaw)
+              );
+              if (!hasSavedEntry) return true;
+              // Also check required education docs (transcript, certificate)
+              const hasRequiredDocs = !contextualChecklist
+                .filter((d: any) => d.r)
+                .some((d: any) => !data.docs[d.uid] || data.docs[d.uid] === "loading_from_backend" || data.docs[d.uid] === "uploading_from_client");
+              return !hasRequiredDocs;
+            }
+            if (currentStepName === "Other Documents") {
+              // All required docs in this step must be uploaded
+              return contextualChecklist
+                .filter((d: any) => d.r)
+                .some((d: any) => !data.docs[d.uid] || data.docs[d.uid] === "loading_from_backend" || data.docs[d.uid] === "uploading_from_client");
+            }
             return false;
           };
           return (

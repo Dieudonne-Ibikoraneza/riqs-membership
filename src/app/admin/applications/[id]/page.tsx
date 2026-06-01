@@ -27,6 +27,7 @@ import {
   RotateCw,
   RotateCcw,
   Maximize2,
+  Minimize2,
   Loader2,
   MoveHorizontal,
 } from "lucide-react";
@@ -121,9 +122,30 @@ export default function Review({ params }: PageProps) {
   >(null);
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const prevDoc = useRef(activeDoc);
   const [direction, setDirection] = useState(0);
+
+  const toggleFullscreen = (index: number) => {
+    const el = document.getElementById(`viewer-container-${index}`);
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
 
   // APC State
   const [apcDialog, setApcDialog] = useState<null | "schedule" | "grade">(null);
@@ -637,7 +659,7 @@ export default function Review({ params }: PageProps) {
                              const checkUrl = doc.originalFileUrl || url;
                              const isImage = checkUrl?.toLowerCase().match(/\.(jpeg|jpg|gif|png)$/i) || checkUrl?.startsWith("data:image");
                              return isImage ? (
-                                <div className="relative w-full h-full bg-white shadow-sm rounded-md overflow-hidden flex flex-col group">
+                                <div id={`viewer-container-${i}`} className="relative w-full h-full bg-white shadow-sm rounded-md overflow-hidden flex flex-col group">
                                   <div className="flex-1 w-full h-full flex items-center justify-center overflow-auto p-4">
                                     <img 
                                       src={url} 
@@ -657,6 +679,10 @@ export default function Review({ params }: PageProps) {
                                     <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 mx-1" />
                                     <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setRot((r) => (r - 90) % 360)}><RotateCcw className="h-4 w-4 text-zinc-700 dark:text-zinc-300" /></Button>
                                     <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setRot((r) => (r + 90) % 360)}><RotateCw className="h-4 w-4 text-zinc-700 dark:text-zinc-300" /></Button>
+                                    <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 mx-1" />
+                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => toggleFullscreen(i)}>
+                                      {isFullscreen ? <Minimize2 className="h-4 w-4 text-zinc-700 dark:text-zinc-300" /> : <Maximize2 className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />}
+                                    </Button>
                                     <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 mx-1" />
                                     <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => {
                                       const a = document.createElement("a");

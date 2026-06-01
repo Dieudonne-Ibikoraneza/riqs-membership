@@ -10,7 +10,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
+import { publicServices } from "@/services/public.services";
 import PDFViewer from "@/components/ui/pdf-viewer";
+import ImageViewer from "@/components/ui/image-viewer";
 
 /** Resolve a documentType key to its admin-configured display name.
  *  Falls back to a prettified version of the key if no match found.
@@ -19,9 +21,17 @@ function resolveDocName(
   documentType: string,
   docTypeMap: Record<string, string>
 ): string {
+  if (documentType.includes(' ') && documentType.charAt(0) === documentType.charAt(0).toUpperCase()) {
+      return documentType;
+  }
+  
+  const baseKey = documentType.replace(/_\d+$/, "");
+
   if (docTypeMap[documentType]) return docTypeMap[documentType];
+  if (docTypeMap[baseKey]) return docTypeMap[baseKey];
+  
   // Check against sanitized name (lowercase, underscores)
-  const sanitized = documentType.toLowerCase().replace(/[^a-z0-9]/g, "_");
+  const sanitized = baseKey.toLowerCase().replace(/[^a-z0-9]/g, "_");
   if (docTypeMap[sanitized]) return docTypeMap[sanitized];
   // Fallback: prettify the raw string
   return documentType
@@ -37,24 +47,28 @@ function DocumentCard({ doc, docTypeMap }: { doc: any; docTypeMap: Record<string
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(false);
 
-  const toggleExpand = async () => {
-    if (!expanded && !previewUrl && !isLoading) {
+  const toggleExpand = () => {
+    const willExpand = !expanded;
+    setExpanded(willExpand);
+    
+    if (willExpand && !previewUrl && !isLoading) {
       setIsLoading(true);
       setError(false);
-      try {
-        const blob = await applicantServices.downloadDocument(doc.id);
-        const isImg = blob.type.startsWith("image/") || doc.fileName?.match(/\.(jpeg|jpg|gif|png)$/i);
-        const url = URL.createObjectURL(blob) + (isImg ? "#image" : "#pdf");
-        setPreviewUrl(url);
-      } catch (err) {
-        console.error("Failed to load document", err);
-        setError(true);
-        toast.error(`Failed to load document`);
-      } finally {
-        setIsLoading(false);
-      }
+      applicantServices.downloadDocument(doc.id)
+        .then(blob => {
+          const isImg = blob.type.startsWith("image/") || doc.fileName?.match(/\.(jpeg|jpg|gif|png)$/i);
+          const url = URL.createObjectURL(blob) + (isImg ? "#image" : "#pdf");
+          setPreviewUrl(url);
+        })
+        .catch(err => {
+          console.error("Failed to load document", err);
+          setError(true);
+          toast.error(`Failed to load document`);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
     }
-    setExpanded(!expanded);
   };
 
   const handleDownload = async (e: React.MouseEvent) => {
@@ -74,7 +88,7 @@ function DocumentCard({ doc, docTypeMap }: { doc: any; docTypeMap: Record<string
     }
   };
 
-  const friendlyName = resolveDocName(doc.documentType, docTypeMap);
+  const friendlyName = doc.documentName || resolveDocName(doc.documentType, docTypeMap);
 
   return (
     <Card className="border-zinc-200 dark:border-zinc-800">
@@ -147,7 +161,7 @@ function DocumentCard({ doc, docTypeMap }: { doc: any; docTypeMap: Record<string
                   </div>
                 ) : previewUrl ? (
                   previewUrl.includes("#image") ? (
-                    <img src={previewUrl} className="w-full h-full object-contain pointer-events-auto" alt={friendlyName} />
+                    <ImageViewer src={previewUrl} fileName={friendlyName} />
                   ) : (
                     <PDFViewer src={previewUrl} fileName={friendlyName} />
                   )
@@ -173,11 +187,36 @@ export default function Documents() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: categoriesData = [] } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => publicServices.getCategories(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const categories = categoriesData as any[];
+
   // Build a lookup map: code -> name and sanitized_name -> name
   const docTypeMap: Record<string, string> = {};
   for (const dt of docTypes) {
     docTypeMap[dt.code] = dt.name;
     docTypeMap[dt.name.toLowerCase().replace(/[^a-z0-9]/g, "_")] = dt.name;
+  }
+
+  // Override with category-specific names if available
+  if (profileData?.application?.categoryId && categories && categories.length > 0) {
+    const category = categories.find((c: any) => c.id === profileData!.application!.categoryId);
+    if (category) {
+      const allCategoryDocs = [
+        ...(Array.isArray(category.requiredDocuments) ? category.requiredDocuments : []),
+        ...(Array.isArray(category.optionalDocuments) ? category.optionalDocuments : [])
+      ];
+      for (const d of allCategoryDocs) {
+        if (d.typeCode && d.name) {
+          docTypeMap[d.typeCode] = d.name;
+          docTypeMap[d.name.toLowerCase().replace(/[^a-z0-9]/g, "_")] = d.name;
+        }
+      }
+    }
   }
 
   const documents = profileData?.documents || [];

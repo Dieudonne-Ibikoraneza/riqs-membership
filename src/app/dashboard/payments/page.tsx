@@ -86,7 +86,7 @@ export default function Payments() {
   const renewalDesc = isFirm ? "Company Annual Subscription" : "Annual Renewal";
 
   const transactions = paymentsData?.transactions || [];
-  const unpaidTx = transactions.find((tx: any) => tx.status === "Unpaid");
+  const unpaidTx = transactions.find((tx: any) => tx.status === "Unpaid" || tx.status === "Failed");
 
   const totalPaid = transactions
     .filter((tx: any) => tx.status === "Cleared")
@@ -114,12 +114,18 @@ export default function Payments() {
   let canUpload = true;
 
   if (unpaidTx) {
-    displayDesc = unpaidTx.txType.replace(/_/g, " ") + " Due";
+    displayDesc = unpaidTx.status === "Failed" ? `${unpaidTx.txType.replace(/_/g, " ")} Failed` : unpaidTx.txType.replace(/_/g, " ") + " Due";
     displayAmount = `${unpaidTx.currency} ${Number(unpaidTx.amount).toLocaleString()}`;
     defaultTxType = unpaidTx.txType;
     defaultAmountNum = unpaidTx.amount;
-    displayDocName = `${unpaidTx.txType.replace(/_/g, " ")} Receipt`;
-    paymentCode = `${unpaidTx.txType}_receipt`;
+    
+    if (unpaidTx.txType === "Processing_Fee") {
+      displayDocName = appPaymentDocName || "Processing Fee Receipt";
+      paymentCode = appPaymentDocCode || "Processing_Fee_receipt";
+    } else {
+      displayDocName = `${unpaidTx.txType.replace(/_/g, " ")} Receipt`;
+      paymentCode = `${unpaidTx.txType}_receipt`;
+    }
   } else if (!hasProcessingFeeTx && !isAppApproved) {
     // Hasn't submitted application fee
     const processingFee = data?.application?.category?.processingFee || (isRwandan ? 50000 : 100);
@@ -217,6 +223,21 @@ export default function Payments() {
             You have <strong>{pendingCount}</strong> payment{pendingCount > 1 ? "s" : ""} awaiting
             administrative verification. You will be notified once cleared.
           </span>
+        </motion.div>
+      )}
+
+      {unpaidTx?.status === "Failed" && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-start gap-3 rounded-md border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 px-4 py-3 text-sm text-red-800 dark:text-red-300"
+        >
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">Your payment proof was rejected.</span>
+            <span>Reason: {unpaidTx.rejectionReason || "Invalid or missing documentation."}</span>
+            <span>Please re-upload a valid proof of payment below.</span>
+          </div>
         </motion.div>
       )}
 

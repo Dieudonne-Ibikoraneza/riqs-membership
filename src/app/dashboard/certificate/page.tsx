@@ -171,20 +171,14 @@ function CertificateContent() {
       return;
     }
 
-    let passportDoc = profileData.documents.find((d: any) => 
-      d.documentType === "PassportPhoto" || 
-      d.documentType === "Passport_Photo" || 
-      d.documentType === "photo"
+    let passportDoc = profileData.documents.find((d: any) =>
+      d.documentType === "PassportPhoto" ||
+      d.documentType === "Passport_Photo" ||
+      d.documentType === "photo" ||
+      d.documentType === "PassportSize" ||
+      d.documentType === "passport_size_photo"
     );
-    if (!passportDoc) {
-      passportDoc = profileData.documents.find((d: any) => 
-        d.documentType === "Passport" || 
-        d.documentType === "id" || 
-        (d.documentType && d.documentType.toLowerCase().includes("passport")) ||
-        (d.documentType && d.documentType.toLowerCase().includes("photo")) ||
-        (d.documentType && d.documentType.toLowerCase().includes("id"))
-      );
-    }
+    // Do NOT fall back to id/passport copy documents – only a genuine photo upload is shown
 
     let active = true;
 

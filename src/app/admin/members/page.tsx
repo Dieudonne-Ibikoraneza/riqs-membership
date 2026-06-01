@@ -29,8 +29,15 @@ import {
   Clock,
   AlertTriangle,
   Loader2,
+  Mail,
+  Minus,
+  Send,
+  Maximize2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 
 type SortKey = "name" | "id" | "expiry" | "status";
 
@@ -46,6 +53,50 @@ export default function AdminMembers() {
   
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<AdminMemberRegistryResponse | null>(null);
+
+  // Bulk Email State
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeMinimized, setComposeMinimized] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [isSending, setIsSending] = useState(false);
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAll = () => {
+    if (!data?.members) return;
+    if (selectedIds.length === data.members.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(data.members.map((m) => m.id));
+    }
+  };
+
+  const handleSendBulkEmail = async () => {
+    if (!emailSubject.trim() || !emailBody.trim()) {
+      toast.error("Subject and message are required.");
+      return;
+    }
+    setIsSending(true);
+    try {
+      // Mock API call for frontend logic
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      toast.success(`Email successfully sent to ${selectedIds.length} members!`);
+      setComposeOpen(false);
+      setEmailSubject("");
+      setEmailBody("");
+      setSelectedIds([]);
+    } catch (err) {
+      toast.error("Failed to send bulk email.");
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -331,6 +382,14 @@ export default function AdminMembers() {
             <table className="w-full text-sm">
               <thead className="bg-navy text-white">
                 <tr>
+                  <th className="px-5 py-4 text-left w-12">
+                    <Checkbox 
+                      checked={data?.members?.length !== undefined && data.members.length > 0 && selectedIds.length === data.members.length}
+                      onCheckedChange={toggleAll}
+                      className="border-white/50 data-[state=checked]:bg-white data-[state=checked]:text-navy"
+                      aria-label="Select all"
+                    />
+                  </th>
                   {[
                     "Member",
                     "Membership ID",
@@ -355,8 +414,16 @@ export default function AdminMembers() {
                     className={cn(
                       "border-b border-zinc-100 dark:border-zinc-800/80 transition-colors hover:bg-gold/5",
                       i % 2 === 1 && "bg-zinc-50/20 dark:bg-zinc-950/10",
+                      selectedIds.includes(m.id) && "bg-gold/10 dark:bg-gold/20"
                     )}
                   >
+                    <td className="px-5 py-4">
+                      <Checkbox 
+                        checked={selectedIds.includes(m.id)}
+                        onCheckedChange={() => toggleSelection(m.id)}
+                        aria-label={`Select ${m.fullName}`}
+                      />
+                    </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <Avatar name={m.fullName} url={m.photo} />
@@ -591,6 +658,8 @@ function Pagination({
           <ChevronsRight className="h-4 w-4 text-gold" />
         </Button>
       </div>
+
+
     </div>
   );
 }

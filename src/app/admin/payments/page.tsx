@@ -44,7 +44,7 @@ export default function AdminPaymentsPage() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("All");
   const [selectedTx, setSelectedTx] = useState<AdminPaymentTransaction | null>(null);
-  const [verifyAction, setVerifyAction] = useState<"Cleared" | "Failed" | "Refunded">("Cleared");
+  const [verifyAction, setVerifyAction] = useState<"Cleared" | "Failed">("Cleared");
   const [rejectionReason, setRejectionReason] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -58,7 +58,13 @@ export default function AdminPaymentsPage() {
   const { mutate: handleVerify, isPending: isVerifying } = useMutation({
     mutationFn: () => verifyPayment(selectedTx!.id, verifyAction, rejectionReason),
     onSuccess: (res) => {
-      toast.success(res.message || `Payment ${verifyAction.toLowerCase()} successfully`);
+      let msg = res.message;
+      if (!msg) {
+        msg = verifyAction === "Failed" 
+          ? "Payment marked as failed and sent back to user for re-upload."
+          : `Payment ${verifyAction.toLowerCase()} successfully.`;
+      }
+      toast.success(msg);
       setIsDialogOpen(false);
       setSelectedTx(null);
       setRejectionReason("");
@@ -82,7 +88,6 @@ export default function AdminPaymentsPage() {
       case "Pending_Verification":
         return <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400">Pending</Badge>;
       case "Failed":
-      case "Refunded":
         return <Badge className="bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:text-red-400">{s}</Badge>;
       default:
         return <Badge variant="outline">{s}</Badge>;
@@ -96,7 +101,7 @@ export default function AdminPaymentsPage() {
   };
 
   if (selectedTx) {
-    const isImage = selectedTx.receiptUrl?.match(/\.(jpeg|jpg|gif|png)$/i) != null;
+    const isImage = selectedTx.receiptFileName?.match(/\.(jpeg|jpg|gif|png)$/i) != null || selectedTx.receiptUrl?.match(/\.(jpeg|jpg|gif|png)$/i) != null;
     const token = typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : '';
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
     const documentUrl = selectedTx.receiptUrl ? `${baseUrl}/files/download/${selectedTx.receiptUrl}?token=${token}` : null;
@@ -113,9 +118,6 @@ export default function AdminPaymentsPage() {
               <>
                 <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20" onClick={() => { setVerifyAction("Failed"); setIsDialogOpen(true); }}>
                   <XCircle className="mr-1.5 h-3.5 w-3.5" /> Fail
-                </Button>
-                <Button size="sm" variant="outline" className="border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-900/50 dark:text-amber-400 dark:hover:bg-amber-950/20" onClick={() => { setVerifyAction("Refunded"); setIsDialogOpen(true); }}>
-                  <XCircle className="mr-1.5 h-3.5 w-3.5" /> Refund
                 </Button>
                 <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald" onClick={() => { setVerifyAction("Cleared"); setIsDialogOpen(true); }}>
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Clear
@@ -183,10 +185,10 @@ export default function AdminPaymentsPage() {
                 {documentUrl ? (
                   isImage ? (
                     <div className="w-full h-full p-4 relative flex items-center justify-center">
-                      <ImageViewer src={documentUrl} alt="Receipt" fileName="receipt.png" />
+                      <ImageViewer src={documentUrl} alt="Receipt" fileName={selectedTx.receiptFileName || "receipt.png"} />
                     </div>
                   ) : (
-                    <PDFViewer src={documentUrl} fileName="receipt.pdf" />
+                    <PDFViewer src={documentUrl} fileName={selectedTx.receiptFileName || "receipt.pdf"} />
                   )
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-8 text-center">
@@ -304,7 +306,6 @@ function Avatar({ name, url }: { name: string; url?: string }) {
                 <SelectItem value="Pending_Verification">Pending Verification</SelectItem>
                 <SelectItem value="Cleared">Cleared</SelectItem>
                 <SelectItem value="Failed">Failed</SelectItem>
-                <SelectItem value="Refunded">Refunded</SelectItem>
                 <SelectItem value="Unpaid">Unpaid</SelectItem>
               </SelectContent>
             </Select>

@@ -28,6 +28,7 @@ import {
   RotateCcw,
   Maximize2,
   Loader2,
+  MoveHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -91,9 +92,20 @@ export default function Review({ params }: PageProps) {
 
   // Helper to resolve documentType key -> display name
   const resolveDocName = (documentType: string): string => {
+    // If the backend already provided a nice name with spaces, use it if it doesn't look like a raw key
+    if (documentType.includes(' ') && documentType.charAt(0) === documentType.charAt(0).toUpperCase()) {
+       return documentType;
+    }
+
+    // Strip suffix (e.g. certificate_2 -> certificate) for lookup
+    const baseKey = documentType.replace(/_\d+$/, "");
+
     if (docTypeMap[documentType]) return docTypeMap[documentType];
-    const sanitized = documentType.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    if (docTypeMap[baseKey]) return docTypeMap[baseKey];
+
+    const sanitized = baseKey.toLowerCase().replace(/[^a-z0-9]/g, "_");
     if (docTypeMap[sanitized]) return docTypeMap[sanitized];
+    
     return documentType
       .replace(/_+/g, " ")
       .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -173,7 +185,9 @@ export default function Review({ params }: PageProps) {
             const token = typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : '';
             const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
             return {
-              name: d.documentType,
+              name: d.documentName || d.documentType,
+              documentType: d.documentType,
+              documentName: d.documentName,
               type: d.documentType.split('_').pop() || "DOC",
               url: `${baseUrl}/files/download/${d.id}?token=${token}`,
               originalFileUrl: d.fileUrl
@@ -578,17 +592,23 @@ export default function Review({ params }: PageProps) {
               }}
               className="flex-1 flex flex-col"
             >
-              <TabsList className="flex w-full h-auto flex-wrap bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-lg mb-4 gap-1">
-                {app.documents.map((d: any, i: number) => (
-                  <TabsTrigger
-                    key={i}
-                    value={String(i)}
-                    className="flex-1 text-xs font-semibold px-3 py-2 whitespace-nowrap"
-                  >
-                    {resolveDocName(d.name)}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+              <div className="flex flex-col mb-4">
+                <div className="flex items-center gap-1.5 px-2 pb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  <MoveHorizontal className="w-3.5 h-3.5 opacity-70" />
+                  <span>Scroll horizontally to view all submitted documents</span>
+                </div>
+                <TabsList className="flex w-full h-auto overflow-x-auto justify-start bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-lg gap-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                  {app.documents.map((d: any, i: number) => (
+                    <TabsTrigger
+                      key={i}
+                      value={String(i)}
+                      className="shrink-0 text-sm font-semibold px-5 py-2.5 whitespace-nowrap"
+                    >
+                      {d.documentName || resolveDocName(d.documentType)}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
               {/* Pre-render all documents so PDFs do not reload when switching tabs */}
               <div className="relative flex-1 mt-0 overflow-hidden">
                 {app.documents.map((doc: any, i: number) => {

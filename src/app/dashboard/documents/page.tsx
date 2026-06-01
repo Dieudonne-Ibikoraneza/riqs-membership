@@ -14,6 +14,15 @@ import { publicServices } from "@/services/public.services";
 import PDFViewer from "@/components/ui/pdf-viewer";
 import ImageViewer from "@/components/ui/image-viewer";
 
+function formatLabel(name: string): string {
+  if (!name) return "";
+  return name
+    .replace(/[-_]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
 /** Resolve a documentType key to its admin-configured display name.
  *  Falls back to a prettified version of the key if no match found.
  */
@@ -34,11 +43,7 @@ function resolveDocName(
   const sanitized = baseKey.toLowerCase().replace(/[^a-z0-9]/g, "_");
   if (docTypeMap[sanitized]) return docTypeMap[sanitized];
   // Fallback: prettify the raw string
-  return documentType
-    .replace(/_+/g, " ")
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .trim();
+  return formatLabel(documentType);
 }
 
 function DocumentCard({ doc, docTypeMap }: { doc: any; docTypeMap: Record<string, string> }) {
@@ -88,7 +93,7 @@ function DocumentCard({ doc, docTypeMap }: { doc: any; docTypeMap: Record<string
     }
   };
 
-  const friendlyName = doc.documentName || resolveDocName(doc.documentType, docTypeMap);
+  const friendlyName = formatLabel(doc.documentName || resolveDocName(doc.documentType, docTypeMap));
 
   return (
     <Card className="border-zinc-200 dark:border-zinc-800">

@@ -41,6 +41,15 @@ import { motion, AnimatePresence } from "framer-motion";
 
 type SortKey = "name" | "id" | "expiry" | "status";
 
+function formatLabel(val: string | null | undefined): string {
+  if (!val) return "—";
+  return val
+    .replace(/[-_]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
 export default function AdminMembers() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -445,13 +454,13 @@ export default function AdminMembers() {
                         variant="outline"
                         className="border-navy/20 bg-navy/5 text-navy dark:border-zinc-700 dark:text-zinc-300 font-semibold"
                       >
-                        {m.category}
+                        {formatLabel(m.category)}
                       </Badge>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-1.5 text-xs text-zinc-650 dark:text-zinc-350">
                         <MapPin className="h-3.5 w-3.5 text-gold shrink-0" />
-                        {m.practiceLocation}
+                        {formatLabel(m.practiceLocation)}
                         {m.country &&
                           m.practiceLocation === "Non_Rwandan" &&
                           ` · ${m.country}`}
@@ -481,7 +490,7 @@ export default function AdminMembers() {
                         {m.status === "Expired" && (
                           <AlertTriangle className="h-3 w-3 shrink-0 text-rose-600 dark:text-rose-400" />
                         )}
-                        {m.status}
+                        {formatLabel(m.status)}
                       </Badge>
                     </td>
                   </tr>

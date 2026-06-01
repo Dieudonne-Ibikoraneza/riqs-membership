@@ -91,6 +91,15 @@ export default function Review({ params }: PageProps) {
     return map;
   }, [docTypes]);
 
+  const formatLabel = (name: string): string => {
+    if (!name) return "";
+    return name
+      .replace(/[-_]+/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .trim();
+  };
+
   // Helper to resolve documentType key -> display name
   const resolveDocName = (documentType: string): string => {
     // If the backend already provided a nice name with spaces, use it if it doesn't look like a raw key
@@ -107,11 +116,7 @@ export default function Review({ params }: PageProps) {
     const sanitized = baseKey.toLowerCase().replace(/[^a-z0-9]/g, "_");
     if (docTypeMap[sanitized]) return docTypeMap[sanitized];
     
-    return documentType
-      .replace(/_+/g, " ")
-      .replace(/([a-z])([A-Z])/g, "$1 $2")
-      .replace(/\b\w/g, (c) => c.toUpperCase())
-      .trim();
+    return formatLabel(documentType);
   };
 
   const [activeDoc, setActiveDoc] = useState(0);
@@ -626,7 +631,7 @@ export default function Review({ params }: PageProps) {
                       value={String(i)}
                       className="shrink-0 text-sm font-semibold px-5 py-2.5 whitespace-nowrap"
                     >
-                      {d.documentName || resolveDocName(d.documentType)}
+                      {formatLabel(d.documentName || resolveDocName(d.documentType))}
                     </TabsTrigger>
                   ))}
                 </TabsList>

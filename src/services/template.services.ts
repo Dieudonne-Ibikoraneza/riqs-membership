@@ -23,3 +23,7 @@ export const updateTemplate = async (id: string, data: Partial<EmailTemplate>): 
   const response = await axiosClient.put(`/templates/${id}`, data);
   return response.data;
 };
+
+export const deleteTemplate = async (id: string): Promise<void> => {
+  await axiosClient.delete(`/templates/${id}`);
+};

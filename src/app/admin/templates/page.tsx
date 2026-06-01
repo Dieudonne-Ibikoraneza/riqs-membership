@@ -4,12 +4,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getTemplates, updateTemplate, EmailTemplate } from "@/services/template.services";
+import { getTemplates, updateTemplate, deleteTemplate, EmailTemplate } from "@/services/template.services";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileCode, Save } from "lucide-react";
+import { FileCode, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { TemplateSidebar, CATEGORY_COLORS } from "@/components/TemplateSidebar";
@@ -27,7 +27,7 @@ export default function TemplatesPage() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (role !== "Admin") {
+    if (role && !["Admin", "Reviewer", "Approver"].includes(role)) {
       router.push("/admin");
     }
   }, [role, router]);
@@ -68,7 +68,20 @@ export default function TemplatesPage() {
     },
   });
 
-  if (role !== "Admin") return null;
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteTemplate(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["emailTemplates"] });
+      toast.success("Template deleted successfully");
+      setActiveId(null);
+      setLocalDraft(null);
+    },
+    onError: () => {
+      toast.error("Failed to delete template");
+    },
+  });
+
+  if (role && !["Admin", "Reviewer", "Approver"].includes(role)) return null;
 
   const updateDraft = (patch: Partial<EmailTemplate>) => {
     if (!localDraft) return;
@@ -78,6 +91,12 @@ export default function TemplatesPage() {
   const handleSave = () => {
     if (localDraft) {
       updateMutation.mutate(localDraft);
+    }
+  };
+
+  const handleDelete = () => {
+    if (localDraft && confirm("Are you sure you want to delete this template?")) {
+      deleteMutation.mutate(localDraft.id);
     }
   };
 
@@ -112,17 +131,28 @@ export default function TemplatesPage() {
           {localDraft ? (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-navy">Edit template</CardTitle>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    className="bg-gold text-[#1a1a1a] hover:bg-gold/90"
-                    onClick={handleSave}
-                    disabled={updateMutation.isPending}
-                  >
-                    <Save className="mr-1 h-4 w-4" /> Save
-                  </Button>
-                </div>
+                <CardTitle className="text-navy">{role === "Admin" ? "Edit template" : "View template"}</CardTitle>
+                {role === "Admin" && (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="bg-red-500 hover:bg-red-600 text-white"
+                      onClick={handleDelete}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="mr-1 h-4 w-4" /> Delete
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-gold text-[#1a1a1a] hover:bg-gold/90"
+                      onClick={handleSave}
+                      disabled={updateMutation.isPending}
+                    >
+                      <Save className="mr-1 h-4 w-4" /> Save
+                    </Button>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -130,6 +160,7 @@ export default function TemplatesPage() {
                   <Input
                     value={localDraft.name}
                     onChange={(e) => updateDraft({ name: e.target.value })}
+                    disabled={role !== "Admin"}
                   />
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -140,6 +171,7 @@ export default function TemplatesPage() {
                       onValueChange={(val) =>
                         updateDraft({ category: val === "Uncategorized" ? "" : val })
                       }
+                      disabled={role !== "Admin"}
                     >
                       <SelectTrigger className="w-full mt-1">
                         <SelectValue placeholder="Select a category" />
@@ -160,6 +192,7 @@ export default function TemplatesPage() {
                       placeholder="Brief description..."
                       value={localDraft.description || ""}
                       onChange={(e) => updateDraft({ description: e.target.value })}
+                      disabled={role !== "Admin"}
                     />
                   </div>
                 </div>
@@ -168,14 +201,17 @@ export default function TemplatesPage() {
                   <Input
                     value={localDraft.subject}
                     onChange={(e) => updateDraft({ subject: e.target.value })}
+                    disabled={role !== "Admin"}
                   />
                 </div>
                 <div>
                   <Label>Body</Label>
-                  <RichTextEditor
-                    value={localDraft.body}
-                    onChange={(html) => updateDraft({ body: html })}
-                  />
+                  <div className={role !== "Admin" ? "pointer-events-none opacity-80" : ""}>
+                    <RichTextEditor
+                      value={localDraft.body}
+                      onChange={(html) => updateDraft({ body: html })}
+                    />
+                  </div>
                 </div>
                 <div className="border border-gold/30 bg-gold/5 p-3 text-xs">
                   <div className="font-semibold text-navy">Preview</div>

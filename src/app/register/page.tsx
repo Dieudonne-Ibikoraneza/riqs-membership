@@ -104,7 +104,7 @@ export default function Register() {
                     <Input
                       value={form.name}
                       onChange={(e) => upd("name", e.target.value)}
-                      placeholder="As on national ID"
+                      placeholder="As on national ID/Passport"
                     />
                   </div>
                   <div>

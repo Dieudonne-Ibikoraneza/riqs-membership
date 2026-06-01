@@ -19,7 +19,7 @@ export default function RegisterStudent() {
     fullName: "",
     email: "",
     password: "",
-    practiceLocation: "Local"
+    practiceLocation: "Rwandan"
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,8 +101,8 @@ export default function RegisterStudent() {
                   <SelectValue placeholder="Select location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Local">Local (Rwanda)</SelectItem>
-                  <SelectItem value="Foreign">Foreign</SelectItem>
+                  <SelectItem value="Rwandan">Local (Rwanda)</SelectItem>
+                  <SelectItem value="Non_Rwandan">Foreign (Non-Rwandan)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

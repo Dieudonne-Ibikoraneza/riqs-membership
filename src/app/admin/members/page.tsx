@@ -386,7 +386,7 @@ export default function AdminMembers() {
                     <Checkbox 
                       checked={data?.members?.length !== undefined && data.members.length > 0 && selectedIds.length === data.members.length}
                       onCheckedChange={toggleAll}
-                      className="border-white/50 data-[state=checked]:bg-white data-[state=checked]:text-navy"
+                      className="border-white/50 data-[state=checked]:bg-white data-[state=checked]:text-navy [&_svg]:text-navy"
                       aria-label="Select all"
                     />
                   </th>
@@ -492,17 +492,136 @@ export default function AdminMembers() {
         </Card>
       )}
 
-      {/* Advanced Pagination controls */}
-      {totalPages > 1 && (
-        <Pagination
-          page={safePage}
-          totalPages={totalPages}
-          onChange={setPage}
-        />
-      )}
-    </div>
-  );
-}
+        {/* Advanced Pagination controls */}
+        {totalPages > 1 && (
+          <Pagination
+            page={safePage}
+            totalPages={totalPages}
+            onChange={setPage}
+          />
+        )}
+
+      {/* Floating Bulk Email Button */}
+      <AnimatePresence>
+        {selectedIds.length > 0 && !composeOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-6 right-6 z-50"
+          >
+            <Button
+              onClick={() => {
+                setComposeOpen(true);
+                setComposeMinimized(false);
+              }}
+              className="bg-navy hover:bg-navy/90 text-white rounded-full shadow-lg px-6 h-14 text-base font-semibold"
+            >
+              <Mail className="mr-2 h-5 w-5" />
+              Email {selectedIds.length} Member{selectedIds.length !== 1 ? 's' : ''}
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Gmail-style Compose Box */}
+      <AnimatePresence>
+        {composeOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 100, scale: 0.95 }}
+            animate={{ 
+              opacity: 1, 
+              y: composeMinimized ? "calc(100% - 48px)" : 0,
+              scale: 1 
+            }}
+            exit={{ opacity: 0, y: 100, scale: 0.95 }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed bottom-0 right-4 sm:right-12 z-[100] w-full sm:w-[480px] bg-white dark:bg-zinc-900 rounded-t-xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col"
+            style={{ height: "500px", maxHeight: "80vh" }}
+          >
+            {/* Header */}
+            <div 
+              className="h-12 bg-navy text-white flex items-center justify-between px-4 cursor-pointer shrink-0"
+              onClick={() => setComposeMinimized(!composeMinimized)}
+            >
+              <div className="font-semibold text-sm">
+                New Message ({selectedIds.length} recipient{selectedIds.length !== 1 ? 's' : ''})
+              </div>
+              <div className="flex items-center gap-1">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/20"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setComposeMinimized(!composeMinimized);
+                  }}
+                >
+                  {composeMinimized ? <Maximize2 className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/20"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setComposeOpen(false);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto flex flex-col bg-zinc-50 dark:bg-zinc-950">
+              <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                <input
+                  type="text"
+                  placeholder="Subject"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="w-full bg-transparent border-none outline-none text-sm font-semibold text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 placeholder:font-normal"
+                />
+              </div>
+              <textarea
+                placeholder="Write your message here..."
+                value={emailBody}
+                onChange={(e) => setEmailBody(e.target.value)}
+                className="flex-1 w-full bg-transparent border-none outline-none resize-none p-4 text-sm text-zinc-700 dark:text-zinc-300 placeholder:text-zinc-400"
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-white dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between shrink-0">
+              <div className="text-xs text-muted-foreground">
+                Email will be sent via system
+              </div>
+              <Button 
+                onClick={handleSendBulkEmail} 
+                disabled={isSending || !emailSubject.trim() || !emailBody.trim()}
+                className="bg-navy hover:bg-navy/90 text-white rounded-full px-6"
+              >
+                {isSending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Send
+                  </>
+                )}
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      </div>
+    );
+  }
 
 function Avatar({ name, url }: { name: string; url?: string }) {
   const [token, setToken] = useState("");

@@ -386,7 +386,7 @@ export default function AdminMembers() {
                     <Checkbox 
                       checked={data?.members?.length !== undefined && data.members.length > 0 && selectedIds.length === data.members.length}
                       onCheckedChange={toggleAll}
-                      className="border-white/50 data-[state=checked]:bg-white data-[state=checked]:text-navy [&_svg]:text-navy"
+                      className="border-white/50 data-[state=checked]:bg-white data-[state=checked]:text-zinc-900 [&_svg]:text-zinc-900"
                       aria-label="Select all"
                     />
                   </th>
@@ -515,7 +515,7 @@ export default function AdminMembers() {
                 setComposeOpen(true);
                 setComposeMinimized(false);
               }}
-              className="bg-navy hover:bg-navy/90 text-white rounded-full shadow-lg px-6 h-14 text-base font-semibold"
+              className="bg-navy hover:bg-navy/90 text-white rounded-none shadow-lg px-6 h-14 text-base font-semibold"
             >
               <Mail className="mr-2 h-5 w-5" />
               Email {selectedIds.length} Member{selectedIds.length !== 1 ? 's' : ''}
@@ -526,7 +526,7 @@ export default function AdminMembers() {
 
       {/* Gmail-style Compose Box */}
       <AnimatePresence>
-        {composeOpen && (
+        {composeOpen && selectedIds.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 100, scale: 0.95 }}
             animate={{ 
@@ -536,7 +536,7 @@ export default function AdminMembers() {
             }}
             exit={{ opacity: 0, y: 100, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed bottom-0 right-4 sm:right-12 z-[100] w-full sm:w-[480px] bg-white dark:bg-zinc-900 rounded-t-xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col"
+            className="fixed bottom-0 right-4 sm:right-12 z-[100] w-full sm:w-[480px] bg-white dark:bg-zinc-900 rounded-none shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col"
             style={{ height: "500px", maxHeight: "80vh" }}
           >
             {/* Header */}
@@ -599,8 +599,8 @@ export default function AdminMembers() {
               </div>
               <Button 
                 onClick={handleSendBulkEmail} 
-                disabled={isSending || !emailSubject.trim() || !emailBody.trim()}
-                className="bg-navy hover:bg-navy/90 text-white rounded-full px-6"
+                disabled={isSending || !emailSubject.trim() || !emailBody.trim() || selectedIds.length === 0}
+                className="bg-navy hover:bg-navy/90 text-white rounded-none px-6"
               >
                 {isSending ? (
                   <>

@@ -61,7 +61,7 @@ export default function Payments() {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const { mutate: submit, isPending } = useMutation<any, any, any>({
+  const { mutate: submit, isPending } = useMutation({
     mutationFn: applicantServices.submitPayment,
     onSuccess: () => {
       toast.success("Payment submitted successfully — pending administrative verification.");

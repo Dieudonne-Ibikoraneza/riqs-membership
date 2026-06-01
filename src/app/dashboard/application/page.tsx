@@ -1097,7 +1097,7 @@ function WizardContent({
                 data.entityType === "Individual" ? (
                   <div className="grid gap-6 md:grid-cols-12">
                     {/* Left Side: Profile Fields */}
-                    <div className={documentChecklist.some(d => d.k === "photo") ? "md:col-span-7 grid gap-4" : "md:col-span-12 grid gap-4"}>
+                    <div className={documentChecklist.some((d: any) => d.k === "photo") ? "md:col-span-7 grid gap-4" : "md:col-span-12 grid gap-4"}>
                       <div className="space-y-1 md:col-span-2">
                         <Label htmlFor="app-name">Full Names <span className="text-red-500">*</span></Label>
                         <Input id="app-name" placeholder="e.g. John Doe" value={data.personal.fullName}

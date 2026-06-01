@@ -194,6 +194,7 @@ export const applicantServices = {
     txType: string;
     paymentMethod: string;
     transactionReference: string;
+    receiptUrl?: string;
   }): Promise<any> => {
     const response = await axiosClient.post('/payments/submit', data);
     return response.data;

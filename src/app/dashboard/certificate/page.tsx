@@ -171,13 +171,18 @@ function CertificateContent() {
       return;
     }
 
-    let passportDoc = profileData.documents.find((d: any) => d.documentType === "PassportPhoto");
+    let passportDoc = profileData.documents.find((d: any) => 
+      d.documentType === "PassportPhoto" || 
+      d.documentType === "Passport_Photo" || 
+      d.documentType === "photo"
+    );
     if (!passportDoc) {
       passportDoc = profileData.documents.find((d: any) => 
         d.documentType === "Passport" || 
         d.documentType === "id" || 
-        d.documentType.toLowerCase().includes("passport") ||
-        d.documentType.toLowerCase().includes("id")
+        (d.documentType && d.documentType.toLowerCase().includes("passport")) ||
+        (d.documentType && d.documentType.toLowerCase().includes("photo")) ||
+        (d.documentType && d.documentType.toLowerCase().includes("id"))
       );
     }
 

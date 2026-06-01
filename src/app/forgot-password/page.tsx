@@ -181,6 +181,7 @@ function ForgotPasswordContent() {
                 <form onSubmit={handleVerifyOtp} className="mt-6 space-y-6">
                   <div className="flex justify-center">
                     <InputOTP
+                      autoFocus
                       maxLength={6}
                       value={otp}
                       onChange={(val) => setOtp(val)}

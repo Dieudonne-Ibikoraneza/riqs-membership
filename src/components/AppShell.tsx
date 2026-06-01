@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 export function AppShell({
   children,
@@ -45,6 +46,7 @@ export function AppShell({
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   const { data: profileData } = useQuery({
     queryKey: queryKeys.applicant.profile(),
@@ -131,6 +133,11 @@ export function AppShell({
   const links = kind === "admin" ? adminLinks : kind === "teacher" ? teacherLinks : memberLinks;
 
   const doLogout = () => {
+    setLogoutOpen(true);
+  };
+
+  const confirmLogout = () => {
+    setLogoutOpen(false);
     logout();
     router.push("/login");
   };
@@ -391,6 +398,25 @@ export function AppShell({
           </motion.div>
         </main>
       </div>
+      
+      <Dialog open={logoutOpen} onOpenChange={setLogoutOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Logout</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to sign out of your account? You will need to sign in again to access the dashboard.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setLogoutOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmLogout} className="bg-red-600 text-white hover:bg-red-700">
+              Sign out
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

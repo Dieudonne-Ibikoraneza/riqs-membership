@@ -202,6 +202,7 @@ export default function Register() {
                 {/* Dev Code Hint Removed */}
                 <div className="mt-6 flex justify-center">
                   <InputOTP 
+                    autoFocus
                     maxLength={6} 
                     value={otp} 
                     onChange={setOtp}

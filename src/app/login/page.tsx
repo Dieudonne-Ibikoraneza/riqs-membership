@@ -189,7 +189,16 @@ export default function Login() {
                 </p>
                 {/* Dev Code Hint Removed */}
                 <div className="mt-6 flex justify-center">
-                  <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+                  <InputOTP 
+                    maxLength={6} 
+                    value={otp} 
+                    onChange={setOtp}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && otp.length === 6 && !isLoading) {
+                        verify();
+                      }
+                    }}
+                  >
                     <InputOTPGroup className="gap-2">
                       <InputOTPSlot index={0} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />
                       <InputOTPSlot index={1} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />

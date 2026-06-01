@@ -185,6 +185,11 @@ function ForgotPasswordContent() {
                       value={otp}
                       onChange={(val) => setOtp(val)}
                       className="gap-2"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && otp.length === 6 && !isLoading) {
+                          handleVerifyOtp({ preventDefault: () => {} } as React.FormEvent);
+                        }
+                      }}
                     >
                       <InputOTPGroup className="gap-2">
                         <InputOTPSlot index={0} className="h-12 w-10 sm:h-14 sm:w-14 text-lg sm:text-xl" />

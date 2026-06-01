@@ -112,6 +112,7 @@ export default function Payments() {
   let displayDocName = "Annual Renewal Receipt";
   let paymentCode = "Annual_Renewal_receipt";
   let canUpload = true;
+  let isUpToDate = false;
 
   if (unpaidTx) {
     displayDesc = unpaidTx.status === "Failed" ? `${unpaidTx.txType.replace(/_/g, " ")} Failed` : unpaidTx.txType.replace(/_/g, " ") + " Due";
@@ -139,6 +140,17 @@ export default function Payments() {
   } else if (!unpaidTx && hasProcessingFeeTx && isAppPending) {
     // App is under review, processing fee paid
     displayDesc = "Application under review";
+    displayAmount = "Awaiting Admin";
+    canUpload = false;
+  } else if (isAppApproved && !unpaidTx && pendingCount === 0) {
+    // App is approved and no unpaid/pending fees
+    displayDesc = "All Fees Up to Date";
+    displayAmount = "No payment due";
+    canUpload = false;
+    isUpToDate = true;
+  } else if (isAppApproved && !unpaidTx && pendingCount > 0) {
+    // App is approved but some fees are pending verification
+    displayDesc = "Payment Under Review";
     displayAmount = "Awaiting Admin";
     canUpload = false;
   }
@@ -247,7 +259,7 @@ export default function Payments() {
           <CardContent className="flex flex-col gap-4 p-6">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-gold text-[#1a1a1a]">
-                {canUpload ? <Wallet className="h-6 w-6" /> : <Clock className="h-6 w-6" />}
+                {isUpToDate ? <CheckCircle className="h-6 w-6" /> : canUpload ? <Wallet className="h-6 w-6" /> : <Clock className="h-6 w-6" />}
               </div>
               <div className="flex-1">
                 <div className="text-sm text-muted-foreground font-medium">{displayDesc}</div>
@@ -255,7 +267,7 @@ export default function Payments() {
                   {isLoading ? "Loading..." : displayAmount}
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  {canUpload ? (isRwandan ? "Pay via MoMo Code: 604516" : "Pay via international bank transfer") : "Awaiting administrator review"}
+                  {isUpToDate ? "Your account is active and in good standing" : canUpload ? (isRwandan ? "Pay via MoMo Code: 604516" : "Pay via international bank transfer") : "Awaiting administrator review"}
                 </div>
               </div>
             </div>

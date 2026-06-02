@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
-import { getMembersRegistry, type AdminMemberRegistryResponse } from "@/lib/api/admin";
+import { getMembersRegistry, sendAdminEmail, type AdminMemberRegistryResponse } from "@/lib/api/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -93,8 +93,14 @@ export default function AdminMembers() {
     }
     setIsSending(true);
     try {
-      // Mock API call for frontend logic
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const formData = new FormData();
+      formData.append("recipientType", "selected");
+      formData.append("memberIds", JSON.stringify(selectedIds));
+      formData.append("subject", emailSubject);
+      formData.append("body", emailBody);
+
+      await sendAdminEmail(formData);
+
       toast.success(`Email successfully sent to ${selectedIds.length} members!`);
       setComposeOpen(false);
       setEmailSubject("");

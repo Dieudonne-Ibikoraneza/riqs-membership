@@ -124,14 +124,10 @@ export async function getMembersRegistry(
   return data;
 }
 
-export async function sendAdminEmail(payload: {
-  recipientType: 'single' | 'bulk';
-  recipientEmail?: string;
-  groupFilter?: string;
-  subject: string;
-  body: string;
-}): Promise<any> {
-  const { data } = await axiosClient.post('/admin/email/send', payload);
+export async function sendAdminEmail(payload: FormData | any): Promise<any> {
+  const { data } = await axiosClient.post('/admin/email/send', payload, {
+    headers: payload instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined
+  });
   return data;
 }
 

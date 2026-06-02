@@ -37,7 +37,7 @@ export default function Home() {
           <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-gold/20 blur-3xl" />
           <div className="absolute -bottom-40 right-0 h-96 w-96 rounded-full bg-gold/10 blur-3xl" />
 
-          <div className="relative mx-auto grid max-w-7xl gap-12 px-6 md:px-12 xl:px-6 pt-20 pb-32 md:grid-cols-2 md:pt-28 md:pb-40 z-10">
+          <div className="relative mx-auto grid max-w-7xl gap-12 px-6 md:px-12 xl:px-12 pt-20 pb-32 md:grid-cols-2 md:pt-28 md:pb-40 z-10">
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}

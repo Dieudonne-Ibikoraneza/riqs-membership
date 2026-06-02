@@ -77,6 +77,7 @@ interface AttachmentFile {
   size: number;
   type: string;
   id: string;
+  file: File;
 }
 
 function AttachmentChip({
@@ -211,6 +212,7 @@ export default function Email() {
         size: f.size,
         type: f.type,
         id: `${f.name}-${f.size}-${Date.now()}-${Math.random()}`,
+        file: f,
       }));
       setAttachments((prev) => [...prev, ...newAttachments]);
       toast.success(
@@ -245,17 +247,17 @@ export default function Email() {
 
   const handleSend = useCallback(
     (mode: "single" | "bulk") => {
+      const formData = new FormData();
+      formData.append("recipientType", mode);
+
       if (mode === "bulk") {
         if (!bulkSubject || !bulkBody) {
           toast.error("Subject and body are required for bulk email.");
           return;
         }
-        sendMutation.mutate({
-          recipientType: "bulk",
-          groupFilter: filter,
-          subject: bulkSubject,
-          body: bulkBody
-        });
+        formData.append("groupFilter", filter);
+        formData.append("subject", bulkSubject);
+        formData.append("body", bulkBody);
       } else {
         if (!singleRecipientEmail) {
           toast.error("Please select a recipient member.");
@@ -265,15 +267,18 @@ export default function Email() {
           toast.error("Subject and body are required for single email.");
           return;
         }
-        sendMutation.mutate({
-          recipientType: "single",
-          recipientEmail: singleRecipientEmail,
-          subject: singleSubject,
-          body: singleBody
-        });
+        formData.append("recipientEmail", singleRecipientEmail);
+        formData.append("subject", singleSubject);
+        formData.append("body", singleBody);
       }
+
+      attachments.forEach((att) => {
+        formData.append("attachments", att.file);
+      });
+
+      sendMutation.mutate(formData as any);
     },
-    [bulkSubject, bulkBody, singleRecipientEmail, singleSubject, singleBody, filter, sendMutation]
+    [bulkSubject, bulkBody, singleRecipientEmail, singleSubject, singleBody, filter, attachments, sendMutation]
   );
 
   return (

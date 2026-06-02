@@ -103,14 +103,18 @@ export function AppShell({
   const adminLinks = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
     { href: "/admin/applications", label: "Applications", icon: ClipboardList },
-    { href: "/admin/payments", label: "Finance & Payments", icon: Wallet },
+    ...(role === "Admin" ? [{ href: "/admin/payments", label: "Finance & Payments", icon: Wallet }] : []),
     { href: "/admin/members", label: "Members", icon: Users },
     { href: "/admin/email", label: "Email System", icon: Send },
-    { href: "/admin/staff", label: "Staff Management", icon: Shield },
-    { href: "/admin/settings", label: "System Settings", icon: Settings },
-    { href: "/admin/templates", label: "Email Templates", icon: FileCode },
+    ...(role === "Admin"
+      ? [
+          { href: "/admin/staff", label: "Staff Management", icon: Shield },
+          { href: "/admin/settings", label: "System Settings", icon: Settings },
+          { href: "/admin/templates", label: "Email Templates", icon: FileCode },
+        ]
+      : []),
     { href: "/admin/export", label: "Export Tool", icon: Folder },
-    { href: "/admin/audit", label: "Audit Log", icon: ClipboardList },
+    ...(role === "Admin" ? [{ href: "/admin/audit", label: "Audit Log", icon: ClipboardList }] : []),
   ];
 
   const activeAppMatch = pathname.match(/^\/teacher\/application\/([^/]+)/);

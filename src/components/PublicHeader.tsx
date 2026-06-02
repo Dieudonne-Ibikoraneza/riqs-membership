@@ -22,7 +22,7 @@ export function PublicHeader() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-100 bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-black/90">
-      <div className="mx-auto flex h-20 md:h-24 max-w-7xl items-center justify-between px-4">
+      <div className="mx-auto flex h-20 md:h-24 max-w-7xl items-center justify-between px-6 md:px-12 xl:px-6">
         <Link href="/" className="flex items-center py-1">
           <img 
             src="/riqs-logo.png" 
@@ -162,7 +162,7 @@ export function PublicHeader() {
 export function PublicFooter() {
   return (
     <footer className="mt-16 border-t border-zinc-100 bg-navy text-white dark:border-zinc-800">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:grid-cols-2 md:grid-cols-4">
+      <div className="mx-auto grid max-w-7xl gap-8 px-6 md:px-12 xl:px-6 py-12 sm:grid-cols-2 md:grid-cols-4">
         <div>
           <div className="flex items-center">
             <img 
@@ -217,7 +217,7 @@ export function PublicFooter() {
       </div>
       
       <div className="border-t border-white/10">
-        <div className="mx-auto max-w-7xl px-4 py-4 text-center text-xs text-white/60">
+        <div className="mx-auto max-w-7xl px-6 md:px-12 xl:px-6 py-4 text-center text-xs text-white/60">
           © {new Date().getFullYear()} Rwanda Institute of Quantity Surveyors. All rights reserved.
         </div>
       </div>

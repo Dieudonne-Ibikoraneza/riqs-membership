@@ -37,7 +37,7 @@ export default function Home() {
           <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-gold/20 blur-3xl" />
           <div className="absolute -bottom-40 right-0 h-96 w-96 rounded-full bg-gold/10 blur-3xl" />
 
-          <div className="relative mx-auto grid max-w-7xl gap-12 px-4 pt-20 pb-32 md:grid-cols-2 md:pt-28 md:pb-40 z-10">
+          <div className="relative mx-auto grid max-w-7xl gap-12 px-6 md:px-12 xl:px-6 pt-20 pb-32 md:grid-cols-2 md:pt-28 md:pb-40 z-10">
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -129,7 +129,7 @@ export default function Home() {
         </section>
 
         {/* ───── Quick Actions ───── */}
-        <section className="mx-auto max-w-7xl px-4 -mt-20 relative z-10">
+        <section className="mx-auto max-w-7xl px-6 md:px-12 xl:px-6 -mt-20 relative z-10">
           <div className="grid gap-4 md:grid-cols-3 stagger">
             {[
               { i: Users, t: "Public Directory", d: "Browse all approved RIQS members.", to: "/members", cta: "Open directory" },
@@ -154,7 +154,7 @@ export default function Home() {
         </section>
 
         {/* ───── Categories ───── */}
-        <section className="mx-auto max-w-7xl px-4 py-24">
+        <section className="mx-auto max-w-7xl px-6 md:px-12 xl:px-6 py-24">
           <div className="mx-auto max-w-2xl text-center animate-slide-up">
             <Badge variant="outline" className="border-gold/40 bg-gold/10 text-gold font-bold">
               <Sparkles className="mr-1.5 h-3 w-3 text-gold" /> Membership tiers
@@ -225,7 +225,7 @@ export default function Home() {
 
         {/* ───── Why RIQS ───── */}
         <section className="bg-navy/[0.02] dark:bg-zinc-900/10 border-t border-b border-zinc-50 dark:border-zinc-800/40 py-24">
-          <div className="mx-auto max-w-7xl px-4">
+          <div className="mx-auto max-w-7xl px-6 md:px-12 xl:px-6">
             <div className="grid gap-12 md:grid-cols-2 items-center">
               <motion.div 
                 initial={{ opacity: 0, x: -20 }}
@@ -281,7 +281,7 @@ export default function Home() {
         </section>
 
         {/* ───── Process ───── */}
-        <section className="mx-auto max-w-7xl px-4 py-24">
+        <section className="mx-auto max-w-7xl px-6 md:px-12 xl:px-6 py-24">
           <div className="mx-auto max-w-2xl text-center animate-slide-up">
             <Badge variant="outline" className="border-gold/40 bg-gold/10 text-gold font-bold">How it works</Badge>
             <h2 className="mt-4 text-4xl font-bold text-navy dark:text-white">Membership in 4 steps</h2>
@@ -311,7 +311,7 @@ export default function Home() {
 
         {/* ───── Testimonials ───── */}
         <section className="bg-navy/[0.02] dark:bg-zinc-900/10 border-t border-b border-zinc-50 dark:border-zinc-800/40 py-24">
-          <div className="mx-auto max-w-7xl px-4">
+          <div className="mx-auto max-w-7xl px-6 md:px-12 xl:px-6">
             <div className="mx-auto max-w-2xl text-center animate-slide-up">
               <Badge variant="outline" className="border-navy/30 bg-white dark:bg-zinc-950 text-navy dark:text-gold font-semibold">Voices</Badge>
               <h2 className="mt-4 text-4xl font-bold text-navy dark:text-white">Trusted by professionals across Rwanda</h2>
@@ -338,7 +338,7 @@ export default function Home() {
         </section>
 
         {/* ───── News / Events ───── */}
-        <section className="mx-auto max-w-7xl px-4 py-24">
+        <section className="mx-auto max-w-7xl px-6 md:px-12 xl:px-6 py-24">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <Badge variant="outline" className="border-gold/40 bg-gold/10 text-gold font-bold">Latest</Badge>
@@ -372,7 +372,7 @@ export default function Home() {
         </section>
 
         {/* ───── CTA banner ───── */}
-        <section className="px-4 pb-24">
+        <section className="px-6 md:px-12 xl:px-6 pb-24">
           <div className="mx-auto max-w-7xl brand-gradient text-white p-10 md:p-14 relative overflow-hidden shadow-2xl">
             <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-gold/20 blur-3xl" />
             <div className="relative flex flex-wrap items-center justify-between gap-6 z-10">

@@ -397,13 +397,15 @@ export default function AdminMembers() {
             <table className="w-full text-sm">
               <thead className="bg-navy text-white">
                 <tr>
-                  <th className="px-5 py-4 text-left w-12">
-                    <Checkbox 
-                      checked={data?.members?.length !== undefined && data.members.length > 0 && selectedIds.length === data.members.length}
-                      onCheckedChange={toggleAll}
-                      className="border-white/50 data-[state=checked]:bg-white data-[state=checked]:text-zinc-900 [&_svg]:text-zinc-900"
-                      aria-label="Select all"
-                    />
+                  <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider w-10">
+                    <div className="flex items-center">
+                      <Checkbox 
+                        checked={data?.members?.length !== undefined && data.members.length > 0 && selectedIds.length === data.members.length}
+                        onCheckedChange={toggleAll}
+                        className="border-white/50 data-[state=checked]:bg-gold data-[state=checked]:text-[#1a1a1a]"
+                        aria-label="Select all"
+                      />
+                    </div>
                   </th>
                   {[
                     "Member",
@@ -433,11 +435,14 @@ export default function AdminMembers() {
                     )}
                   >
                     <td className="px-5 py-4">
-                      <Checkbox 
-                        checked={selectedIds.includes(m.id)}
-                        onCheckedChange={() => toggleSelection(m.id)}
-                        aria-label={`Select ${m.fullName}`}
-                      />
+                      <div className="flex items-center">
+                        <Checkbox 
+                          checked={selectedIds.includes(m.id)}
+                          onCheckedChange={() => toggleSelection(m.id)}
+                          aria-label={`Select ${m.fullName}`}
+                          className="focus-visible:ring-gold"
+                        />
+                      </div>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -455,13 +460,13 @@ export default function AdminMembers() {
                     <td className="px-5 py-4 text-xs font-semibold text-navy dark:text-gold">
                       {m.membershipId}
                     </td>
-                    <td className="px-5 py-4">
-                      <Badge
-                        variant="outline"
-                        className="border-navy/20 bg-navy/5 text-navy dark:border-zinc-700 dark:text-zinc-300 font-semibold"
+                    <td className="px-5 py-4 max-w-[200px]">
+                      <div 
+                        className="truncate text-zinc-700 dark:text-zinc-300 font-medium"
+                        title={formatLabel(m.category)}
                       >
                         {formatLabel(m.category)}
-                      </Badge>
+                      </div>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-1.5 text-xs text-zinc-650 dark:text-zinc-350">

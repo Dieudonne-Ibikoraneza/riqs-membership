@@ -211,7 +211,7 @@ export default function Home() {
                     </div>
                     <h3 className="mt-4 font-bold text-navy dark:text-white">{x.category_name}</h3>
                     <p className="mt-1 text-xs text-muted-foreground font-sans line-clamp-2">Code: {x.category_code}</p>
-                    <div className="mt-3 text-xs font-bold gold-text">RWF {Number(x.annual_renewal_fee).toLocaleString()} / year</div>
+                    <div className="mt-3 text-xs font-bold gold-text">{x.currency} {Number(x.annual_renewal_fee).toLocaleString()} / year</div>
                   </CardContent>
                 </Card>
               ))

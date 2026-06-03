@@ -25,7 +25,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
+import { logbookServices } from "@/services/logbook.services";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 function MenteeCard({ mentee, onUploadClick, onDownloadClick, isUploading }: { 
   mentee: any; 
@@ -111,6 +116,16 @@ export default function Mentorship() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeUploadAppId, setActiveUploadAppId] = useState<string | null>(null);
 
+  // Logbook form state
+  const [isLogbookModalOpen, setIsLogbookModalOpen] = useState(false);
+  const [logbookForm, setLogbookForm] = useState({
+    competencyId: "",
+    hoursCompleted: 0,
+    descriptionOfWork: "",
+    supervisorName: "",
+    date: new Date().toISOString().split("T")[0]
+  });
+
   // 1. Fetch Mentees list (Mentor scope)
   const { data: menteesData, isLoading: isMenteesLoading, error: menteesError } = useQuery({
     queryKey: queryKeys.mentorship.mentees(),
@@ -130,6 +145,19 @@ export default function Mentorship() {
     queryKey: ["apcStatus"],
     queryFn: applicantServices.getApcStatus,
     enabled: !isMentor,
+  });
+
+  // 2c. Fetch Logbook Progress
+  const { data: logbookProgress, isLoading: isLogbookLoading } = useQuery({
+    queryKey: ["logbookProgress", profileData?.application?.id],
+    queryFn: () => logbookServices.getLogbookProgress(profileData!.application!.id),
+    enabled: !!profileData?.application?.id && !isMentor
+  });
+
+  const { data: competencies } = useQuery({
+    queryKey: ["competencies"],
+    queryFn: logbookServices.getCompetencies,
+    enabled: !isMentor
   });
 
   // 3. Mutation: Upload Recommendation Letter (Mentor scope)
@@ -186,6 +214,20 @@ export default function Mentorship() {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.error || "Failed to submit upgrade request. Please try again.");
+    }
+  });
+
+  // 6. Mutation: Submit Logbook Entry
+  const submitLogbookMutation = useMutation({
+    mutationFn: (data: any) => logbookServices.submitLogbookEntry(data),
+    onSuccess: () => {
+      toast.success("Logbook entry submitted for approval!");
+      setIsLogbookModalOpen(false);
+      setLogbookForm({ competencyId: "", hoursCompleted: 0, descriptionOfWork: "", supervisorName: "", date: new Date().toISOString().split("T")[0] });
+      queryClient.invalidateQueries({ queryKey: ["logbookProgress"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || "Failed to submit logbook entry.");
     }
   });
 
@@ -420,34 +462,124 @@ export default function Mentorship() {
           </Card>
 
           {/* Right Column: progression logbook competencies */}
-          <Card className="md:col-span-2 border-zinc-200 dark:border-zinc-800 shadow-sm">
-            <CardHeader className="pb-4">
+          <Card className="md:col-span-2 border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col">
+            <CardHeader className="pb-4 flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800/60">
               <CardTitle className="text-navy dark:text-zinc-150 text-base font-bold font-sans">Logbook Competency Progress</CardTitle>
+              <Dialog open={isLogbookModalOpen} onOpenChange={setIsLogbookModalOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-navy text-white hover:bg-navy/90 gap-1.5 shadow-sm rounded-full px-4 font-semibold">
+                    <Award className="h-4 w-4" /> Log Hours
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[450px]">
+                  <DialogHeader>
+                    <DialogTitle>Submit Logbook Entry</DialogTitle>
+                    <DialogDescription>
+                      Log hours against a specific competency for your mentor's review.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="competency">Competency Domain</Label>
+                      <select 
+                        id="competency" 
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                        value={logbookForm.competencyId}
+                        onChange={(e) => setLogbookForm({...logbookForm, competencyId: e.target.value})}
+                      >
+                        <option value="">Select a competency...</option>
+                        {competencies?.map((c: any) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="date">Date Completed</Label>
+                        <Input 
+                          id="date" 
+                          type="date" 
+                          value={logbookForm.date}
+                          onChange={(e) => setLogbookForm({...logbookForm, date: e.target.value})}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="hours">Hours Completed</Label>
+                        <Input 
+                          id="hours" 
+                          type="number" 
+                          min="0"
+                          step="0.5"
+                          value={logbookForm.hoursCompleted || ""}
+                          onChange={(e) => setLogbookForm({...logbookForm, hoursCompleted: Number(e.target.value)})}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="supervisor">Supervisor Name (Optional)</Label>
+                      <Input 
+                        id="supervisor" 
+                        placeholder="e.g. John Doe, PQS" 
+                        value={logbookForm.supervisorName}
+                        onChange={(e) => setLogbookForm({...logbookForm, supervisorName: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="description">Description of Work</Label>
+                      <Textarea 
+                        id="description" 
+                        placeholder="Describe the tasks completed, tools used, and outcomes..."
+                        rows={3}
+                        value={logbookForm.descriptionOfWork}
+                        onChange={(e) => setLogbookForm({...logbookForm, descriptionOfWork: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsLogbookModalOpen(false)}>Cancel</Button>
+                    <Button 
+                      className="bg-gold text-[#1a1a1a] hover:bg-gold/90"
+                      onClick={() => {
+                        if (!logbookForm.competencyId || logbookForm.hoursCompleted <= 0 || logbookForm.descriptionOfWork.length < 10) {
+                          toast.error("Please complete all required fields (Description must be at least 10 chars).");
+                          return;
+                        }
+                        submitLogbookMutation.mutate({
+                          ...logbookForm,
+                          applicationId: profileData!.application!.id,
+                          date: new Date(logbookForm.date).toISOString()
+                        });
+                      }}
+                      disabled={submitLogbookMutation.isPending}
+                    >
+                      {submitLogbookMutation.isPending ? "Submitting..." : "Submit for Approval"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300 font-sans">Cost Planning & Estimation</span>
-                  <span className="font-semibold text-navy dark:text-gold font-sans">80% complete</span>
+            <CardContent className="space-y-6 pt-5 flex-1 max-h-[290px] overflow-y-auto">
+              {isLogbookLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-                <Progress value={80} className="h-2.5 bg-zinc-150 dark:bg-zinc-800" />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300 font-sans">Contract Administration</span>
-                  <span className="font-semibold text-navy dark:text-gold font-sans">55% complete</span>
+              ) : !logbookProgress?.competencies || logbookProgress.competencies.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground text-sm flex flex-col items-center gap-2">
+                  <Award className="h-10 w-10 text-zinc-200 dark:text-zinc-800" />
+                  No logbook competencies assigned.
                 </div>
-                <Progress value={55} className="h-2.5 bg-zinc-150 dark:bg-zinc-800" />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300 font-sans">Procurement & Tender Evaluation</span>
-                  <span className="font-semibold text-navy dark:text-gold font-sans">40% complete</span>
-                </div>
-                <Progress value={40} className="h-2.5 bg-zinc-150 dark:bg-zinc-800" />
-              </div>
+              ) : (
+                logbookProgress.competencies.map((comp: any) => (
+                  <div key={comp.competencyId} className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-zinc-700 dark:text-zinc-300 font-sans">{comp.name}</span>
+                      <span className="font-semibold text-navy dark:text-gold font-sans">{comp.percentage}% complete</span>
+                    </div>
+                    <Progress value={comp.percentage} className="h-2.5 bg-zinc-150 dark:bg-zinc-800" />
+                    <div className="text-[10px] text-right text-muted-foreground">{comp.completedHours} / {comp.targetHours} hours</div>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </div>

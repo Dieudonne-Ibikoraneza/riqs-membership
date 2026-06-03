@@ -253,8 +253,8 @@ export default function Review({ params }: PageProps) {
     );
   }
 
-  const handle = async (action: "approve" | "reject" | "correction" | "forward") => {
-    if (action !== "approve" && action !== "forward" && !note.trim()) {
+  const handle = async (action: "approve" | "reject" | "correction" | "forward" | "start_review") => {
+    if (action !== "approve" && action !== "forward" && action !== "start_review" && !note.trim()) {
       return toast.error("Please add a note explaining the reason");
     }
 
@@ -263,7 +263,12 @@ export default function Review({ params }: PageProps) {
       if (action === "approve" || action === "reject") {
         await submitApproverDecision(app.id, action === "approve" ? "Approve" : "Reject", note);
       } else {
-        await submitReviewerAction(app.id, action === "correction" ? "ReturnForCorrection" : "ForwardToApprover", note);
+        const actionMap = {
+          correction: "ReturnForCorrection",
+          forward: "ForwardToApprover",
+          start_review: "StartReview"
+        } as const;
+        await submitReviewerAction(app.id, actionMap[action as keyof typeof actionMap], note);
       }
 
       const msg =
@@ -273,9 +278,18 @@ export default function Review({ params }: PageProps) {
             ? "Application successfully rejected"
             : action === "forward"
               ? "Application forwarded to Approver"
-              : "Correction request successfully sent to applicant";
+              : action === "start_review"
+                ? "You have taken over this review"
+                : "Correction request successfully sent to applicant";
 
       toast.success(msg);
+      
+      if (action === "start_review") {
+        setApp((prev: any) => ({ ...prev, status: "Under Review" }));
+        setIsSubmitting(false);
+        return;
+      }
+
       setDialog(null);
       setNote("");
 
@@ -330,6 +344,17 @@ export default function Review({ params }: PageProps) {
         </div>
 
         <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:justify-end justify-center items-center">
+          {app.status === "Pending" && (role === "Reviewer" || role === "Admin") && (
+            <Button
+              className="bg-navy hover:bg-navy/90 text-white border-none shadow-sm"
+              onClick={() => handle("start_review")}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              Take Over Review
+            </Button>
+          )}
+
           {app.status === "Under Review" && (role === "Reviewer" || role === "Admin") && (
             <>
               <Button

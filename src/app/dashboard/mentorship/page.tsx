@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
   Upload, 
   Users, 
@@ -38,6 +39,36 @@ function MenteeCard({ mentee, onUploadClick, onDownloadClick, isUploading }: {
   onDownloadClick: (fileId: string, fileName: string) => void;
   isUploading: boolean;
 }) {
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [rejectingEntryId, setRejectingEntryId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const queryClient = useQueryClient();
+
+  const { data: logEntries, isLoading: entriesLoading } = useQuery({
+    queryKey: ["logbook-entries", mentee.applicationId],
+    queryFn: () => logbookServices.getLogbookEntries(mentee.applicationId),
+    enabled: isReviewOpen
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: logbookServices.reviewLogbookEntry,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["logbook-entries", mentee.applicationId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.mentorship.mentees() });
+      toast.success("Logbook entry updated");
+    },
+    onError: () => toast.error("Failed to update entry")
+  });
+
+  const handleRejectConfirm = () => {
+    if (!rejectingEntryId) return;
+    reviewMutation.mutate({ entryId: rejectingEntryId, status: "Rejected", rejectionReason });
+    setRejectingEntryId(null);
+    setRejectionReason("");
+  };
+
+  const pendingEntries = logEntries?.filter((e: any) => e.status === "Pending_Approval") || [];
+  const reviewedEntries = logEntries?.filter((e: any) => e.status !== "Pending_Approval") || [];
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50/50 dark:bg-zinc-900/50 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
       <div className="space-y-2">
@@ -63,7 +94,7 @@ function MenteeCard({ mentee, onUploadClick, onDownloadClick, isUploading }: {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 mt-3 md:mt-0 md:justify-end">
         {mentee.recommendationSent ? (
           <>
             <Button 
@@ -95,7 +126,13 @@ function MenteeCard({ mentee, onUploadClick, onDownloadClick, isUploading }: {
         ) : (
           <Button 
             className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-sm border-none font-semibold text-xs md:text-sm gap-1.5 transition-transform active:scale-[0.98]"
-            onClick={() => onUploadClick(mentee.applicationId)}
+            onClick={() => {
+              if (mentee.progress < 100) {
+                toast.error("Logbook must be 100% complete before uploading the recommendation letter.");
+                return;
+              }
+              onUploadClick(mentee.applicationId);
+            }}
             disabled={isUploading}
           >
             {isUploading ? (
@@ -105,6 +142,135 @@ function MenteeCard({ mentee, onUploadClick, onDownloadClick, isUploading }: {
             )}
           </Button>
         )}
+
+        {mentee.pendingLogsCount > 0 && (
+          <Dialog open={isReviewOpen} onOpenChange={setIsReviewOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="ml-2 font-semibold text-xs md:text-sm h-8 bg-zinc-50 hover:bg-zinc-100 border-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:border-zinc-700">
+                <FileText className="h-4 w-4 mr-1.5" />
+                Review Logbook
+                <Badge variant="destructive" className="ml-1.5 h-5 w-5 p-0 flex items-center justify-center rounded-full bg-red-500 text-white border-none text-[10px] leading-none">
+                  {mentee.pendingLogsCount}
+                </Badge>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[700px] max-h-[85vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Logbook Entries: {mentee.name}</DialogTitle>
+              <DialogDescription>Review and approve graduate training hours.</DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto space-y-6 pr-2 py-4">
+              {entriesLoading ? (
+                <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+              ) : (
+                <>
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-sm text-navy dark:text-zinc-200 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-orange-500" /> Pending Approval ({pendingEntries.length})
+                    </h3>
+                    {pendingEntries.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic pl-6">No entries waiting for your review.</p>
+                    ) : (
+                      <div className="grid gap-3 pl-6">
+                        {pendingEntries.map((entry: any) => (
+                          <div key={entry.id} className="p-4 rounded-lg border border-orange-100 bg-orange-50/30 dark:border-orange-900/40 dark:bg-orange-950/20 space-y-3">
+                            <div className="flex justify-between items-start gap-4">
+                              <div className="flex-1 pr-4">
+                                <div className="font-semibold text-sm text-navy dark:text-zinc-100">{entry.competency?.name}</div>
+                                {entry.supervisorName && (
+                                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                                    Supervised by: <span className="font-medium text-zinc-600 dark:text-zinc-300">{entry.supervisorName}</span>
+                                  </div>
+                                )}
+                                <div className="text-xs text-zinc-700 dark:text-zinc-300 mt-2 p-3 rounded-md bg-white/60 border border-zinc-100 dark:bg-black/20 dark:border-zinc-800/60 leading-relaxed whitespace-pre-wrap">
+                                  {entry.descriptionOfWork}
+                                </div>
+                                <div className="flex gap-4 mt-2 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                                  <span>{new Date(entry.date).toLocaleDateString()}</span>
+                                  <span>•</span>
+                                  <span className="text-navy dark:text-gold font-bold">{entry.hoursCompleted} hours</span>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 shrink-0">
+                                <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/50" onClick={() => setRejectingEntryId(entry.id)} disabled={reviewMutation.isPending}>Reject</Button>
+                                <Button size="sm" className="h-8 bg-emerald-600 text-white hover:bg-emerald-700" onClick={() => reviewMutation.mutate({ entryId: entry.id, status: "Approved" })} disabled={reviewMutation.isPending}>Approve</Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                    <h3 className="font-semibold text-sm text-navy dark:text-zinc-200 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Past Reviews ({reviewedEntries.length})
+                    </h3>
+                    {reviewedEntries.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic pl-6">No past reviews.</p>
+                    ) : (
+                      <div className="grid gap-3 pl-6">
+                        {reviewedEntries.map((entry: any) => (
+                          <div key={entry.id} className="p-3 rounded-lg border border-zinc-100 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-900/30">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <div className="font-semibold text-sm">{entry.competency?.name}</div>
+                                <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
+                                  <span>{new Date(entry.date).toLocaleDateString()}</span>
+                                  <span>•</span>
+                                  <span>{entry.hoursCompleted} hours</span>
+                                </div>
+                              </div>
+                              <Badge variant={entry.status === "Approved" ? "default" : "destructive"} className={entry.status === "Approved" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border-none" : "border-none"}>
+                                {entry.status}
+                              </Badge>
+                            </div>
+                            {entry.status === "Rejected" && entry.rejectionReason && (
+                              <div className="mt-2 p-2.5 bg-red-50/50 dark:bg-red-950/20 text-red-700 dark:text-red-400 text-xs rounded-md border border-red-100 dark:border-red-900/30">
+                                <span className="font-semibold text-[11px] uppercase tracking-wider block mb-0.5">Reason for rejection:</span> 
+                                {entry.rejectionReason}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+            <DialogFooter className="pt-4 mt-auto border-t border-zinc-100 dark:border-zinc-800">
+              <Button variant="outline" onClick={() => setIsReviewOpen(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        )}
+
+        <Dialog open={!!rejectingEntryId} onOpenChange={(o) => !o && setRejectingEntryId(null)}>
+          <DialogContent className="sm:max-w-[420px]">
+            <DialogHeader>
+              <DialogTitle>Reject Logbook Entry</DialogTitle>
+              <DialogDescription>Please provide a reason for rejecting this entry so the mentee can correct it.</DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Label htmlFor="reason">Reason for Rejection</Label>
+              <Textarea 
+                id="reason" 
+                placeholder="e.g. Needs more detail about your specific role..." 
+                value={rejectionReason} 
+                onChange={(e) => setRejectionReason(e.target.value)} 
+                className="mt-2"
+                rows={4}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRejectingEntryId(null)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleRejectConfirm} disabled={!rejectionReason.trim() || reviewMutation.isPending}>
+                {reviewMutation.isPending ? "Rejecting..." : "Confirm Rejection"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
@@ -303,7 +469,7 @@ export default function Mentorship() {
         ) : (
           <div className="grid gap-6 md:grid-cols-3">
             {/* Left Card: Capacity Tracking */}
-            <Card className="md:col-span-1 border-zinc-200 dark:border-zinc-800 shadow-sm">
+            <Card className="md:col-span-1 h-fit border-zinc-200 dark:border-zinc-800 shadow-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="text-navy dark:text-zinc-150 text-base font-bold flex items-center gap-2 font-sans">
                   <Users className="h-4.5 w-4.5 text-gold" /> Capacity Allocation
@@ -393,7 +559,7 @@ export default function Mentorship() {
       ) : (
         <div className="grid gap-6 md:grid-cols-3">
           {/* Left Column: Assigned Mentor details */}
-          <Card className="md:col-span-1 border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col">
+          <Card className="md:col-span-1 h-fit border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col">
             <CardHeader className="pb-4">
               <CardTitle className="text-navy dark:text-zinc-150 text-base font-bold font-sans">Your Assigned Mentor</CardTitle>
             </CardHeader>
@@ -510,6 +676,7 @@ export default function Mentorship() {
                           type="number" 
                           min="0"
                           step="0.5"
+                          placeholder="e.g. 8"
                           value={logbookForm.hoursCompleted || ""}
                           onChange={(e) => setLogbookForm({...logbookForm, hoursCompleted: Number(e.target.value)})}
                         />
@@ -607,7 +774,13 @@ export default function Mentorship() {
             ) : (
               <Button 
                 variant="outline" 
-                onClick={() => document.getElementById("report-upload-input")?.click()}
+                onClick={() => {
+                  if ((logbookProgress?.overallProgress || 0) < 100) {
+                    toast.error("Your logbook must be 100% complete before uploading the annual report.");
+                    return;
+                  }
+                  document.getElementById("report-upload-input")?.click();
+                }}
                 disabled={uploadReportMutation.isPending}
                 className="border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 w-full sm:w-auto gap-1.5 text-zinc-700 dark:text-zinc-300 font-semibold"
               >
@@ -623,7 +796,9 @@ export default function Mentorship() {
               className={cn("w-full sm:w-auto font-bold transition-transform active:scale-[0.98]", isUpgradeRequested ? "bg-zinc-200 text-zinc-600 cursor-not-allowed border-none shadow-none" : "bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none")}
               disabled={requestUpgradeMutation.isPending || isUpgradeRequested}
               onClick={() => {
-                if (!hasRecommendation) {
+                if ((logbookProgress?.overallProgress || 0) < 100) {
+                  toast.error("Your logbook must be 100% complete before requesting an upgrade.");
+                } else if (!hasRecommendation) {
                   toast.error("Your mentor has not uploaded your letter of recommendation yet.", {
                     description: "Your recommendation status must be Approved before requesting an upgrade."
                   });

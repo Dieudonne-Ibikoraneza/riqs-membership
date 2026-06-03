@@ -49,6 +49,7 @@ import { applicantServices } from "@/services/applicant.services";
 import { publicServices } from "@/services/public.services";
 import { DocumentTabsViewer } from "@/components/ui/document-tabs-viewer";
 import PDFViewer from "@/components/ui/pdf-viewer";
+import ImageViewer from "@/components/ui/image-viewer";
 
 // ─── Status Banner ──────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, {
@@ -524,6 +525,7 @@ export default function Application() {
     onSuccess: () => {
       localStorage.removeItem('riqs_app_draft');
       localStorage.removeItem('riqs_app_step');
+      localStorage.removeItem('riqs_app_last_correction');
       queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
       toast.success("Application submitted successfully!");
     },
@@ -1710,7 +1712,7 @@ function WizardContent({
                                           <div className="w-full flex-1 bg-zinc-200 rounded-md" />
                                         </div>
                                       ) : data.docs[d.uid].match(/\.(jpeg|jpg|gif|png)$/i) != null || data.docs[d.uid].startsWith('data:image') || data.docs[d.uid].includes('#image') ? (
-                                        <img src={data.docs[d.uid]} className="w-full h-full object-contain pointer-events-auto" />
+                                        <ImageViewer src={data.docs[d.uid]} alt={d.l} />
                                       ) : (
                                         <PDFViewer src={data.docs[d.uid]} fileName={d.l} />
                                       )}

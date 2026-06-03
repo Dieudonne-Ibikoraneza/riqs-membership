@@ -25,6 +25,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
+import { cn } from "@/lib/utils";
 
 function MenteeCard({ mentee, onUploadClick, onDownloadClick, isUploading }: { 
   mentee: any; 
@@ -174,6 +175,20 @@ export default function Mentorship() {
     }
   });
 
+  // 5. Mutation: Request APC Upgrade
+  const requestUpgradeMutation = useMutation({
+    mutationFn: applicantServices.requestApc,
+    onSuccess: () => {
+      toast.success("Professional status upgrade request successfully submitted to the RIQS Council!", {
+        description: "You will receive an email notice once your board assessment is scheduled."
+      });
+      queryClient.invalidateQueries({ queryKey: ["apcStatus"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || "Failed to submit upgrade request. Please try again.");
+    }
+  });
+
   const handleUploadClick = (appId: string) => {
     setActiveUploadAppId(appId);
     fileInputRef.current?.click();
@@ -306,8 +321,9 @@ export default function Mentorship() {
   const mentorship = profileData?.mentorship;
   const docs = profileData?.documents || [];
   const hasRecommendation = docs.some(d => d.documentType === "MentorRecommendation");
-  const recommendationDoc = docs.find(d => d.documentType === "MentorRecommendation");
-  const hasReport = docs.some(d => d.documentType === "AnnualReport");
+  const recommendationDoc = docs.find((d: any) => d.documentType === "MentorRecommendation");
+  const hasReport = docs.some((d: any) => d.documentType === "AnnualReport");
+  const isUpgradeRequested = apcData?.assessments?.some((a: any) => a.status === "Requested");
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -472,7 +488,8 @@ export default function Mentorship() {
             )}
 
             <Button 
-              className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none font-bold w-full sm:w-auto transition-transform active:scale-[0.98]"
+              className={cn("w-full sm:w-auto font-bold transition-transform active:scale-[0.98]", isUpgradeRequested ? "bg-zinc-200 text-zinc-600 cursor-not-allowed border-none shadow-none" : "bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none")}
+              disabled={requestUpgradeMutation.isPending || isUpgradeRequested}
               onClick={() => {
                 if (!hasRecommendation) {
                   toast.error("Your mentor has not uploaded your letter of recommendation yet.", {
@@ -481,13 +498,17 @@ export default function Mentorship() {
                 } else if (!hasReport) {
                   toast.error("Please upload your annual logbook report first.");
                 } else {
-                  toast.success("Professional status upgrade request successfully submitted to the RIQS Council!", {
-                    description: "You will receive an email notice once your board assessment is scheduled."
-                  });
+                  requestUpgradeMutation.mutate();
                 }
               }}
             >
-              Request Upgrade
+              {requestUpgradeMutation.isPending ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Requesting...</>
+              ) : isUpgradeRequested ? (
+                "Upgrade Requested"
+              ) : (
+                "Request Upgrade"
+              )}
             </Button>
           </div>
         </CardContent>
@@ -516,6 +537,7 @@ export default function Mentorship() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-zinc-900 dark:text-zinc-100 font-sans">Board Review Assessment</span>
+                      {apc.status === "Requested" && <span className="text-xs font-semibold px-2 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 rounded-full">Requested</span>}
                       {apc.status === "Passed" && <span className="text-xs font-semibold px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full">Passed</span>}
                       {apc.status === "Failed" && <span className="text-xs font-semibold px-2 py-0.5 bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded-full">Failed</span>}
                       {apc.status === "Scheduled" && <span className="text-xs font-semibold px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">Scheduled</span>}
@@ -523,17 +545,17 @@ export default function Mentorship() {
                     </div>
                     <div className="text-xs text-muted-foreground font-sans flex items-center gap-1.5">
                       <Calendar className="h-3.5 w-3.5" /> 
-                      {new Date(apc.assessmentDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      {apc.assessmentDate ? new Date(apc.assessmentDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "Pending Schedule"}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-6">
                     <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
-                      <div><span className="font-medium">Chair:</span> {apc.panelChairName}</div>
-                      <div><span className="font-medium">Examiners:</span> {apc.examiner1Name}, {apc.examiner2Name}</div>
+                      <div><span className="font-medium">Chair:</span> {apc.panelChairName || "Pending"}</div>
+                      <div><span className="font-medium">Examiners:</span> {apc.examiner1Name ? `${apc.examiner1Name}, ${apc.examiner2Name || 'Pending'}` : "Pending"}</div>
                     </div>
                     
-                    {apc.status !== "Scheduled" && (
+                    {apc.status !== "Scheduled" && apc.status !== "Requested" && (
                       <div className="text-right">
                         <div className="text-lg font-bold text-navy dark:text-gold">{apc.scorePercentage ? `${apc.scorePercentage}%` : 'N/A'}</div>
                         <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Final Score</div>

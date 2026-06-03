@@ -86,7 +86,7 @@ export default function Payments() {
   const renewalDesc = isFirm ? "Company Annual Subscription" : "Annual Renewal";
 
   const transactions = paymentsData?.transactions || [];
-  const unpaidTx = transactions.find((tx: any) => tx.status === "Unpaid" || tx.status === "Failed");
+  const unpaidTx = transactions.find((tx: any) => tx.status === "Failed") || transactions.find((tx: any) => tx.status === "Unpaid");
 
   const totalPaid = transactions
     .filter((tx: any) => tx.status === "Cleared")

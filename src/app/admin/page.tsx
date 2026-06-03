@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getApplicationsQueue } from "@/lib/api/admin";
+import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import {
   ClipboardList,
@@ -18,6 +19,8 @@ import {
 import { motion } from "framer-motion";
 
 export default function AdminOverview() {
+  const { role } = useAuth();
+
   const { data: pendingData } = useQuery({
     queryKey: ["adminQueue", "Pending"],
     queryFn: () => getApplicationsQueue(1, 1, "Pending", "all"),
@@ -59,48 +62,91 @@ export default function AdminOverview() {
     {
       i: ClipboardList,
       label: "Pending",
+      desc: "Awaiting initial check",
       v: pending,
       c: "text-amber-600",
-      bg: "bg-amber-50 dark:bg-amber-950/20",
+      bg: "bg-amber-50 dark:bg-amber-500/10",
+      border: "hover:border-amber-200 dark:hover:border-amber-500/30",
     },
     {
       i: Users,
       label: "Under Review",
+      desc: "Panel assessment",
       v: review,
       c: "text-blue-600",
-      bg: "bg-blue-50 dark:bg-blue-950/20",
+      bg: "bg-blue-50 dark:bg-blue-500/10",
+      border: "hover:border-blue-200 dark:hover:border-blue-500/30",
     },
     {
       i: AlertTriangle,
-      label: "Correction Required",
+      label: "Corrections",
+      desc: "Waiting on applicant",
       v: correction,
       c: "text-orange-600",
-      bg: "bg-orange-50 dark:bg-orange-950/20",
+      bg: "bg-orange-50 dark:bg-orange-500/10",
+      border: "hover:border-orange-200 dark:hover:border-orange-500/30",
     },
     {
       i: Clock,
       label: "Pending Approval",
+      desc: "Awaiting final board",
       v: pendingApproval,
       c: "text-purple-600",
-      bg: "bg-purple-50 dark:bg-purple-950/20",
+      bg: "bg-purple-50 dark:bg-purple-500/10",
+      border: "hover:border-purple-200 dark:hover:border-purple-500/30",
     },
     {
       i: CheckCircle2,
       label: "Approved",
+      desc: "Successfully closed",
       v: approved,
       c: "text-emerald-600",
-      bg: "bg-emerald-50 dark:bg-emerald-950/20",
+      bg: "bg-emerald-50 dark:bg-emerald-500/10",
+      border: "hover:border-emerald-200 dark:hover:border-emerald-500/30",
     },
   ];
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Pending": return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-none";
+      case "Under_Review": return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-none";
+      case "Correction_Required": return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-none";
+      case "Pending_Approval": return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 border-none";
+      case "Approved": return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-none";
+      case "Rejected": return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-none";
+      default: return "bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 border-none";
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-navy">Administrator Overview</h1>
-        <p className="text-sm text-muted-foreground font-sans">
-          Snapshot of current applications and member activity.
-        </p>
-      </div>
+      {/* Brand Welcome Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-xl brand-gradient p-6 text-white md:p-8"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="text-sm text-white/70">{role === "Admin" ? "Administrator" : role} Workspace</div>
+            <h1 className="text-2xl font-bold md:text-3xl">
+              {role === "Admin" ? "System Overview" : `${role} Overview`}
+            </h1>
+            <div className="mt-2 text-sm text-white/80 max-w-md font-sans">
+              Manage incoming applications, oversee mentorship progress, and approve professional upgrades across the institution.
+            </div>
+          </div>
+          <div className="rounded-lg bg-white/10 px-5 py-3 backdrop-blur border border-white/10 flex items-center gap-3">
+             <div className="p-2 bg-white/20 rounded-md">
+               <ClipboardList className="h-5 w-5 text-white" />
+             </div>
+             <div>
+               <div className="text-xs text-white/70">Active Queue</div>
+               <div className="text-lg font-bold">{pending + review + correction + pendingApproval} items</div>
+             </div>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Grid Stats */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5 stagger">
@@ -111,15 +157,16 @@ export default function AdminOverview() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
           >
-            <Card className="hover-lift border-zinc-100 dark:border-zinc-800">
-              <CardContent className="p-5">
+            <Card className={`hover-lift transition-all duration-200 border border-zinc-100 dark:border-zinc-800 ${s.border}`}>
+              <CardContent className="p-5 flex flex-col items-start">
                 <div
-                  className={`mb-2 inline-flex h-9 w-9 items-center justify-center rounded-md ${s.bg} ${s.c}`}
+                  className={`mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg ${s.bg} ${s.c}`}
                 >
                   <s.i className="h-5 w-5" />
                 </div>
-                <div className="text-2xl font-bold text-navy">{s.v}</div>
-                <div className="text-sm text-muted-foreground">{s.label}</div>
+                <div className="text-2xl font-bold text-navy dark:text-zinc-100 leading-tight">{s.v}</div>
+                <div className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mt-1">{s.label}</div>
+                <div className="text-[11px] text-muted-foreground font-sans mt-0.5">{s.desc}</div>
               </CardContent>
             </Card>
           </motion.div>
@@ -167,7 +214,7 @@ export default function AdminOverview() {
                   </div>
                   <Badge
                     variant="outline"
-                    className="border-zinc-200 dark:border-zinc-700 bg-white/50 dark:bg-black/50"
+                    className={`font-semibold ${getStatusColor(a.status)}`}
                   >
                     {a.status.replace(/_/g, " ")}
                   </Badge>

@@ -14,9 +14,12 @@ import {
   ArrowRight,
   Calendar,
   Loader2,
+  Users,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { axiosClient } from "@/lib/axiosClient";
 import { applicantServices } from "@/services/applicant.services";
+import { logbookServices } from "@/services/logbook.services";
 import { queryKeys } from "@/services/queryKeys";
 import { motion } from "framer-motion";
 
@@ -32,6 +35,24 @@ export default function Overview() {
   const memberId = profileData?.profile?.membershipId || null;
   const rawStatus = profileData?.application?.status || "Pending";
   const appStatus = rawStatus.replace(/_/g, " ");
+  const isGraduate = membershipCategory.includes("Graduate");
+
+  const { data: logbookProgress } = useQuery({
+    queryKey: ["logbook-progress", profileData?.application?.id],
+    queryFn: () => logbookServices.getLogbookProgress(profileData!.application!.id),
+    enabled: !!profileData?.application?.id && isGraduate
+  });
+
+  const { data: menteesData } = useQuery({
+    queryKey: queryKeys.mentorship.mentees(),
+    queryFn: async () => {
+      const res = await axiosClient.get("/progression/mentees");
+      return res.data;
+    },
+    enabled: !isGraduate && !isFirm
+  });
+  
+  const activeMenteesCount = menteesData?.mentees?.length || 0;
 
   if (isLoading) return <div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-gold" /></div>;
 
@@ -86,16 +107,16 @@ export default function Overview() {
             c: "text-emerald-600",
           },
           ...(isFirm ? [] : [{
-            i: GraduationCap,
-            label: "CPD Hours Logged",
-            v: "0 / 40",
-            c: "text-amber-600",
+            i: isGraduate ? GraduationCap : Users,
+            label: isGraduate ? "Logbook Progress" : "Active Mentees",
+            v: isGraduate ? `${logbookProgress?.overallProgress || 0}%` : activeMenteesCount.toString(),
+            c: isGraduate ? "text-navy dark:text-gold" : "text-emerald-600",
           }]),
           {
             i: FileText,
             label: "Uploaded Documents",
             v: `${profileData?.documents?.length || 0} on file`,
-            c: "text-navy",
+            c: "text-navy dark:text-gold",
           },
         ].map((s, index) => (
           <motion.div
@@ -104,15 +125,15 @@ export default function Overview() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
           >
-            <Card className="hover-lift border-zinc-100 dark:border-zinc-800">
-              <CardContent className="p-5">
+            <Card className="hover-lift border-zinc-100 dark:border-zinc-800 h-full flex flex-col justify-between">
+              <CardContent className="p-5 flex-1 flex flex-col justify-center">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
                     {s.label}
                   </span>
                   <s.i className={`h-4 w-4 ${s.c}`} />
                 </div>
-                <div className="mt-2 text-xl font-bold text-navy">{s.v}</div>
+                <div className="mt-2 text-lg lg:text-xl font-bold text-navy dark:text-zinc-100">{s.v}</div>
               </CardContent>
             </Card>
           </motion.div>
@@ -122,30 +143,63 @@ export default function Overview() {
       {/* Grid: CPD and Actions */}
       <div className="grid gap-4 md:grid-cols-3">
         {!isFirm ? (
-          <Card className="md:col-span-2 border-zinc-100 dark:border-zinc-800">
-            <CardHeader>
-              <CardTitle className="text-navy">
-                Continuing Professional Development
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between text-sm font-sans">
-                <span className="text-zinc-600 dark:text-zinc-400">
-                  2025 progress
-                </span>
-                <span className="font-semibold text-navy">
-                  0 / 40 hours completed
-                </span>
-              </div>
-              <Progress value={0} className="mt-2 h-2.5" />
+          isGraduate ? (
+            <Card className="md:col-span-2 border-zinc-100 dark:border-zinc-800 flex flex-col h-full shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-navy dark:text-zinc-100">
+                  Logbook & Progression
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col">
+                <div className="flex items-center justify-between text-sm font-sans">
+                  <span className="text-zinc-600 dark:text-zinc-400">
+                    Overall Completion
+                  </span>
+                  <span className="font-semibold text-navy dark:text-gold">
+                    {logbookProgress?.overallProgress || 0}% completed
+                  </span>
+                </div>
+                <Progress value={logbookProgress?.overallProgress || 0} className="mt-2 h-2.5" />
 
-              <div className="mt-6 flex flex-col items-center justify-center py-8 text-center bg-zinc-50 rounded-md border border-dashed border-zinc-200">
-                <GraduationCap className="h-8 w-8 text-zinc-400 mb-2" />
-                <div className="text-sm font-semibold text-zinc-700">No CPD records found</div>
-                <div className="text-xs text-muted-foreground mt-1">Attend RIQS events to log CPD hours.</div>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="mt-6 flex-1 flex flex-col items-center justify-center py-8 text-center bg-zinc-50 dark:bg-zinc-900/50 rounded-md border border-dashed border-zinc-200 dark:border-zinc-800">
+                  <FileText className="h-8 w-8 text-gold mb-2" />
+                  <div className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Track your logbook</div>
+                  <div className="text-[11px] text-muted-foreground mt-1 mb-4 font-sans">Complete your competencies to request a professional upgrade.</div>
+                  <Link href="/dashboard/mentorship">
+                    <Button size="sm" className="bg-navy hover:bg-navy/90 text-white font-semibold">View Logbook Dashboard</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="md:col-span-2 border-zinc-100 dark:border-zinc-800 flex flex-col h-full shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-navy dark:text-zinc-100">
+                  Mentorship & Supervision
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col">
+                <div className="flex items-center justify-between text-sm font-sans">
+                  <span className="text-zinc-600 dark:text-zinc-400">
+                    Capacity Allocation
+                  </span>
+                  <span className="font-semibold text-navy dark:text-gold">
+                    {activeMenteesCount} / 5 mentees
+                  </span>
+                </div>
+                <Progress value={(activeMenteesCount / 5) * 100} className="mt-2 h-2.5 bg-zinc-150 dark:bg-zinc-800" />
+
+                <div className="mt-6 flex-1 flex flex-col items-center justify-center py-8 text-center bg-zinc-50 dark:bg-zinc-900/50 rounded-md border border-dashed border-zinc-200 dark:border-zinc-800">
+                  <Users className="h-8 w-8 text-emerald-600 mb-2" />
+                  <div className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Mentorship Dashboard</div>
+                  <div className="text-[11px] text-muted-foreground mt-1 mb-4 font-sans">Review logbooks and supervise your assigned graduates.</div>
+                  <Link href="/dashboard/mentorship">
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Manage Mentees</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )
         ) : (
           <Card className="md:col-span-2 border-zinc-100 dark:border-zinc-800">
             <CardHeader>
@@ -176,25 +230,28 @@ export default function Overview() {
           </Card>
         )}
 
-        <Card className="border-zinc-100 dark:border-zinc-800">
+        <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col h-full shadow-sm">
           <CardHeader>
-            <CardTitle className="text-navy">Quick actions</CardTitle>
+            <CardTitle className="text-navy dark:text-zinc-100">Quick Actions</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3 flex-1 flex flex-col">
             {[
-              { to: "/dashboard/certificate", l: "Download certificate" },
-              { to: "/dashboard/payments", l: "Pay annual renewal" },
-              { to: "/dashboard/profile", l: "Update profile" },
-              { to: "/dashboard/documents", l: "Manage documents" },
+              { to: "/dashboard/certificate", l: "Download Certificate", d: "Get your official cert", i: BadgeCheck, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-950/30" },
+              { to: "/dashboard/payments", l: "Pay Annual Renewal", d: "Clear your 2025 dues", i: Wallet, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950/30" },
+              { to: "/dashboard/profile", l: "Update Profile", d: "Edit personal details", i: FileText, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950/30" },
+              { to: "/dashboard/documents", l: "Manage Documents", d: "Upload files & IDs", i: FileText, color: "text-purple-500", bg: "bg-purple-50 dark:bg-purple-950/30" },
             ].map((a) => (
-              <Link key={a.to} href={a.to} className="block w-full">
-                <Button
-                  variant="outline"
-                  className="w-full justify-between border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 text-zinc-700 dark:text-zinc-300"
-                >
-                  <span>{a.l}</span>
-                  <ArrowRight className="h-4 w-4 text-gold" />
-                </Button>
+              <Link key={a.to} href={a.to} className="group block">
+                <div className="flex items-center gap-3 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:border-gold/30 hover:shadow-sm transition-all duration-200">
+                  <div className={`p-2 rounded-lg ${a.bg}`}>
+                    <a.i className={`h-[18px] w-[18px] ${a.color}`} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 group-hover:text-gold transition-colors">{a.l}</div>
+                    <div className="text-[10px] text-muted-foreground font-sans">{a.d}</div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-zinc-300 group-hover:text-gold group-hover:translate-x-1 transition-all" />
+                </div>
               </Link>
             ))}
           </CardContent>

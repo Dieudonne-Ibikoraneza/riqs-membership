@@ -359,11 +359,8 @@ export function AppShell({
               <Menu className="h-6 w-6" />
             </button>
             <div className="text-sm">
-              <div className="font-semibold text-navy">
-                {kind === "admin" ? "Administrator Workspace" : "Member Portal"}
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                {pathname}
+              <div className="font-semibold text-navy text-lg">
+                {kind === "admin" ? `${role === "Admin" ? "Administrator" : role} Workspace` : kind === "teacher" ? "Teacher Workspace" : "Member Portal"}
               </div>
             </div>
           </div>

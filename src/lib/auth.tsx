@@ -65,6 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Preserve UI theme preferences but wipe absolutely everything else (auth, tokens, drafts, etc.)
     const config = localStorage.getItem("riqs-config");
+    localStorage.removeItem("riqs_app_draft");
+    localStorage.removeItem("riqs_app_step");
+    localStorage.removeItem("riqs_app_last_correction");
     localStorage.clear();
     if (config) localStorage.setItem("riqs-config", config);
   };

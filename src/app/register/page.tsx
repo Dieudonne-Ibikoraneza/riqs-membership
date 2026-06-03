@@ -28,6 +28,13 @@ export default function Register() {
   const [resendTimer, setResendTimer] = useState(0);
 
   useEffect(() => {
+    // Ensure draft state is cleared when visiting auth pages
+    try {
+      localStorage.removeItem("riqs_app_draft");
+      localStorage.removeItem("riqs_app_step");
+      localStorage.removeItem("riqs_app_last_correction");
+    } catch (e) {}
+
     if (resendTimer > 0) {
       const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
       return () => clearTimeout(timer);

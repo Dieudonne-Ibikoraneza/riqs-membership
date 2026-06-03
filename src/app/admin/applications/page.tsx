@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useEffect } from "react";
-import { getApplicationsQueue, takeOverApplication } from "@/lib/api/admin";
+import { getApplicationsQueue, takeOverApplication, sendAdminEmail } from "@/lib/api/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -34,10 +34,14 @@ import {
   Eye,
   XCircle,
   X,
+  Send,
+  Minimize2,
+  Maximize2
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
+import { motion, AnimatePresence } from "framer-motion";
 
 const STATUSES = [
   "Pending",
@@ -70,8 +74,21 @@ export default function AdminApps() {
   const [isLoading, setIsLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
   const [takingOverId, setTakingOverId] = useState<string | null>(null);
-  const [view, setView] = useState<"queue" | "assigned" | "all">("queue");
+  const [view, setView] = useState<"queue" | "assigned" | "all">("all");
+  
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeMinimized, setComposeMinimized] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [isSending, setIsSending] = useState(false);
+
   const router = useRouter();
+
+  useEffect(() => {
+    if (role === "Admin") {
+      setView("all");
+    }
+  }, [role]);
 
   useEffect(() => {
     async function loadData() {
@@ -80,6 +97,7 @@ export default function AdminApps() {
         const res = await getApplicationsQueue(page, pageSize, status, view);
         const mapped = res.queue.map(a => ({
           id: a.id,
+          memberId: a.member_id,
           applicantName: a.full_name,
           email: a.email,
           category: a.category_name,
@@ -97,7 +115,39 @@ export default function AdminApps() {
       }
     }
     loadData();
-  }, [page, status, view]);
+  }, [page, status, view, role]);
+
+  const handleSendBulkEmail = async () => {
+    if (!emailSubject.trim() || !emailBody.trim()) {
+      toast.error("Subject and message are required.");
+      return;
+    }
+    
+    setIsSending(true);
+    try {
+      const selectedMemberIds = applications
+        .filter(app => sel[app.id])
+        .map(app => app.memberId);
+
+      const formData = new FormData();
+      formData.append("recipientType", "selected");
+      formData.append("memberIds", JSON.stringify(selectedMemberIds));
+      formData.append("subject", emailSubject);
+      formData.append("body", emailBody);
+
+      await sendAdminEmail(formData);
+
+      toast.success(`Email successfully sent to ${selectedMemberIds.length} applicants!`);
+      setComposeOpen(false);
+      setEmailSubject("");
+      setEmailBody("");
+      setSel({});
+    } catch (err) {
+      toast.error("Failed to send bulk email.");
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   const handleReviewClick = async (a: any) => {
     if (a.status !== "Pending") {
@@ -197,7 +247,8 @@ export default function AdminApps() {
   };
 
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto pb-8 animate-fade-in">
+    <>
+      <div className="space-y-6 max-w-[1600px] mx-auto pb-8 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-navy tracking-tight">
@@ -209,15 +260,17 @@ export default function AdminApps() {
              'Complete global view of all applications in the registry.'}
           </p>
         </div>
-        <Tabs value={view} onValueChange={(v) => { setView(v as any); setPage(1); }} className="w-full sm:w-auto">
-          <TabsList className={cn("grid w-full bg-zinc-100 dark:bg-zinc-800", role?.toLowerCase() === "approver" ? "grid-cols-2" : "grid-cols-3")}>
-            <TabsTrigger value="queue">Queue</TabsTrigger>
-            {role?.toLowerCase() !== "approver" && (
-              <TabsTrigger value="assigned">My Assigned</TabsTrigger>
-            )}
-            <TabsTrigger value="all">All</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {role !== "Admin" && (
+          <Tabs value={view} onValueChange={(v) => { setView(v as any); setPage(1); }} className="w-full sm:w-auto">
+            <TabsList className={cn("grid w-full bg-zinc-100 dark:bg-zinc-800", role?.toLowerCase() === "approver" ? "grid-cols-2" : "grid-cols-3")}>
+              <TabsTrigger value="queue">Queue</TabsTrigger>
+              {role?.toLowerCase() !== "approver" && (
+                <TabsTrigger value="assigned">My Assigned</TabsTrigger>
+              )}
+              <TabsTrigger value="all">All</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
       </div>
 
       <Card className="border border-zinc-150 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm">
@@ -378,20 +431,6 @@ export default function AdminApps() {
                   <Download className="mr-2 h-4 w-4 text-gold" />
                   Export
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={selectedIds.length === 0}
-                  onClick={() =>
-                    toast.success(
-                      `Bulk email queued to ${selectedIds.length} applicants`,
-                    )
-                  }
-                  className="h-9 border-zinc-250 dark:border-zinc-800 hover:bg-zinc-50"
-                >
-                  <Mail className="mr-2 h-4 w-4 text-gold" />
-                  Bulk email
-                </Button>
               </div>
             </div>
           </div>
@@ -492,8 +531,13 @@ export default function AdminApps() {
                       <div className="flex items-center gap-3">
                         <Avatar name={a.applicantName} url={a.photoId} />
                         <div>
-                          <div className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+                          <div className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug flex items-center gap-2">
                             {a.applicantName}
+                            {a.apcRequested && (
+                              <Badge className="bg-gold/10 text-gold hover:bg-gold/20 border-gold/20 text-[10px] uppercase tracking-wider px-1.5 py-0">
+                                APC Requested
+                              </Badge>
+                            )}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {a.email}
@@ -554,6 +598,117 @@ export default function AdminApps() {
         />
       )}
     </div>
+      
+      {/* Floating Bulk Email Button */}
+      <AnimatePresence>
+        {selectedIds.length > 0 && !composeOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            className="fixed bottom-6 right-6 z-50"
+          >
+            <Button
+              onClick={() => {
+                setComposeOpen(true);
+                setComposeMinimized(false);
+              }}
+              className="bg-navy hover:bg-navy/90 text-white rounded-none shadow-lg px-6 h-14 text-base font-semibold"
+            >
+              <Mail className="mr-2 h-5 w-5" />
+              Email {selectedIds.length} Applicant{selectedIds.length !== 1 ? 's' : ''}
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Gmail-style Compose Box */}
+      <AnimatePresence>
+        {composeOpen && selectedIds.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ 
+              opacity: 1, 
+              y: 0,
+              height: composeMinimized ? 56 : 500
+            }}
+            exit={{ opacity: 0, y: 100 }}
+            className="fixed bottom-0 right-6 w-[500px] z-50 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-t-xl overflow-hidden flex flex-col"
+          >
+            {/* Header */}
+            <div 
+              className="bg-navy text-white px-4 py-3 flex items-center justify-between cursor-pointer shrink-0"
+              onClick={() => setComposeMinimized(!composeMinimized)}
+            >
+              <span className="font-semibold text-sm flex items-center">
+                New Message
+                <span className="ml-2 px-2 py-0.5 rounded-full bg-white/20 text-xs">
+                  {selectedIds.length} Recipients
+                </span>
+              </span>
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setComposeMinimized(!composeMinimized); }}
+                  className="p-1 hover:bg-white/20 rounded-md transition-colors"
+                >
+                  {composeMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setComposeOpen(false); }}
+                  className="p-1 hover:bg-white/20 rounded-md transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            {!composeMinimized && (
+              <div className="flex-1 flex flex-col bg-white dark:bg-zinc-950">
+                <div className="border-b border-zinc-100 dark:border-zinc-800 px-4 py-3">
+                  <input
+                    type="text"
+                    placeholder="Subject"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    className="w-full bg-transparent border-none outline-none text-sm font-semibold text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 placeholder:font-normal"
+                  />
+                </div>
+                <textarea
+                  placeholder="Write your message here..."
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  className="flex-1 w-full bg-transparent border-none outline-none resize-none p-4 text-sm text-zinc-700 dark:text-zinc-300 placeholder:text-zinc-400"
+                />
+              </div>
+            )}
+
+            {/* Footer */}
+            {!composeMinimized && (
+              <div className="p-4 bg-white dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between shrink-0">
+                <div className="text-xs text-muted-foreground">
+                  Email will be sent via system
+                </div>
+                <Button 
+                  onClick={handleSendBulkEmail} 
+                  disabled={isSending || !emailSubject.trim() || !emailBody.trim() || selectedIds.length === 0}
+                  className="bg-navy hover:bg-navy/90 text-white rounded-none px-6"
+                >
+                  {isSending ? (
+                    <>Sending...</>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Send
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 

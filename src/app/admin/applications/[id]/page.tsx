@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getApplicationDetail, submitReviewerAction, submitApproverDecision, getApcForApplication, scheduleApc, gradeApc } from "@/lib/api/admin";
+import { getApplicationDetail, submitReviewerAction, submitApproverDecision } from "@/lib/api/admin";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { applicantServices } from "@/services/applicant.services";
@@ -30,6 +30,7 @@ import {
   Minimize2,
   Loader2,
   MoveHorizontal,
+  ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -152,25 +153,14 @@ export default function Review({ params }: PageProps) {
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  // APC State
-  const [apcDialog, setApcDialog] = useState<null | "schedule" | "grade">(null);
-  const [selectedApc, setSelectedApc] = useState<any>(null);
-  const [apcForm, setApcForm] = useState({
-    date: "",
-    chair: "",
-    exam1: "",
-    exam2: "",
-    status: "Passed",
-    score: "",
-    notes: ""
-  });
 
   useEffect(() => {
     async function loadData() {
       try {
         const [res, apcRes] = await Promise.all([
           getApplicationDetail(id),
-          getApcForApplication(id).catch(() => ({ assessments: [] }))
+          // Fetch APC records for the status banner
+          import("@/lib/api/admin").then(m => m.getApcForApplication(id)).catch(() => ({ assessments: [] }))
         ]);
         const mappedApp = {
           id: res.application.id,
@@ -183,6 +173,8 @@ export default function Review({ params }: PageProps) {
           firmName: res.application.firm_name,
           firmAddress: res.application.firm_address,
           practiceLocation: res.application.location,
+          residencyAddress: res.application.residency_address,
+          workAddress: res.application.work_address,
           status: res.application.status.replace("_", " "),
           submittedAt: res.application.submittedAt ? new Date(res.application.submittedAt).toISOString().split('T')[0] : "Unknown",
           processingFeeCleared: res.application.processing_fee_cleared,
@@ -220,7 +212,8 @@ export default function Review({ params }: PageProps) {
               originalFileUrl: d.fileUrl
             };
           }),
-          apcAssessments: apcRes.assessments || []
+          apcAssessments: apcRes.assessments || [],
+          statusHistory: res.statusHistory || []
         };
         setApp(mappedApp);
       } catch (err) {
@@ -289,38 +282,6 @@ export default function Review({ params }: PageProps) {
       setTimeout(() => router.push("/admin/applications"), 650);
     } catch (err: any) {
       toast.error(err?.response?.data?.error || "Failed to process decision");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleApcSubmit = async () => {
-    setIsSubmitting(true);
-    try {
-      if (apcDialog === "schedule") {
-        await scheduleApc({
-          applicationId: app.id,
-          assessmentDate: new Date(apcForm.date).toISOString(),
-          panelChair: apcForm.chair,
-          examiner1: apcForm.exam1,
-          examiner2: apcForm.exam2
-        });
-        toast.success("APC Board successfully scheduled.");
-      } else if (apcDialog === "grade" && selectedApc) {
-        await gradeApc({
-          assessmentId: selectedApc.id,
-          status: apcForm.status as any,
-          scorePercentage: apcForm.score ? Number(apcForm.score) : undefined,
-          assessmentNotes: apcForm.notes
-        });
-        toast.success("APC results successfully recorded.");
-      }
-      setApcDialog(null);
-      // Refresh Data
-      const apcRes = await getApcForApplication(id).catch(() => ({ assessments: [] }));
-      setApp((prev: any) => ({ ...prev, apcAssessments: apcRes.assessments }));
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || "Failed to process APC action");
     } finally {
       setIsSubmitting(false);
     }
@@ -433,6 +394,8 @@ export default function Review({ params }: PageProps) {
                 {app.entityType !== "Firm" && <Row k="National ID/Passport" v={app.national_id_or_passport} />}
                 {app.entityType === "Firm" && app.firmName && <Row k="Firm Name" v={app.firmName} />}
                 {app.entityType === "Firm" && app.firmAddress && <Row k="Firm Address" v={app.firmAddress} />}
+                {app.residencyAddress && <Row k="Residency Address" v={[app.residencyAddress.district, app.residencyAddress.sector, app.residencyAddress.cell, app.residencyAddress.village].filter(Boolean).join(", ")} />}
+                {app.workAddress && <Row k="Work Address" v={[app.workAddress.district, app.workAddress.sector, app.workAddress.cell, app.workAddress.village].filter(Boolean).join(", ")} />}
                 <Row k="Practice location" v={app.practiceLocation} />
               </CardContent>
             </Card>
@@ -594,6 +557,61 @@ export default function Review({ params }: PageProps) {
               </Card>
             </motion.div>
           )}
+
+          {/* APC Assessments — link to dedicated module */}
+          {app.apcAssessments && app.apcAssessments.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, x: -15 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.15 }}
+            >
+              <div className={`flex items-center justify-between gap-3 p-3.5 rounded-lg border ${
+                app.apcAssessments.some((a: any) => a.status === "Requested")
+                  ? "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50"
+                  : app.apcAssessments.some((a: any) => a.status === "Scheduled")
+                    ? "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/50"
+                    : "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50"
+              }`}>
+                <div className="text-sm">
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">APC Status: </span>
+                  <span className="text-zinc-600 dark:text-zinc-400">
+                    {app.apcAssessments[0]?.status?.replace("_", " ")}
+                  </span>
+                </div>
+                <Link href="/admin/apc">
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-zinc-300 hover:border-zinc-400 shrink-0">
+                    Manage in APC Module
+                    <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Reviewer Notes */}
+          {(() => {
+            const latestNote = app.statusHistory?.find((h: any) => h.reviewerNotes);
+            if (!latestNote) return null;
+            return (
+              <motion.div
+                initial={{ opacity: 0, x: -15 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <Card className="border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20">
+                  <CardHeader className="py-3 px-4 border-b border-amber-200/50 dark:border-amber-900/50">
+                    <CardTitle className="text-sm font-bold text-amber-900 dark:text-amber-500 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      Latest Reviewer Notes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 text-sm text-amber-800 dark:text-amber-400/90 whitespace-pre-wrap leading-relaxed">
+                    {latestNote.reviewerNotes}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })()}
         </div>
 
         {/* Right column: Document viewer */}
@@ -775,78 +793,6 @@ export default function Review({ params }: PageProps) {
               {dialog === "reject" && "Reject Applicant"}
               {dialog === "correction" && "Request Corrections"}
               {dialog === "forward" && "Forward Application"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={apcDialog === "schedule"} onOpenChange={(o) => !o && setApcDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Schedule APC Board Assessment</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Assessment Date & Time</Label>
-              <Input type="datetime-local" value={apcForm.date} onChange={e => setApcForm({...apcForm, date: e.target.value})} />
-            </div>
-            <div className="space-y-2">
-              <Label>Panel Chair Name</Label>
-              <Input placeholder="e.g. John Doe (PrQS)" value={apcForm.chair} onChange={e => setApcForm({...apcForm, chair: e.target.value})} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Examiner 1 Name</Label>
-                <Input value={apcForm.exam1} onChange={e => setApcForm({...apcForm, exam1: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <Label>Examiner 2 Name</Label>
-                <Input value={apcForm.exam2} onChange={e => setApcForm({...apcForm, exam2: e.target.value})} />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setApcDialog(null)} disabled={isSubmitting}>Cancel</Button>
-            <Button onClick={handleApcSubmit} disabled={isSubmitting || !apcForm.date} className="bg-navy hover:bg-navy/90 text-white">
-              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />} Schedule
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={apcDialog === "grade"} onOpenChange={(o) => !o && setApcDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Grade APC Assessment</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Final Status</Label>
-              <select 
-                className="flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent dark:border-zinc-800 dark:bg-zinc-950"
-                value={apcForm.status} 
-                onChange={e => setApcForm({...apcForm, status: e.target.value})}
-              >
-                <option value="Passed">Passed</option>
-                <option value="Failed">Failed</option>
-                <option value="No Show">No Show</option>
-              </select>
-            </div>
-            {apcForm.status !== "No Show" && (
-              <div className="space-y-2">
-                <Label>Score Percentage (%)</Label>
-                <Input type="number" min="0" max="100" placeholder="e.g. 75" value={apcForm.score} onChange={e => setApcForm({...apcForm, score: e.target.value})} />
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label>Examiner Notes / Feedback</Label>
-              <Textarea rows={3} placeholder="Enter any specific feedback or rationale..." value={apcForm.notes} onChange={e => setApcForm({...apcForm, notes: e.target.value})} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setApcDialog(null)} disabled={isSubmitting}>Cancel</Button>
-            <Button onClick={handleApcSubmit} disabled={isSubmitting} className="bg-navy hover:bg-navy/90 text-white">
-              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />} Save Grade
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -2,6 +2,7 @@ import { axiosClient } from "../axiosClient";
 
 export interface QueueApplication {
   id: string;
+  member_id?: string;
   status: string;
   submitted_at: string;
   full_name: string;
@@ -258,5 +259,14 @@ export async function lockStaffAccount(id: string, durationDays: number) {
 
 export async function unlockStaffAccount(id: string) {
   const { data } = await axiosClient.patch(`/admin/staff/${id}/unlock`);
+  return data;
+}
+
+export async function getAllApc(status?: string, page: number = 1, limit: number = 20): Promise<any> {
+  const params = new URLSearchParams();
+  params.append("page", page.toString());
+  params.append("limit", limit.toString());
+  if (status && status !== "all") params.append("status", status);
+  const { data } = await axiosClient.get(`/admin/apc?${params.toString()}`);
   return data;
 }

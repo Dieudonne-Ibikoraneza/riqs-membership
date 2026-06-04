@@ -201,8 +201,15 @@ export default function Application() {
       workAddress: { district: "", sector: "", cell: "", village: "" },
       yearsInProfession: "",
       countryOfOrigin: "Rwanda",
+      gender: "",
+      nationality: "",
       firmName: "",
       firmAddress: "",
+      firmContactRegistrationNumber: "",
+      firmContactResidence: "",
+      firmMainBusinessActivity: "",
+      firmCountryOfIncorporation: "",
+      firmPrincipalPlaceOfBusiness: "",
       shareholders: [{ fullName: "", email: "", phone: "", membershipId: "", shareholdingPercentage: "" }],
     },
     education: [{ institution: "", studyField: "", degree: "", startMonthYear: "" }],
@@ -211,6 +218,12 @@ export default function Application() {
     agreedToTerms: false,
     mentors: [{ membershipId: "", name: "", contact: "" }],
     mentorPlan: "",
+    hasIdentifiedMentor: false,
+    agreedToMentorshipIntent: false,
+    preferredPracticeAreas: [],
+    studentAssociation: { associationName: "", membershipNumber: "", registrationDate: "", activeYears: "" },
+    competenceSummary: {},
+    noCriminalOffense: false,
     docs: {},
     dynamicTabs: [],
   });
@@ -259,12 +272,19 @@ export default function Application() {
         dob: savedLocal?.personal?.dob || (profile?.dateOfBirth ? profile.dateOfBirth.split("T")[0] : ""),
         phone: savedLocal?.personal?.phone || profile?.phoneNumber || "",
         email: savedLocal?.personal?.email || profile?.email || "",
-        yearsInProfession: savedLocal?.personal?.yearsInProfession || "",
+        yearsInProfession: savedLocal?.personal?.yearsInProfession || (application as any)?.yearsInProfession || "",
         countryOfOrigin: savedLocal?.personal?.countryOfOrigin || "Rwanda",
+        gender: savedLocal?.personal?.gender || (profile as any)?.gender || "",
+        nationality: savedLocal?.personal?.nationality || (profile as any)?.nationality || "",
         residentAddress: savedLocal?.personal?.residentAddress || profile?.residencyAddress || prev.personal.residentAddress,
         workAddress: savedLocal?.personal?.workAddress || profile?.workAddress || prev.personal.workAddress,
-        firmName: savedLocal?.personal?.firmName || "",
-        firmAddress: savedLocal?.personal?.firmAddress || "",
+        firmName: savedLocal?.personal?.firmName || (application as any)?.firmName || "",
+        firmAddress: savedLocal?.personal?.firmAddress || (application as any)?.firmAddress || "",
+        firmContactRegistrationNumber: savedLocal?.personal?.firmContactRegistrationNumber || (application as any)?.firmContactRegistrationNumber || "",
+        firmContactResidence: savedLocal?.personal?.firmContactResidence || (application as any)?.firmContactResidence || "",
+        firmMainBusinessActivity: savedLocal?.personal?.firmMainBusinessActivity || (application as any)?.firmMainBusinessActivity || "",
+        firmCountryOfIncorporation: savedLocal?.personal?.firmCountryOfIncorporation || (application as any)?.firmCountryOfIncorporation || "",
+        firmPrincipalPlaceOfBusiness: savedLocal?.personal?.firmPrincipalPlaceOfBusiness || (application as any)?.firmPrincipalPlaceOfBusiness || "",
         shareholders: savedLocal?.personal?.shareholders || prev.personal.shareholders,
       },
       hasNoEmployment: savedLocal?.hasNoEmployment || false,
@@ -307,6 +327,12 @@ export default function Application() {
         return [{ membershipId: "", name: "", contact: "", isSaved: false }];
       })(),
       mentorPlan: savedLocal?.mentorPlan || profileData?.mentorship?.mentorshipPlan || "",
+      hasIdentifiedMentor: savedLocal?.hasIdentifiedMentor ?? (profileData?.mentorship ? profileData.mentorship.options.length > 0 : false),
+      agreedToMentorshipIntent: savedLocal?.agreedToMentorshipIntent ?? ((application as any)?.agreedToMentorshipIntent || false),
+      preferredPracticeAreas: savedLocal?.preferredPracticeAreas || (profileData?.mentorship as any)?.preferredPracticeAreas || [],
+      studentAssociation: savedLocal?.studentAssociation || (profileData as any)?.studentAssociation || { associationName: "", membershipNumber: "", registrationDate: "", activeYears: "" },
+      competenceSummary: savedLocal?.competenceSummary || (application as any)?.competenceSummary || {},
+      noCriminalOffense: savedLocal?.noCriminalOffense ?? ((application as any)?.noCriminalOffense || false),
     }));
     
     setStep(savedStep);
@@ -333,9 +359,14 @@ export default function Application() {
       list.push("Employment Record");
     }
     if (data.entityType === "Individual" && (data.categoryName === "Graduate" || data.categoryName?.toLowerCase().includes("graduate"))) {
+      list.push("Student Association");
       list.push("Mentorship Plan");
     }
+    if (data.entityType === "Individual" && (data.categoryName === "Technologist" || data.categoryName === "Professional" || data.categoryName?.toLowerCase().includes("route 3") || data.categoryName?.toLowerCase().includes("route 4"))) {
+      list.push("Professional Competence Summary");
+    }
     list.push("Other Documents");
+    list.push("Declarations");
     list.push("Review & Submit");
     return list;
   }, [data.entityType, data.categoryName]);
@@ -616,12 +647,23 @@ export default function Application() {
         phoneNumber: data.personal.phone,
         dob: data.personal.dob,
         nationalIdOrPassport: data.personal.nationalId,
+        gender: data.personal.gender,
+        nationality: data.personal.nationality,
         yearsInProfession: data.personal.yearsInProfession,
         residencyAddress: data.personal.residentAddress,
         workAddress: data.personal.workAddress,
         countryOfOrigin: data.personal.countryOfOrigin,
         firmName: data.entityType === "Firm" ? data.personal.firmName : undefined,
         firmAddress: data.entityType === "Firm" ? data.personal.firmAddress : undefined,
+        firmContactRegistrationNumber: data.entityType === "Firm" ? data.personal.firmContactRegistrationNumber : undefined,
+        firmContactResidence: data.entityType === "Firm" ? data.personal.firmContactResidence : undefined,
+        firmMainBusinessActivity: data.entityType === "Firm" ? data.personal.firmMainBusinessActivity : undefined,
+        firmCountryOfIncorporation: data.entityType === "Firm" ? data.personal.firmCountryOfIncorporation : undefined,
+        firmPrincipalPlaceOfBusiness: data.entityType === "Firm" ? data.personal.firmPrincipalPlaceOfBusiness : undefined,
+        studentAssociation: data.studentAssociation,
+        competenceSummary: data.competenceSummary,
+        agreedToMentorshipIntent: data.agreedToMentorshipIntent,
+        noCriminalOffense: data.noCriminalOffense,
       } as any);
     }
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
@@ -632,6 +674,7 @@ export default function Application() {
   const submit = () => {
     if (!appId) return toast.error("Application not found. Please complete all steps first.");
     if (!data.agreedToTerms) return toast.error("Please agree to the terms and conditions.");
+    if (!data.noCriminalOffense) return toast.error("Please agree to the criminal offense declaration.");
     submitMutation.mutate(appId);
   };
 
@@ -1128,6 +1171,26 @@ function WizardContent({
                           placeholder="Select Date of Birth"
                         />
                       </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="app-gender">Gender <span className="text-red-500">*</span></Label>
+                        <Select
+                          value={data.personal.gender}
+                          onValueChange={(v) => setData({ ...data, personal: { ...data.personal, gender: v } })}
+                        >
+                          <SelectTrigger id="app-gender" className="bg-white">
+                            <SelectValue placeholder="Select Gender" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Male">Male</SelectItem>
+                            <SelectItem value="Female">Female</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="app-nationality">Nationality <span className="text-red-500">*</span></Label>
+                        <Input id="app-nationality" placeholder="e.g. Rwandan" value={data.personal.nationality}
+                          onChange={(e) => setData({ ...data, personal: { ...data.personal, nationality: e.target.value } })} />
+                      </div>
                     </div>
 
                     {/* Right Side: Passport Photo conditionally rendered */}
@@ -1289,6 +1352,31 @@ function WizardContent({
                           <Input placeholder="e.g. KN 3 Rd, Kigali" value={data.personal.firmAddress}
                             onChange={(e) => setData({ ...data, personal: { ...data.personal, firmAddress: e.target.value } })} />
                         </div>
+                        <div className="space-y-1">
+                          <Label>Company Registration Number <span className="text-red-500">*</span></Label>
+                          <Input placeholder="e.g. 102345678" value={data.personal.firmContactRegistrationNumber}
+                            onChange={(e) => setData({ ...data, personal: { ...data.personal, firmContactRegistrationNumber: e.target.value } })} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Contact Residence</Label>
+                          <Input placeholder="e.g. Kigali, Rwanda" value={data.personal.firmContactResidence}
+                            onChange={(e) => setData({ ...data, personal: { ...data.personal, firmContactResidence: e.target.value } })} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Main Business Activity <span className="text-red-500">*</span></Label>
+                          <Input placeholder="e.g. Quantity Surveying" value={data.personal.firmMainBusinessActivity}
+                            onChange={(e) => setData({ ...data, personal: { ...data.personal, firmMainBusinessActivity: e.target.value } })} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Country of Incorporation <span className="text-red-500">*</span></Label>
+                          <Input placeholder="e.g. Rwanda" value={data.personal.firmCountryOfIncorporation}
+                            onChange={(e) => setData({ ...data, personal: { ...data.personal, firmCountryOfIncorporation: e.target.value } })} />
+                        </div>
+                        <div className="space-y-1 md:col-span-2">
+                          <Label>Principal Place of Business <span className="text-red-500">*</span></Label>
+                          <Input placeholder="e.g. Kigali Heights, 3rd Floor" value={data.personal.firmPrincipalPlaceOfBusiness}
+                            onChange={(e) => setData({ ...data, personal: { ...data.personal, firmPrincipalPlaceOfBusiness: e.target.value } })} />
+                        </div>
                       </div>
                     </div>
                     {/* Shareholders */}
@@ -1296,6 +1384,7 @@ function WizardContent({
                       <h3 className="font-semibold text-base text-navy">Firm Shareholders</h3>
                       {data.personal.shareholders.map((sh: any, i: number) => {
                         const hasDelete = data.personal.shareholders.length > 1;
+                        const isForeign = data.practiceLocation === "Non_Rwandan";
                         return (
                         <div key={i} className="relative grid gap-3 border border-zinc-100 dark:border-zinc-800 p-4 rounded-md md:grid-cols-12 bg-white dark:bg-zinc-900 shadow-sm">
                           {[
@@ -1303,7 +1392,8 @@ function WizardContent({
                             { className: "md:col-span-3", label: "Email Address", field: "email", placeholder: "e.g. alice@example.com", type: "email" },
                             { className: "md:col-span-2", label: "Phone Number", field: "phone", placeholder: "e.g. +250 788 000 000" },
                             { className: "md:col-span-1", label: "Share (%)", field: "shareholdingPercentage", placeholder: "e.g. 50", type: "number" },
-                            { className: hasDelete ? "md:col-span-2" : "md:col-span-3", label: "RIQS ID (Optional)", field: "membershipId", placeholder: "e.g. RIQS-2026-M-045" },
+                            { className: hasDelete ? (isForeign ? "md:col-span-1" : "md:col-span-2") : (isForeign ? "md:col-span-1" : "md:col-span-3"), label: "RIQS ID (Optional)", field: "membershipId", placeholder: "e.g. RIQS-M-045" },
+                            ...(isForeign ? [{ className: hasDelete ? "md:col-span-1" : "md:col-span-2", label: "Citizenship", field: "citizenship", placeholder: "e.g. Kenyan" }] : []),
                           ].map(({ className, label, field, placeholder, type, required }: any) => (
                             <div key={field} className={`${className} space-y-1`}>
                               <Label>{label} {required && <span className="text-red-500">*</span>}</Label>
@@ -1522,12 +1612,93 @@ function WizardContent({
                 </div>
               )}
 
+              {/* ── Student Association ── */}
+              {currentStepName === "Student Association" && (
+                <div className="space-y-4">
+                  <div className="border border-zinc-150 dark:border-zinc-800 bg-zinc-50/50 p-4 rounded-md space-y-4">
+                    <h3 className="font-semibold text-base text-navy">University Quantity Surveying Student Association</h3>
+                    <p className="text-sm text-muted-foreground font-sans">
+                      Provide details of your involvement in your university's Quantity Surveying Student Association.
+                    </p>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label>Name of Association</Label>
+                        <Input placeholder="e.g. UR-QSSA" value={data.studentAssociation.associationName}
+                          onChange={(e) => setData({ ...data, studentAssociation: { ...data.studentAssociation, associationName: e.target.value } })} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Membership Number</Label>
+                        <Input placeholder="e.g. QSSA-001" value={data.studentAssociation.membershipNumber}
+                          onChange={(e) => setData({ ...data, studentAssociation: { ...data.studentAssociation, membershipNumber: e.target.value } })} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Date of Registration</Label>
+                        <MonthYearPicker value={data.studentAssociation.registrationDate} placeholder="Select Date"
+                          onChange={(val) => setData({ ...data, studentAssociation: { ...data.studentAssociation, registrationDate: val } })} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Active Years</Label>
+                        <Input placeholder="e.g. 2019-2023" value={data.studentAssociation.activeYears}
+                          onChange={(e) => setData({ ...data, studentAssociation: { ...data.studentAssociation, activeYears: e.target.value } })} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Professional Competence Summary ── */}
+              {currentStepName === "Professional Competence Summary" && (
+                <div className="space-y-4">
+                  <div className="border border-zinc-150 dark:border-zinc-800 bg-zinc-50/50 p-4 rounded-md space-y-4">
+                    <h3 className="font-semibold text-base text-navy">Summary of Professional Competence</h3>
+                    <p className="text-sm text-muted-foreground font-sans">
+                      Briefly describe your experience and competence in the following key areas of Quantity Surveying practice.
+                    </p>
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <Label>Pre-Contract Duties</Label>
+                        <Textarea rows={3} placeholder="Describe your experience in cost planning, estimating, tendering, etc."
+                          value={data.competenceSummary.preContractDuties || ""}
+                          onChange={(e) => setData({ ...data, competenceSummary: { ...data.competenceSummary, preContractDuties: e.target.value } })} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Post-Contract Duties</Label>
+                        <Textarea rows={3} placeholder="Describe your experience in contract administration, valuations, final accounts, etc."
+                          value={data.competenceSummary.postContractDuties || ""}
+                          onChange={(e) => setData({ ...data, competenceSummary: { ...data.competenceSummary, postContractDuties: e.target.value } })} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Specialization & Technical Skills</Label>
+                        <Textarea rows={2} placeholder="e.g. BIM, Project Management, Dispute Resolution, etc."
+                          value={data.competenceSummary.specialization || ""}
+                          onChange={(e) => setData({ ...data, competenceSummary: { ...data.competenceSummary, specialization: e.target.value } })} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* ── Mentorship Plan ── */}
               {currentStepName === "Mentorship Plan" && (
                 <div className="space-y-4">
                   <div className="border-l-4 border-gold bg-gold/10 p-4 text-sm text-[#8a5c00]">
                     As a Graduate applicant, you must be assigned to a registered Mentor (a Professional or Technologist) for promotion to Technologist or Professional standing. Each Mentor can supervise <strong>up to 5 graduates</strong>. Nominate your preferred mentor below — the secretariat will confirm availability.
                   </div>
+                  
+                  <div className="flex items-center space-x-2 border p-4 rounded-md bg-zinc-50 dark:bg-zinc-900/50">
+                    <Checkbox id="intent-apc" checked={data.agreedToMentorshipIntent} onCheckedChange={(c) => setData({ ...data, agreedToMentorshipIntent: c === true })} />
+                    <Label htmlFor="intent-apc" className="font-semibold cursor-pointer">
+                      I declare my intent to sit for the APC test after this mentorship.
+                    </Label>
+                  </div>
+
+                  <div className="space-y-2 border p-4 rounded-md bg-zinc-50 dark:bg-zinc-900/50">
+                    <Label>Preferred Practice Areas</Label>
+                    <Input placeholder="e.g. Cost Planning, Contract Admin (comma separated)"
+                      value={data.preferredPracticeAreas?.join(', ') || ''}
+                      onChange={(e) => setData({ ...data, preferredPracticeAreas: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                  </div>
+
                   {data.mentors.map((m: any, i: number) => (
                     <div key={i} className="grid gap-3 border p-4 rounded-md md:grid-cols-[1fr_1fr_1fr_auto] bg-zinc-50/50">
                       <div>
@@ -1729,67 +1900,102 @@ function WizardContent({
                 </div>
               )}
 
+              {/* ── Declarations ── */}
+              {currentStepName === "Declarations" && (
+                <div className="space-y-4">
+                  <div className="border border-zinc-200 dark:border-zinc-800 p-6 rounded-md bg-white dark:bg-zinc-900 shadow-sm space-y-6">
+                    <h3 className="font-semibold text-lg text-navy border-b pb-2">Terms, Conditions & Declarations</h3>
+                    
+                    <div className="flex items-start gap-3">
+                      <Checkbox id="no-criminal" checked={data.noCriminalOffense} onCheckedChange={(c) => setData({ ...data, noCriminalOffense: c === true })} className="mt-1" />
+                      <div className="space-y-1 leading-none">
+                        <Label htmlFor="no-criminal" className="font-semibold text-sm cursor-pointer">
+                          Declaration of No Criminal Offense
+                        </Label>
+                        <p className="text-xs text-muted-foreground font-sans leading-relaxed">
+                          I declare that I have not been convicted of any criminal offense, nor have I been subject to any disciplinary action by any professional body.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <Checkbox id="terms" checked={data.agreedToTerms} onCheckedChange={(c) => setData({ ...data, agreedToTerms: c === true })} className="mt-1" />
+                      <div className="space-y-1 leading-none">
+                        <Label htmlFor="terms" className="font-semibold text-sm cursor-pointer">
+                          I agree to the Terms & Conditions and Code of Conduct
+                        </Label>
+                        <p className="text-xs text-muted-foreground font-sans leading-relaxed">
+                          By checking this box, I confirm that all information provided is accurate and truthful. I agree to abide by the RIQS Code of Professional Conduct.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* ── Review & Submit ── */}
               {currentStepName === "Review & Submit" && (
-                <div className="space-y-4">
-                  <div className="bg-zinc-50 p-5 text-sm space-y-2.5 rounded-md border border-zinc-100">
-                    {[
-                      ["Practice Location Status", data.practiceLocation === "Non_Rwandan" ? "Non-Rwandan" : data.practiceLocation],
-                      ["Entity Registration Mode", data.entityType],
-                      ["Assessment Category", data.categoryName || "Not selected"],
-                      ["Full Name on Application", data.personal.fullName || "Not Entered"],
-                      ["Contact Phone Number", data.personal.phone || "Not Entered"],
-                      ["Primary Contact Email", data.personal.email || "Not Entered"],
-                      ...(data.entityType === "Individual"
-                        ? [
-                            ["Academic Credentials Added", `${data.education.filter((x: any) => x.id || (x.institution && x.studyField && x.degree && x.startDateRaw)).length} records`],
-                            ["Employment Record Rows", data.hasNoEmployment ? "None (Never Employed)" : `${data.employment.filter((x: any) => x.id || (x.company && x.role && x.from)).length} records`],
-                          ]
-                        : [
-                            ["Registered Shareholders", `${data.personal.shareholders.filter((x: any) => x.fullName).length} items`],
-                            ["Firm Office Location", data.personal.firmAddress || "Not Entered"],
-                          ]),
-                      ["Attached Document Safe Files", `${Object.values(data.docs).filter(Boolean).length} uploads completed`],
-                    ].map(([k, v]) => (
-                      <div key={k as string} className="grid grid-cols-2 gap-2 pb-2 border-b border-zinc-100 last:border-0 last:pb-0">
-                        <span className="text-muted-foreground">{k}</span>
-                        <span className="font-semibold text-navy text-right truncate">{v as any}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="border-l-4 border-gold bg-gold/10 p-4 text-sm text-[#8a5c00] rounded-r-md leading-relaxed">
-                    <FileText className="mr-2 inline h-4 w-4 text-gold mb-1" />
-                    {data.entityType === "Individual" ? (
-                      <div className="mt-1">
-                        <strong className="block mb-1 text-navy">DECLARATION BY APPLICANT</strong>
-                        I hereby declare that all information provided in this application is true, complete, and accurate. I understand that any false declaration may lead to rejection, suspension, or cancellation of registration. I also agree to comply with all professional, ethical, and regulatory requirements governing Quantity Surveying practice.
-                      </div>
-                    ) : (
-                      <div className="space-y-3 mt-1">
-                        <div>
-                          <strong className="block mb-1 text-navy">BENEFICIAL OWNERSHIP DECLARATION (ANTI-FRONTING CLAUSE)</strong>
-                          I/We hereby declare that all listed individuals/shareholders are the true and lawful beneficial owners of the firm; no undisclosed party exercises ownership or control through nominees or proxies; the firm is not acting as a front for any undisclosed entity or individual; and the ownership structure provided represents the complete and accurate beneficial ownership of the firm.
+                <div className="space-y-6">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="bg-zinc-50 p-5 text-sm space-y-2.5 rounded-md border border-zinc-100">
+                      {[
+                        ["Practice Location Status", data.practiceLocation === "Non_Rwandan" ? "Non-Rwandan" : data.practiceLocation],
+                        ["Entity Registration Mode", data.entityType],
+                        ["Assessment Category", data.categoryName || "Not selected"],
+                        ["Full Name on Application", data.personal.fullName || "Not Entered"],
+                        ["Contact Phone Number", data.personal.phone || "Not Entered"],
+                        ["Primary Contact Email", data.personal.email || "Not Entered"],
+                        ...(data.entityType === "Individual"
+                          ? [
+                              ["Academic Credentials Added", `${data.education.filter((x: any) => x.id || (x.institution && x.studyField && x.degree && x.startDateRaw)).length} records`],
+                              ["Employment Record Rows", data.hasNoEmployment ? "None (Never Employed)" : `${data.employment.filter((x: any) => x.id || (x.company && x.role && x.from)).length} records`],
+                            ]
+                          : [
+                              ["Registered Shareholders", `${data.personal.shareholders.filter((x: any) => x.fullName).length} items`],
+                              ["Firm Office Location", data.personal.firmAddress || "Not Entered"],
+                            ]),
+                        ["Attached Document Safe Files", `${Object.values(data.docs).filter(Boolean).length} uploads completed`],
+                      ].map(([k, v]) => (
+                        <div key={k as string} className="grid grid-cols-2 gap-2 pb-2 border-b border-zinc-100 last:border-0 last:pb-0">
+                          <span className="text-muted-foreground">{k}</span>
+                          <span className="font-semibold text-navy text-right truncate">{v as any}</span>
                         </div>
-                        <div>
-                          <strong className="block mb-1 text-navy">COMPLIANCE UNDERTAKING</strong>
-                          The firm acknowledges that any misrepresentation shall constitute fraudulent declaration; the regulatory authority reserves the right to reject, suspend, or revoke registration; and the firm may be subject to legal and regulatory action if false information is identified.
-                        </div>
-                        <div>
+                      ))}
+                    </div>
+                    <div className="border-l-4 border-gold bg-gold/10 p-4 text-sm text-[#8a5c00] rounded-r-md leading-relaxed">
+                      <FileText className="mr-2 inline h-4 w-4 text-gold mb-1" />
+                      {data.entityType === "Individual" ? (
+                        <div className="mt-1">
                           <strong className="block mb-1 text-navy">DECLARATION BY APPLICANT</strong>
-                          I hereby confirm that all information provided is true, complete, and accurate. I agree to comply with all applicable professional, legal, and regulatory requirements governing Quantity Surveying practice.
+                          I hereby declare that all information provided in this application is true, complete, and accurate. I understand that any false declaration may lead to rejection, suspension, or cancellation of registration. I also agree to comply with all professional, ethical, and regulatory requirements governing Quantity Surveying practice.
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="space-y-3 mt-1">
+                          <div>
+                            <strong className="block mb-1 text-navy">BENEFICIAL OWNERSHIP DECLARATION (ANTI-FRONTING CLAUSE)</strong>
+                            I/We hereby declare that all listed individuals/shareholders are the true and lawful beneficial owners of the firm; no undisclosed party exercises ownership or control through nominees or proxies; the firm is not acting as a front for any undisclosed entity or individual; and the ownership structure provided represents the complete and accurate beneficial ownership of the firm.
+                          </div>
+                          <div>
+                            <strong className="block mb-1 text-navy">COMPLIANCE UNDERTAKING</strong>
+                            The firm acknowledges that any misrepresentation shall constitute fraudulent declaration; the regulatory authority reserves the right to reject, suspend, or revoke registration; and the firm may be subject to legal and regulatory action if false information is identified.
+                          </div>
+                          <div>
+                            <strong className="block mb-1 text-navy">DECLARATION BY APPLICANT</strong>
+                            I hereby confirm that all information provided is true, complete, and accurate. I agree to comply with all applicable professional, legal, and regulatory requirements governing Quantity Surveying practice.
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-start space-x-3 mt-4 mb-4">
-                    <Checkbox id="terms" checked={data.agreedToTerms}
-                      onCheckedChange={(checked) => setData({ ...data, agreedToTerms: checked === true })} />
-                    <Label htmlFor="terms" className="text-sm leading-snug cursor-pointer -mt-0.5 text-navy font-semibold">
-                      I have read, understood, and agree to the declarations above.
-                    </Label>
+
+                  <div className="flex items-center justify-between pt-6 border-t border-zinc-200 dark:border-zinc-800">
+                    <p className="text-sm text-muted-foreground font-sans">
+                      Please review all information before submitting. Once submitted, your application will be locked for review.
+                    </p>
                   </div>
+
                   <Button
-                    disabled={!data.agreedToTerms || submitMutation.isPending || !appId}
+                    disabled={submitMutation.isPending || !data.agreedToTerms || !data.noCriminalOffense}
                     onClick={submit}
                     className="w-full h-12 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-bold border-none disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -1961,6 +2167,15 @@ function WizardContent({
               return contextualChecklist
                 .filter((d: any) => d.r)
                 .some((d: any) => !data.docs[d.uid] || data.docs[d.uid] === "loading_from_backend" || data.docs[d.uid] === "uploading_from_client");
+            }
+            if (currentStepName === "Student Association") {
+              return !data.studentAssociation?.associationName || !data.studentAssociation?.membershipNumber || !data.studentAssociation?.registrationDate || !data.studentAssociation?.activeYears;
+            }
+            if (currentStepName === "Professional Competence Summary") {
+              return !data.competenceSummary?.preContractDuties || !data.competenceSummary?.postContractDuties || !data.competenceSummary?.specialization;
+            }
+            if (currentStepName === "Mentorship Plan") {
+               return !data.agreedToMentorshipIntent || !data.preferredPracticeAreas?.length || (!data.mentorPlan && data.mentors.filter((m: any) => m.name).length === 0);
             }
             return false;
           };

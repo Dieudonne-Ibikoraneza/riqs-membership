@@ -1,12 +1,16 @@
 "use client";
 
+import React, { useState } from "react";
+
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getApplicationsQueue } from "@/lib/api/admin";
+import { getApplicationsQueue, takeOverApplication } from "@/lib/api/admin";
 import { useAuth } from "@/lib/auth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import {
   ClipboardList,
   Users,
@@ -57,6 +61,26 @@ export default function AdminOverview() {
   const pendingApproval = pendingApprovalData?.pagination.total || 0;
   const approved = approvedData?.pagination.total || 0;
   const recentApplications = recentData?.queue || [];
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const [takingOverId, setTakingOverId] = useState<string | null>(null);
+
+  const handleReviewClick = async (e: React.MouseEvent, a: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (a.status !== "Pending") {
+      router.push(`/admin/applications/${a.id}`);
+      return;
+    }
+    try {
+      setTakingOverId(a.id);
+      await takeOverApplication(a.id);
+      router.push(`/admin/applications/${a.id}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to take over application.");
+      setTakingOverId(null);
+    }
+  };
 
   const stats = [
     {
@@ -133,7 +157,11 @@ export default function AdminOverview() {
               {role === "Admin" ? "System Overview" : `${role} Overview`}
             </h1>
             <div className="mt-2 text-sm text-white/80 max-w-md font-sans">
-              Manage incoming applications, oversee mentorship progress, and approve professional upgrades across the institution.
+              {role === "Reviewer" 
+                ? "Evaluate incoming applications, verify submitted documentation, and prepare candidates for final board approval."
+                : role === "Approver"
+                ? "Finalize professional upgrades, issue certificates, and oversee the integrity of the institutional registry."
+                : "Manage incoming applications, oversee mentorship progress, and approve professional upgrades across the institution."}
             </div>
           </div>
           <div className="rounded-lg bg-white/10 px-5 py-3 backdrop-blur border border-white/10 flex items-center gap-3">
@@ -212,12 +240,25 @@ export default function AdminOverview() {
                       {a.id.split('-')[0]} · {a.category_name} · {a.location}
                     </div>
                   </div>
-                  <Badge
-                    variant="outline"
-                    className={`font-semibold ${getStatusColor(a.status)}`}
-                  >
-                    {a.status.replace(/_/g, " ")}
-                  </Badge>
+                  <div className="flex items-center gap-3">
+                    <Badge
+                      variant="outline"
+                      className={`font-semibold ${getStatusColor(a.status)}`}
+                    >
+                      {a.status.replace(/_/g, " ")}
+                    </Badge>
+                    {(role === "Admin" || role === "Reviewer") && a.status === "Pending" && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-7 text-xs text-navy dark:text-gold hover:bg-navy/5"
+                        onClick={(e) => handleReviewClick(e, a)}
+                        disabled={takingOverId === a.id}
+                      >
+                        {takingOverId === a.id ? "Taking over..." : "Take Over"}
+                      </Button>
+                    )}
+                  </div>
                 </Link>
               </motion.div>
             ))

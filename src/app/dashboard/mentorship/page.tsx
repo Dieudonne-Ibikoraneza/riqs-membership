@@ -19,6 +19,11 @@ import {
   GraduationCap,
   Calendar,
   Award,
+  Lock,
+  ArrowUpCircle,
+  Clock,
+  ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -469,7 +474,7 @@ export default function Mentorship() {
         ) : (
           <div className="grid gap-6 md:grid-cols-3">
             {/* Left Card: Capacity Tracking */}
-            <Card className="md:col-span-1 h-fit border-zinc-200 dark:border-zinc-800 shadow-sm">
+            <Card className="md:col-span-1 h-fit border-zinc-200 dark:border-zinc-800 shadow-sm md:sticky md:top-6">
               <CardHeader className="pb-4">
                 <CardTitle className="text-navy dark:text-zinc-150 text-base font-bold flex items-center gap-2 font-sans">
                   <Users className="h-4.5 w-4.5 text-gold" /> Capacity Allocation
@@ -531,7 +536,34 @@ export default function Mentorship() {
   const hasRecommendation = docs.some(d => d.documentType === "MentorRecommendation");
   const recommendationDoc = docs.find((d: any) => d.documentType === "MentorRecommendation");
   const hasReport = docs.some((d: any) => d.documentType === "AnnualReport");
-  const isUpgradeRequested = apcData?.assessments?.some((a: any) => a.status === "Requested");
+  // ─── Derived: renewal & upgrade eligibility ─────────────────────────────
+  const approvedAt = profileData?.application?.approvedAt;
+  const financialTransactions = profileData?.financialTransactions || [];
+
+  // Check if there is a cleared Annual_Renewal transaction
+  const renewalCleared = financialTransactions.some(
+    (tx: any) => tx.txType === 'Annual_Renewal' && tx.status === 'Cleared'
+  );
+
+  // Months elapsed since application was approved
+  const monthsElapsed = approvedAt
+    ? Math.floor((Date.now() - new Date(approvedAt).getTime()) / (1000 * 60 * 60 * 24 * 30.44))
+    : 0;
+
+  // If 12+ months elapsed, we need renewal before continuing
+  const renewalDue = monthsElapsed >= 12;
+  const isRenewalLocked = renewalDue && !renewalCleared;
+
+  // Upgrade eligibility: 2 years (24 months) must have elapsed OR logbook is 100%
+  const logbookComplete = (logbookProgress?.overallProgress || 0) >= 100;
+  const twoYearsElapsed = monthsElapsed >= 24;
+  const monthsToGo = Math.max(0, 24 - monthsElapsed);
+  const upgradeEligible = twoYearsElapsed || logbookComplete;
+
+  // Check if an upgrade is already in progress
+  const hasActiveApc = apcData?.assessments?.some(
+    (a: any) => a.status === "Requested" || a.status === "Scheduled"
+  );
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -559,7 +591,7 @@ export default function Mentorship() {
       ) : (
         <div className="grid gap-6 md:grid-cols-3">
           {/* Left Column: Assigned Mentor details */}
-          <Card className="md:col-span-1 h-fit border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col">
+          <Card className="md:col-span-1 h-fit border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col md:sticky md:top-6">
             <CardHeader className="pb-4">
               <CardTitle className="text-navy dark:text-zinc-150 text-base font-bold font-sans">Your Assigned Mentor</CardTitle>
             </CardHeader>
@@ -654,7 +686,12 @@ export default function Mentorship() {
                         onChange={(e) => setLogbookForm({...logbookForm, competencyId: e.target.value})}
                       >
                         <option value="">Select a competency...</option>
-                        {competencies?.map((c: any) => (
+                        {competencies?.filter((c: any) => {
+                          const preferred = (profileData?.mentorship as any)?.preferredPracticeAreas || [];
+                          if (preferred.length > 0 && !preferred.includes(c.name)) return false;
+                          const prog = logbookProgress?.competencies?.find((p: any) => p.competencyId === c.id);
+                          return !prog || prog.percentage < 100;
+                        }).map((c: any) => (
                           <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                       </select>
@@ -671,15 +708,31 @@ export default function Mentorship() {
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="hours">Hours Completed</Label>
-                        <Input 
-                          id="hours" 
-                          type="number" 
-                          min="0"
-                          step="0.5"
-                          placeholder="e.g. 8"
-                          value={logbookForm.hoursCompleted || ""}
-                          onChange={(e) => setLogbookForm({...logbookForm, hoursCompleted: Number(e.target.value)})}
-                        />
+                        {(() => {
+                          const selectedComp = competencies?.find((c: any) => c.id === logbookForm.competencyId);
+                          const prog = logbookProgress?.competencies?.find((p: any) => p.competencyId === logbookForm.competencyId);
+                          const maxHours = selectedComp ? selectedComp.targetHours - (prog?.completedHours || 0) : undefined;
+                          return (
+                            <Input 
+                              id="hours" 
+                              type="number" 
+                              min="0.5"
+                              max={maxHours && maxHours > 0 ? maxHours : undefined}
+                              step="0.5"
+                              placeholder={maxHours ? `Max ${maxHours}` : "e.g. 8"}
+                              value={logbookForm.hoursCompleted || ""}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                if (maxHours && val > maxHours) {
+                                  toast.error(`You can only log up to ${maxHours} more hours for this competency.`);
+                                  setLogbookForm({...logbookForm, hoursCompleted: maxHours});
+                                } else {
+                                  setLogbookForm({...logbookForm, hoursCompleted: val});
+                                }
+                              }}
+                            />
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="grid gap-2">
@@ -707,8 +760,16 @@ export default function Mentorship() {
                     <Button 
                       className="bg-gold text-[#1a1a1a] hover:bg-gold/90"
                       onClick={() => {
+                        const selectedComp = competencies?.find((c: any) => c.id === logbookForm.competencyId);
+                        const prog = logbookProgress?.competencies?.find((p: any) => p.competencyId === logbookForm.competencyId);
+                        const maxHours = selectedComp ? selectedComp.targetHours - (prog?.completedHours || 0) : undefined;
+
                         if (!logbookForm.competencyId || logbookForm.hoursCompleted <= 0 || logbookForm.descriptionOfWork.length < 10) {
-                          toast.error("Please complete all required fields (Description must be at least 10 chars).");
+                          toast.error("Please complete all required fields (Hours > 0, Description must be at least 10 chars).");
+                          return;
+                        }
+                        if (maxHours && logbookForm.hoursCompleted > maxHours) {
+                          toast.error(`You can only log up to ${maxHours} more hours for this competency.`);
                           return;
                         }
                         submitLogbookMutation.mutate({
@@ -752,72 +813,163 @@ export default function Mentorship() {
         </div>
       )}
 
-      {/* Upgrade CTA Panel */}
-      <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm relative overflow-hidden bg-gradient-to-r from-zinc-50 to-white dark:from-zinc-950 dark:to-zinc-900">
-        <CardContent className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5 p-6 relative z-10">
-          <div className="flex-1 space-y-1.5">
-            <div className="font-bold text-navy dark:text-gold text-lg md:text-xl font-sans">Ready for a Professional Upgrade?</div>
-            <p className="text-sm text-muted-foreground leading-relaxed font-sans max-w-2xl">
-              Ensure your mentor has uploaded your recommendation letter and that you have uploaded your final annual logbook report. Once all criteria are met, submit your request to schedule your board review.
-            </p>
-          </div>
-          
-          <div className="flex flex-wrap gap-2.5 w-full md:w-auto shrink-0">
-            {hasReport ? (
-              <Button 
-                variant="outline" 
-                className="bg-emerald-50/20 text-emerald-600 border-emerald-250 hover:bg-emerald-50 dark:bg-emerald-950/10 dark:text-emerald-400 dark:border-emerald-900/50 w-full sm:w-auto font-semibold gap-1.5"
-                disabled
-              >
-                <Check className="h-4 w-4" /> Report Uploaded
-              </Button>
-            ) : (
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  if ((logbookProgress?.overallProgress || 0) < 100) {
-                    toast.error("Your logbook must be 100% complete before uploading the annual report.");
-                    return;
-                  }
-                  document.getElementById("report-upload-input")?.click();
-                }}
-                disabled={uploadReportMutation.isPending}
-                className="border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 w-full sm:w-auto gap-1.5 text-zinc-700 dark:text-zinc-300 font-semibold"
-              >
-                {uploadReportMutation.isPending ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</>
-                ) : (
-                  <><Upload className="h-4 w-4 text-gold" /> Upload Annual Report</>
-                )}
-              </Button>
-            )}
-
-            <Button 
-              className={cn("w-full sm:w-auto font-bold transition-transform active:scale-[0.98]", isUpgradeRequested ? "bg-zinc-200 text-zinc-600 cursor-not-allowed border-none shadow-none" : "bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none")}
-              disabled={requestUpgradeMutation.isPending || isUpgradeRequested}
-              onClick={() => {
-                if ((logbookProgress?.overallProgress || 0) < 100) {
-                  toast.error("Your logbook must be 100% complete before requesting an upgrade.");
-                } else if (!hasRecommendation) {
-                  toast.error("Your mentor has not uploaded your letter of recommendation yet.", {
-                    description: "Your recommendation status must be Approved before requesting an upgrade."
-                  });
-                } else if (!hasReport) {
-                  toast.error("Please upload your annual logbook report first.");
-                } else {
-                  requestUpgradeMutation.mutate();
-                }
-              }}
+      {/* \u2500\u2500 Annual Renewal Lock Banner \u2500\u2500 */}
+      {isRenewalLocked && (
+        <Card className="border-red-300 dark:border-red-900/50 bg-red-50/60 dark:bg-red-950/20 shadow-sm">
+          <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <Lock className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-bold text-red-800 dark:text-red-300 text-sm">Annual Renewal Required — Mentorship Access Locked</div>
+                <p className="text-xs text-red-700 dark:text-red-400 font-sans mt-1 leading-relaxed max-w-xl">
+                  Your first membership year ended {monthsElapsed} months ago. To continue logging hours and requesting your upgrade, you must pay your annual renewal fee ({((profileData?.application as any)?.annual_renewal_fee || 50000).toLocaleString()} RWF) and upload your Annual Report. Once your payment is verified by RIQS, your access will be restored.
+                </p>
+              </div>
+            </div>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white border-none shrink-0 gap-1.5 font-semibold"
+              onClick={() => window.location.href = '/dashboard/checkout'}
             >
-              {requestUpgradeMutation.isPending ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Requesting...</>
-              ) : isUpgradeRequested ? (
-                "Upgrade Requested"
-              ) : (
-                "Request Upgrade"
-              )}
+              <RefreshCw className="h-4 w-4" /> Pay Renewal Fee
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* \u2500\u2500 Upgrade & Annual Report Panel \u2500\u2500 */}
+      <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm relative overflow-hidden bg-gradient-to-br from-zinc-50 via-white to-blue-50/30 dark:from-zinc-950 dark:via-zinc-900 dark:to-blue-950/10">
+        <CardHeader className="pb-4 border-b border-zinc-100 dark:border-zinc-800/60">
+          <CardTitle className="text-navy dark:text-zinc-150 text-base font-bold font-sans flex items-center gap-2">
+            <ArrowUpCircle className="h-5 w-5 text-gold" /> Upgrade to Professional Membership
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 space-y-5">
+
+          {/* Timeline & eligibility status */}
+          <div className="grid gap-3 sm:grid-cols-3 text-sm">
+            <div className="rounded-lg border border-zinc-100 dark:border-zinc-800 p-4 bg-white/80 dark:bg-zinc-900/60 space-y-1">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Time in Programme</div>
+              <div className="font-bold text-xl text-navy dark:text-gold">{monthsElapsed} <span className="text-sm font-normal text-muted-foreground">months</span></div>
+              <div className="text-xs text-muted-foreground font-sans">{twoYearsElapsed ? "✅ 2-year requirement met" : `${monthsToGo} months remaining`}</div>
+            </div>
+            <div className="rounded-lg border border-zinc-100 dark:border-zinc-800 p-4 bg-white/80 dark:bg-zinc-900/60 space-y-1">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Logbook Completion</div>
+              <div className="font-bold text-xl text-navy dark:text-gold">{logbookProgress?.overallProgress || 0}<span className="text-sm font-normal text-muted-foreground">%</span></div>
+              <div className="text-xs text-muted-foreground font-sans">{logbookComplete ? "✅ Logbook requirement met" : `${100 - (logbookProgress?.overallProgress || 0)}% still needed`}</div>
+            </div>
+            <div className="rounded-lg border border-zinc-100 dark:border-zinc-800 p-4 bg-white/80 dark:bg-zinc-900/60 space-y-1">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Annual Report</div>
+              <div className={cn("font-bold text-sm mt-1", hasReport ? "text-emerald-600" : "text-zinc-500")}>
+                {hasReport ? "✅ Uploaded" : "⏳ Pending"}
+              </div>
+              {!hasReport && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full mt-1 gap-1.5 text-xs"
+                  onClick={() => {
+                    if (!upgradeEligible) {
+                      toast.error(twoYearsElapsed ? "Your logbook must reach 100%." : `${monthsToGo} more months of mentorship required.`);
+                      return;
+                    }
+                    document.getElementById("report-upload-input")?.click();
+                  }}
+                  disabled={uploadReportMutation.isPending || isRenewalLocked}
+                >
+                  {uploadReportMutation.isPending ? <><Loader2 className="h-3 w-3 animate-spin" /> Uploading...</> : <><Upload className="h-3 w-3 text-gold" /> Upload Report</>}
+                </Button>
+              )}
+            </div>
           </div>
+
+          {/* Not yet eligible message */}
+          {!upgradeEligible && (
+            <div className="flex items-start gap-3 p-4 rounded-lg border border-blue-200 dark:border-blue-900/40 bg-blue-50/50 dark:bg-blue-950/20 text-sm">
+              <Clock className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+              <div className="text-blue-800 dark:text-blue-300 font-sans">
+                <strong className="font-semibold">Not yet eligible for upgrade.</strong>{" "}
+                You need either <strong>{monthsToGo} more months</strong> of active mentorship OR a completed logbook (currently {logbookProgress?.overallProgress || 0}%).
+                Keep logging your hours and your eligibility will update automatically.
+              </div>
+            </div>
+          )}
+
+          {/* Two upgrade paths — only shown when eligible */}
+          {upgradeEligible && !hasActiveApc && (
+            <div className="space-y-3">
+              <div className="text-sm font-semibold text-navy dark:text-zinc-200">Choose your upgrade path:</div>
+              <div className="grid gap-3 md:grid-cols-2">
+
+                {/* Path A: Associate (no APC) */}
+                <div className="rounded-lg border-2 border-zinc-200 dark:border-zinc-700 p-4 space-y-2 hover:border-navy/50 transition-colors">
+                  <div className="font-semibold text-navy dark:text-zinc-100 text-sm">Associate Membership</div>
+                  <div className="text-xs text-muted-foreground font-sans leading-relaxed">
+                    For members not yet ready for APC. You become an <strong>Associate QS / Associate QS Technologist</strong>. Lower annual fee, no board assessment required.
+                  </div>
+                  <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Annual fee: ~70,000 – 100,000 RWF</div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full gap-1.5 border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 font-semibold"
+                    disabled={!hasRecommendation || !hasReport || isRenewalLocked || requestUpgradeMutation.isPending}
+                    onClick={() => {
+                      if (!hasRecommendation) return toast.error("Mentor recommendation letter is missing.");
+                      if (!hasReport) return toast.error("Please upload your Annual Report first.");
+                      requestUpgradeMutation.mutate();
+                    }}
+                  >
+                    <ArrowUpCircle className="h-4 w-4 text-navy dark:text-zinc-300" /> Apply for Associate
+                  </Button>
+                </div>
+
+                {/* Path B: Full Professional (with APC) */}
+                <div className="rounded-lg border-2 border-gold/40 bg-gold/5 dark:border-gold/20 dark:bg-gold/5 p-4 space-y-2">
+                  <div className="font-semibold text-navy dark:text-zinc-100 text-sm flex items-center gap-1.5">
+                    <Award className="h-4 w-4 text-gold" /> Full Professional / Technologist
+                  </div>
+                  <div className="text-xs text-muted-foreground font-sans leading-relaxed">
+                    Sit for the APC board assessment. If you pass, you become a <strong>Professional QS / QS Technologist</strong> — the highest individual membership tier.
+                  </div>
+                  <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Annual fee: 100,000 – 200,000 RWF · Stamp fee may apply</div>
+                  <Button
+                    size="sm"
+                    className="w-full gap-1.5 bg-gold text-[#1a1a1a] hover:bg-gold/90 font-bold border-none shadow-sm"
+                    disabled={!hasRecommendation || !hasReport || isRenewalLocked || requestUpgradeMutation.isPending}
+                    onClick={() => {
+                      if (!hasRecommendation) return toast.error("Mentor recommendation letter is missing.");
+                      if (!hasReport) return toast.error("Please upload your Annual Report first.");
+                      requestUpgradeMutation.mutate();
+                    }}
+                  >
+                    {requestUpgradeMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Requesting...</> : <><ExternalLink className="h-4 w-4" /> Request APC Assessment</>}
+                  </Button>
+                </div>
+              </div>
+
+              {(!hasRecommendation || !hasReport) && (
+                <div className="flex items-start gap-2 p-3 rounded bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-400 font-sans">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+                  <span>
+                    {!hasRecommendation && !hasReport
+                      ? "You still need your mentor's Recommendation Letter and your Annual Report uploaded before you can apply."
+                      : !hasRecommendation
+                      ? "Waiting for your mentor to upload the official Recommendation Letter."
+                      : "Please upload your Annual Report using the button above."}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Upgrade already in progress */}
+          {hasActiveApc && (
+            <div className="flex items-center gap-3 p-4 rounded-lg border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 text-sm">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+              <div className="text-emerald-800 dark:text-emerald-300 font-sans">
+                <strong>Upgrade request submitted!</strong> Your application is under review by the RIQS board. Check the APC Assessment History section below for status updates.
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

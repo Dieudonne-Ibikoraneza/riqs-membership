@@ -47,6 +47,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
 import { publicServices } from "@/services/public.services";
+import { logbookServices } from "@/services/logbook.services";
 import { DocumentTabsViewer } from "@/components/ui/document-tabs-viewer";
 import PDFViewer from "@/components/ui/pdf-viewer";
 import ImageViewer from "@/components/ui/image-viewer";
@@ -165,6 +166,11 @@ function StatusBanner({ status }: { status: string }) {
 export default function Application() {
   const queryClient = useQueryClient();
 
+  const { data: competencies = [] } = useQuery({
+    queryKey: ["logbookCompetencies"],
+    queryFn: logbookServices.getCompetencies,
+  });
+
   // Fetch existing application data
   const { data: profileData, isLoading: profileLoading } = useQuery({
     queryKey: queryKeys.applicant.profile(),
@@ -185,6 +191,8 @@ export default function Application() {
   const [step, setStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const getCacheKey = (loc: string, ent: string) => `${loc}-${ent}`;
+  const [cachedCategory, setCachedCategory] = useState<{ [key: string]: { id: string, name: string } }>({});
 
   const [data, setData] = useState<any>({
     practiceLocation: "Rwandan",
@@ -347,6 +355,7 @@ export default function Application() {
     }
   }, [data, step, hasLoaded]);
 
+
   const STEPS = useMemo(() => {
     const list = [
       "Practice Location",
@@ -358,12 +367,8 @@ export default function Application() {
       list.push("Education");
       list.push("Employment Record");
     }
-    if (data.entityType === "Individual" && (data.categoryName === "Graduate" || data.categoryName?.toLowerCase().includes("graduate"))) {
-      list.push("Student Association");
+    if (data.entityType === "Individual" && (data.categoryName?.toLowerCase().includes("graduate"))) {
       list.push("Mentorship Plan");
-    }
-    if (data.entityType === "Individual" && (data.categoryName === "Technologist" || data.categoryName === "Professional" || data.categoryName?.toLowerCase().includes("route 3") || data.categoryName?.toLowerCase().includes("route 4"))) {
-      list.push("Professional Competence Summary");
     }
     list.push("Other Documents");
     list.push("Declarations");
@@ -383,7 +388,8 @@ export default function Application() {
     return categories.filter(
       (c: any) =>
         c.location === data.practiceLocation &&
-        (c.entityType || c.entity_type) === data.entityType
+        (c.entityType || c.entity_type) === data.entityType &&
+        !c.category_name?.toLowerCase().includes("associate")
     );
   }, [categories, data.practiceLocation, data.entityType]);
 
@@ -417,11 +423,25 @@ export default function Application() {
   }, [filteredCategories, data.entityType, data.practiceLocation]);
 
   const updateLocation = (loc: string) => {
-    setData((d: any) => ({ ...d, practiceLocation: loc, categoryId: "", categoryName: "" }));
+    setCachedCategory(prev => ({
+      ...prev,
+      [getCacheKey(data.practiceLocation, data.entityType)]: { id: data.categoryId, name: data.categoryName }
+    }));
+    setData((d: any) => {
+      const restored = cachedCategory[getCacheKey(loc, data.entityType)] || { id: "", name: "" };
+      return { ...d, practiceLocation: loc, categoryId: restored.id, categoryName: restored.name };
+    });
   };
 
   const updateEntity = (ent: string) => {
-    setData((d: any) => ({ ...d, entityType: ent, categoryId: "", categoryName: "" }));
+    setCachedCategory(prev => ({
+      ...prev,
+      [getCacheKey(data.practiceLocation, data.entityType)]: { id: data.categoryId, name: data.categoryName }
+    }));
+    setData((d: any) => {
+      const restored = cachedCategory[getCacheKey(data.practiceLocation, ent)] || { id: "", name: "" };
+      return { ...d, entityType: ent, categoryId: restored.id, categoryName: restored.name };
+    });
   };
 
   const addMentor = () => {
@@ -725,7 +745,7 @@ export default function Application() {
         <StatusBanner status={appStatus} />
         {appStatus === "Correction_Required" && (
           <div className="mt-8 pt-8 border-t border-zinc-200 dark:border-zinc-800">
-            <WizardContent
+            <WizardContent competencies={competencies}
               goToStep={setStep}
               step={step}
               STEPS={STEPS}
@@ -761,7 +781,7 @@ export default function Application() {
   }
 
   return (
-    <WizardContent
+    <WizardContent competencies={competencies}
       goToStep={setStep}
       step={step}
       STEPS={STEPS}
@@ -798,7 +818,7 @@ function WizardContent({
   step, STEPS, pct, data, setData, categoriesList, documentChecklist,
   currentStepName, updateLocation, updateEntity, addMentor, removeMentor,
   appId, isSaving, addEduMutation, delEduMutation, addEmpMutation, delEmpMutation, mentorshipMutation, delMentorMutation,
-  submitMutation, submit, next, back, documents, goToStep, reviewerNotes
+  submitMutation, submit, next, back, documents, goToStep, reviewerNotes, competencies
 }: any) {
   const queryClient = useQueryClient();
   const [photoDragActive, setPhotoDragActive] = useState(false);
@@ -1113,27 +1133,31 @@ function WizardContent({
 
               {/* ── Category ── */}
               {currentStepName === "Category" && (
-                <div className="max-w-md space-y-1.5">
-                  <Label htmlFor="app-cat">Membership Category Level</Label>
-                  <Select
-                    value={data.categoryId || data.categoryName}
-                    onValueChange={(v) => {
-                      const found = categoriesList.find((c: any) => c.id === v || c.name === v);
-                      setData({ ...data, categoryId: found?.id || "", categoryName: found?.name || v });
-                    }}
-                  >
-                    <SelectTrigger id="app-cat" className="mt-1 h-11 border-zinc-200 dark:border-zinc-800">
-                      <SelectValue placeholder="Select Category Level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categoriesList.map((c: any) => (
-                        <SelectItem key={c.id || c.name} value={c.id || c.name}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground pt-1 leading-normal font-sans">
-                    Required document checklist and assessment tiers vary based on candidate level.
-                  </p>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Assessment Category <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={data.categoryId}
+                      onValueChange={(val) => {
+                        const cat = categoriesList.find((c: any) => c.id === val);
+                        setData({ ...data, categoryId: val, categoryName: cat?.name || "" });
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categoriesList.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground pt-1 leading-normal font-sans">
+                      Required document checklist and assessment tiers vary based on candidate level.
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -1288,9 +1312,8 @@ function WizardContent({
                       </div>
                     )}
                     {data.practiceLocation === "Rwandan" && (
-                      <>
                         <div className="md:col-span-2 border border-zinc-100 dark:border-zinc-800 p-4 rounded-md bg-zinc-50/50 space-y-3">
-                          <h4 className="font-semibold text-sm text-navy">Resident Address (Optional)</h4>
+                          <h4 className="font-semibold text-sm text-navy">Resident Address <span className="text-red-500">*</span></h4>
                           <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
                             {["district", "sector", "cell", "village"].map((field) => (
                               <div key={field} className="space-y-1">
@@ -1302,20 +1325,6 @@ function WizardContent({
                             ))}
                           </div>
                         </div>
-                        <div className="md:col-span-2 border border-zinc-100 dark:border-zinc-800 p-4 rounded-md bg-zinc-50/50 space-y-3">
-                          <h4 className="font-semibold text-sm text-navy">Work Address (Optional)</h4>
-                          <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-                            {["district", "sector", "cell", "village"].map((field) => (
-                              <div key={`work-${field}`} className="space-y-1">
-                                <Label className="capitalize">{field}</Label>
-                                <Input placeholder={`e.g. ${field === "district" ? "Nyarugenge" : field === "sector" ? "Muhima" : field === "cell" ? "Nyabugogo" : "Kinyaga"}`}
-                                  value={data.personal.workAddress[field]}
-                                  onChange={(e) => setData({ ...data, personal: { ...data.personal, workAddress: { ...data.personal.workAddress, [field]: e.target.value } } })} />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </>
                     )}
                     </div>
                   </div>
@@ -1444,6 +1453,21 @@ function WizardContent({
                   </div>
                   {!data.hasNoEmployment && (
                     <>
+                      {data.practiceLocation === "Rwandan" && (
+                        <div className="border border-zinc-100 dark:border-zinc-800 p-4 rounded-md bg-zinc-50/50 space-y-3 mb-6">
+                          <h4 className="font-semibold text-sm text-navy">Work Address <span className="text-red-500">*</span></h4>
+                          <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+                            {["district", "sector", "cell", "village"].map((field) => (
+                              <div key={`work-${field}`} className="space-y-1">
+                                <Label className="capitalize">{field}</Label>
+                                <Input placeholder={`e.g. ${field === "district" ? "Nyarugenge" : field === "sector" ? "Muhima" : field === "cell" ? "Nyabugogo" : "Kinyaga"}`}
+                                  value={data.personal.workAddress[field]}
+                                  onChange={(e) => setData({ ...data, personal: { ...data.personal, workAddress: { ...data.personal.workAddress, [field]: e.target.value } } })} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {data.employment.map((em: any, i: number) => (
                         <div key={em.id || i} className="relative grid gap-4 border border-zinc-150 p-4 rounded-md md:grid-cols-12 bg-zinc-50/50">
                           <div className="md:col-span-6 space-y-1">
@@ -1588,7 +1612,7 @@ function WizardContent({
                                   qualificationType: ed.degree,
                                   fieldOfStudy: ed.studyField,
                                   startDate: ed.startDateRaw.split('-').length === 3 ? ed.startDateRaw : `${ed.startDateRaw}-01`,
-                                  endDate,
+                                  endDate: endDate,
                                 });
                               }}>
                               {addEduMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
@@ -1611,73 +1635,6 @@ function WizardContent({
                   </Button>
                 </div>
               )}
-
-              {/* ── Student Association ── */}
-              {currentStepName === "Student Association" && (
-                <div className="space-y-4">
-                  <div className="border border-zinc-150 dark:border-zinc-800 bg-zinc-50/50 p-4 rounded-md space-y-4">
-                    <h3 className="font-semibold text-base text-navy">University Quantity Surveying Student Association</h3>
-                    <p className="text-sm text-muted-foreground font-sans">
-                      Provide details of your involvement in your university's Quantity Surveying Student Association.
-                    </p>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-1">
-                        <Label>Name of Association</Label>
-                        <Input placeholder="e.g. UR-QSSA" value={data.studentAssociation.associationName}
-                          onChange={(e) => setData({ ...data, studentAssociation: { ...data.studentAssociation, associationName: e.target.value } })} />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Membership Number</Label>
-                        <Input placeholder="e.g. QSSA-001" value={data.studentAssociation.membershipNumber}
-                          onChange={(e) => setData({ ...data, studentAssociation: { ...data.studentAssociation, membershipNumber: e.target.value } })} />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Date of Registration</Label>
-                        <MonthYearPicker value={data.studentAssociation.registrationDate} placeholder="Select Date"
-                          onChange={(val) => setData({ ...data, studentAssociation: { ...data.studentAssociation, registrationDate: val } })} />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Active Years</Label>
-                        <Input placeholder="e.g. 2019-2023" value={data.studentAssociation.activeYears}
-                          onChange={(e) => setData({ ...data, studentAssociation: { ...data.studentAssociation, activeYears: e.target.value } })} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Professional Competence Summary ── */}
-              {currentStepName === "Professional Competence Summary" && (
-                <div className="space-y-4">
-                  <div className="border border-zinc-150 dark:border-zinc-800 bg-zinc-50/50 p-4 rounded-md space-y-4">
-                    <h3 className="font-semibold text-base text-navy">Summary of Professional Competence</h3>
-                    <p className="text-sm text-muted-foreground font-sans">
-                      Briefly describe your experience and competence in the following key areas of Quantity Surveying practice.
-                    </p>
-                    <div className="space-y-4">
-                      <div className="space-y-1">
-                        <Label>Pre-Contract Duties</Label>
-                        <Textarea rows={3} placeholder="Describe your experience in cost planning, estimating, tendering, etc."
-                          value={data.competenceSummary.preContractDuties || ""}
-                          onChange={(e) => setData({ ...data, competenceSummary: { ...data.competenceSummary, preContractDuties: e.target.value } })} />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Post-Contract Duties</Label>
-                        <Textarea rows={3} placeholder="Describe your experience in contract administration, valuations, final accounts, etc."
-                          value={data.competenceSummary.postContractDuties || ""}
-                          onChange={(e) => setData({ ...data, competenceSummary: { ...data.competenceSummary, postContractDuties: e.target.value } })} />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Specialization & Technical Skills</Label>
-                        <Textarea rows={2} placeholder="e.g. BIM, Project Management, Dispute Resolution, etc."
-                          value={data.competenceSummary.specialization || ""}
-                          onChange={(e) => setData({ ...data, competenceSummary: { ...data.competenceSummary, specialization: e.target.value } })} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* ── Mentorship Plan ── */}
               {currentStepName === "Mentorship Plan" && (
                 <div className="space-y-4">
@@ -1693,10 +1650,31 @@ function WizardContent({
                   </div>
 
                   <div className="space-y-2 border p-4 rounded-md bg-zinc-50 dark:bg-zinc-900/50">
-                    <Label>Preferred Practice Areas</Label>
-                    <Input placeholder="e.g. Cost Planning, Contract Admin (comma separated)"
-                      value={data.preferredPracticeAreas?.join(', ') || ''}
-                      onChange={(e) => setData({ ...data, preferredPracticeAreas: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                    <Label>Preferred Practice Areas <span className="text-muted-foreground font-normal">(Optional)</span></Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 max-h-48 overflow-y-auto p-2 border rounded bg-white dark:bg-zinc-950">
+                      {competencies.map((c: any) => {
+                        const isSelected = data.preferredPracticeAreas?.includes(c.name);
+                        return (
+                          <div key={c.id} className="flex flex-row items-start space-x-3 space-y-0 p-2 rounded hover:bg-zinc-50 dark:hover:bg-zinc-900">
+                            <Checkbox
+                              id={`competency-${c.id}`}
+                              checked={isSelected}
+                              onCheckedChange={(checked) => {
+                                const current = data.preferredPracticeAreas || [];
+                                const updated = checked 
+                                  ? [...current, c.name] 
+                                  : current.filter((name: string) => name !== c.name);
+                                setData({ ...data, preferredPracticeAreas: updated, preferredPracticeAreasRaw: updated.join(', ') });
+                              }}
+                            />
+                            <div className="space-y-1 leading-none">
+                              <Label htmlFor={`competency-${c.id}`} className="font-medium text-sm cursor-pointer">{c.name}</Label>
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {competencies.length === 0 && <span className="text-xs text-muted-foreground italic">No competencies found in settings.</span>}
+                    </div>
                   </div>
 
                   {data.mentors.map((m: any, i: number) => (
@@ -1772,7 +1750,7 @@ function WizardContent({
                     </Button>
                   </div>
                   <div>
-                    <Label>Mentorship plan</Label>
+                    <Label>Mentorship plan <span className="text-muted-foreground font-normal">(Optional)</span></Label>
                     <Textarea rows={4} value={data.mentorPlan}
                       onChange={(e) => setData({ ...data, mentorPlan: e.target.value })}
                       placeholder="Briefly describe your mentorship plan and learning goals..." />
@@ -1939,7 +1917,7 @@ function WizardContent({
                   <div className="grid gap-6 md:grid-cols-2">
                     <div className="bg-zinc-50 p-5 text-sm space-y-2.5 rounded-md border border-zinc-100">
                       {[
-                        ["Practice Location Status", data.practiceLocation === "Non_Rwandan" ? "Non-Rwandan" : data.practiceLocation],
+                        ["Practice Location", data.practiceLocation === "Non_Rwandan" ? "Non-Rwandan" : "Rwandan"],
                         ["Entity Registration Mode", data.entityType],
                         ["Assessment Category", data.categoryName || "Not selected"],
                         ["Full Name on Application", data.personal.fullName || "Not Entered"],
@@ -2144,10 +2122,23 @@ function WizardContent({
               const photoDoc = documentChecklist.find((d: any) => d.k === "photo");
               const photoMissing = photoDoc?.r && (!data.docs["photo"] || data.docs["photo"] === "loading_from_backend" || data.docs["photo"] === "uploading_from_client") && !photoPreview;
               if (data.entityType === "Individual") {
-                return !p.fullName || !p.phone || !p.email || !p.nationalId || !!photoMissing;
+                const resAdd = p.residentAddress;
+                const residentMissing = data.practiceLocation === "Rwandan" && (!resAdd?.district || !resAdd?.sector || !resAdd?.cell || !resAdd?.village);
+                return !p.fullName || !p.phone || !p.email || !p.nationalId || !p.gender || !p.nationality || !!photoMissing || residentMissing;
               } else {
                 // Firm: rep info + firm name + at least one shareholder with name
                 return !p.fullName || !p.phone || !p.firmName || !data.personal.shareholders?.some((s: any) => s.fullName);
+              }
+            }
+            if (currentStepName === "Employment Record") {
+              if (!data.hasNoEmployment) {
+                // At least one saved employment entry with required fields
+                const hasSavedEntry = data.employment.some((ed: any) => ed.id || (ed.company && ed.role && ed.from));
+                if (!hasSavedEntry) return true;
+                if (data.practiceLocation === "Rwandan") {
+                  const wAdd = data.personal.workAddress;
+                  if (!wAdd?.district || !wAdd?.sector || !wAdd?.cell || !wAdd?.village) return true;
+                }
               }
             }
             if (currentStepName === "Education") {
@@ -2168,14 +2159,12 @@ function WizardContent({
                 .filter((d: any) => d.r)
                 .some((d: any) => !data.docs[d.uid] || data.docs[d.uid] === "loading_from_backend" || data.docs[d.uid] === "uploading_from_client");
             }
-            if (currentStepName === "Student Association") {
-              return !data.studentAssociation?.associationName || !data.studentAssociation?.membershipNumber || !data.studentAssociation?.registrationDate || !data.studentAssociation?.activeYears;
-            }
-            if (currentStepName === "Professional Competence Summary") {
-              return !data.competenceSummary?.preContractDuties || !data.competenceSummary?.postContractDuties || !data.competenceSummary?.specialization;
-            }
+
             if (currentStepName === "Mentorship Plan") {
-               return !data.agreedToMentorshipIntent || !data.preferredPracticeAreas?.length || (!data.mentorPlan && data.mentors.filter((m: any) => m.name).length === 0);
+               return !data.agreedToMentorshipIntent;
+            }
+            if (currentStepName === "Declarations") {
+               return !data.noCriminalOffense || !data.agreedToTerms;
             }
             return false;
           };

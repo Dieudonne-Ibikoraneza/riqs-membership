@@ -38,6 +38,21 @@ export const logbookServices = {
     return data;
   },
 
+  createCompetency: async (payload: { name: string; description: string; targetHours: number }): Promise<Competency> => {
+    const { data } = await axiosClient.post("/logbook/competencies", payload);
+    return data;
+  },
+
+  updateCompetency: async (id: string, payload: { name: string; description: string; targetHours: number }): Promise<Competency> => {
+    const { data } = await axiosClient.put(`/logbook/competencies/${id}`, payload);
+    return data;
+  },
+
+  deleteCompetency: async (id: string): Promise<any> => {
+    const { data } = await axiosClient.delete(`/logbook/competencies/${id}`);
+    return data;
+  },
+
   getLogbookEntries: async (applicationId: string): Promise<LogbookEntry[]> => {
     const { data } = await axiosClient.get(`/logbook/${applicationId}/entries`);
     return data;

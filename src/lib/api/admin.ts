@@ -270,3 +270,21 @@ export async function getAllApc(status?: string, page: number = 1, limit: number
   const { data } = await axiosClient.get(`/admin/apc?${params.toString()}`);
   return data;
 }
+
+// --- Mentorship Bundle Review ---
+export async function adminReviewUpgrade(payload: {
+  applicationId: string;
+  action: "Approve" | "Reject";
+  notes?: string;
+}): Promise<any> {
+  const { data } = await axiosClient.put(`/logbook/upgrade/${payload.applicationId}/admin-review`, {
+    status: payload.action === "Approve" ? "Approved" : "Rejected",
+    adminNotes: payload.notes
+  });
+  return data;
+}
+
+export async function awardAssociate(applicationId: string): Promise<any> {
+  const { data } = await axiosClient.post(`/progression/associate/award`, { applicationId });
+  return data;
+}

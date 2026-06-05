@@ -1,86 +1,67 @@
 import { axiosClient } from "@/lib/axiosClient";
 
-export interface Competency {
-  id: string;
-  name: string;
-  description: string;
-  targetHours: number;
-}
-
 export interface LogbookEntry {
   id: string;
   applicationId: string;
-  competencyId: string;
-  date: string;
-  hoursCompleted: number;
-  descriptionOfWork: string;
-  supervisorName: string;
-  status: "Pending_Approval" | "Approved" | "Rejected";
-  rejectionReason?: string;
-  competency?: Competency;
+  period: string;
+  documentUrl: string;
   createdAt: string;
 }
 
-export interface LogbookProgressResponse {
-  overallProgress: number;
-  competencies: {
-    competencyId: string;
-    name: string;
-    targetHours: number;
-    completedHours: number;
-    percentage: number;
-  }[];
+export interface MentorshipProgressResponse {
+  assignment: any;
+  entriesCount: number;
+  entries: LogbookEntry[];
 }
 
 export const logbookServices = {
-  getCompetencies: async (): Promise<Competency[]> => {
-    const { data } = await axiosClient.get("/logbook/competencies");
-    return data;
-  },
-
-  createCompetency: async (payload: { name: string; description: string; targetHours: number }): Promise<Competency> => {
-    const { data } = await axiosClient.post("/logbook/competencies", payload);
-    return data;
-  },
-
-  updateCompetency: async (id: string, payload: { name: string; description: string; targetHours: number }): Promise<Competency> => {
-    const { data } = await axiosClient.put(`/logbook/competencies/${id}`, payload);
-    return data;
-  },
-
-  deleteCompetency: async (id: string): Promise<any> => {
-    const { data } = await axiosClient.delete(`/logbook/competencies/${id}`);
-    return data;
-  },
-
   getLogbookEntries: async (applicationId: string): Promise<LogbookEntry[]> => {
     const { data } = await axiosClient.get(`/logbook/${applicationId}/entries`);
     return data;
   },
 
-  getLogbookProgress: async (applicationId: string): Promise<LogbookProgressResponse> => {
+  getMentorshipProgress: async (applicationId: string): Promise<MentorshipProgressResponse> => {
     const { data } = await axiosClient.get(`/logbook/${applicationId}/progress`);
     return data;
   },
 
-  submitLogbookEntry: async (payload: {
-    applicationId: string;
-    competencyId: string;
-    date: string;
-    hoursCompleted: number;
-    descriptionOfWork: string;
-    supervisorName?: string;
-  }): Promise<LogbookEntry> => {
-    const { data } = await axiosClient.post("/logbook/entry", payload);
+  submitLogbookEntry: async (formData: FormData): Promise<LogbookEntry> => {
+    const { data } = await axiosClient.post("/logbook/entry", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data"
+      }
+    });
     return data;
   },
 
-  reviewLogbookEntry: async (payload: {
-    entryId: string;
+  uploadAnnualReport: async (formData: FormData): Promise<any> => {
+    const { data } = await axiosClient.post("/logbook/annual-report", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data"
+      }
+    });
+    return data;
+  },
+
+  requestUpgrade: async (payload: { applicationId: string, apcReadiness: "Ready" | "Not_Ready" }): Promise<any> => {
+    const { data } = await axiosClient.post("/logbook/request-upgrade", payload);
+    return data;
+  },
+
+  submitMentorRecommendation: async (formData: FormData): Promise<any> => {
+    const { data } = await axiosClient.post(`/logbook/mentor-recommendation`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data"
+      }
+    });
+    return data;
+  },
+
+  adminReviewUpgrade: async (applicationId: string, payload: {
     status: "Approved" | "Rejected";
-    rejectionReason?: string;
-  }): Promise<LogbookEntry> => {
-    const { data } = await axiosClient.patch("/logbook/entry/review", payload);
+    adminNotes?: string;
+  }): Promise<any> => {
+    const { data } = await axiosClient.put(`/logbook/upgrade/${applicationId}/admin-review`, payload);
     return data;
   }
 };

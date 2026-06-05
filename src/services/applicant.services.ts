@@ -24,6 +24,7 @@ export interface ApplicantProfileResponse {
     submittedAt: string | null;
     approvedAt?: string | null;
     reviewerNotes?: string | null;
+    currentStep?: number | null;
   } | null;
   education: Array<{
     id: string;
@@ -88,6 +89,7 @@ export const applicantServices = {
     residencyAddress?: object;
     workAddress?: object;
     countryOfOrigin?: string;
+    currentStep?: number;
   }): Promise<any> => {
     const response = await axiosClient.patch('/applicants/application', data);
     return response.data;

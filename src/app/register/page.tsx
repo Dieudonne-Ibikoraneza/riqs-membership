@@ -30,9 +30,14 @@ export default function Register() {
   useEffect(() => {
     // Ensure draft state is cleared when visiting auth pages
     try {
-      localStorage.removeItem("riqs_app_draft");
-      localStorage.removeItem("riqs_app_step");
-      localStorage.removeItem("riqs_app_last_correction");
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith("riqs_app_draft") || k.startsWith("riqs_app_step") || k.startsWith("riqs_app_last_correction"))) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
     } catch (e) {}
 
     if (resendTimer > 0) {

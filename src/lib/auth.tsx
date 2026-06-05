@@ -65,9 +65,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Preserve UI theme preferences but wipe absolutely everything else (auth, tokens, drafts, etc.)
     const config = localStorage.getItem("riqs-config");
-    localStorage.removeItem("riqs_app_draft");
-    localStorage.removeItem("riqs_app_step");
-    localStorage.removeItem("riqs_app_last_correction");
+    // Remove all user-scoped draft keys (riqs_app_draft_<email>, riqs_app_step_<email>, etc.)
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith("riqs_app_draft") || k.startsWith("riqs_app_step") || k.startsWith("riqs_app_last_correction"))) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
     localStorage.clear();
     if (config) localStorage.setItem("riqs-config", config);
   };
@@ -124,7 +130,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setEmail(member.email);
       
       // Determine capabilities from systemRole and membershipClass
-      const isMentor = member.systemRole === "Mentor";
+      const isMentor = member.systemRole === "Mentor" || 
+        member.membershipClass?.includes("Technologist") || 
+        member.membershipClass?.includes("Professional") || 
+        member.membershipClass?.includes("PQS");
       const isTeacher = member.systemRole === "Teacher";
       const isStudent = member.membershipClass === "Student" || member.systemRole === "Student";
       

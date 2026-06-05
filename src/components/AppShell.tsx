@@ -61,7 +61,7 @@ export function AppShell({
     
     if (!firmStatus && typeof window !== "undefined") {
       try {
-        const draft = localStorage.getItem("riqs_app_draft");
+        const draft = localStorage.getItem(`riqs_app_draft_${email || 'default'}`);
         if (draft) {
           const parsed = JSON.parse(draft);
           if (parsed.entityType === "Firm") firmStatus = true;

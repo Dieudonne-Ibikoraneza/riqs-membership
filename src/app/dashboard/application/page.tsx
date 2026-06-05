@@ -43,6 +43,8 @@ import { toast } from "sonner";
 import { MonthYearPicker } from "@/components/ui/month-picker";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
@@ -165,10 +167,12 @@ function StatusBanner({ status }: { status: string }) {
 // ─── Main Application Component ──────────────────────────────────────────────
 export default function Application() {
   const queryClient = useQueryClient();
+  const { logout } = useAuth();
+  const router = useRouter();
 
   const { data: competencies = [] } = useQuery({
     queryKey: ["logbookCompetencies"],
-    queryFn: logbookServices.getCompetencies,
+    queryFn: () => Promise.resolve([]),
   });
 
   // Fetch existing application data
@@ -242,12 +246,12 @@ export default function Application() {
     const { profile, application, education, employment } = profileData;
 
     let savedLocal: any = null;
-    let savedStep = 0;
+    let savedStep = (application as any)?.currentStep || 0;
     try {
       const stored = localStorage.getItem('riqs_app_draft');
       if (stored) savedLocal = JSON.parse(stored);
       const sStep = localStorage.getItem('riqs_app_step');
-      if (sStep) savedStep = Number(sStep);
+      if (sStep !== null) savedStep = Number(sStep);
 
       // Force step 0 if application just switched to Correction Required
       if (application?.status === "Correction_Required") {
@@ -356,6 +360,7 @@ export default function Application() {
   }, [data, step, hasLoaded]);
 
 
+
   const STEPS = useMemo(() => {
     const list = [
       "Practice Location",
@@ -462,6 +467,59 @@ export default function Application() {
       toast.error(err?.response?.data?.error || "Failed to save progress");
     },
   });
+
+  // Handle Save & Logout Event
+  useEffect(() => {
+    const handleSaveAndLogout = () => {
+      if (data.categoryId) {
+        saveMutation.mutate({
+          practiceLocation: data.practiceLocation,
+          entityType: data.entityType,
+          categoryId: data.categoryId,
+          fullName: data.personal.fullName,
+          phoneNumber: data.personal.phone,
+          dob: data.personal.dob,
+          nationalIdOrPassport: data.personal.nationalId,
+          gender: data.personal.gender,
+          nationality: data.personal.nationality,
+          yearsInProfession: data.personal.yearsInProfession,
+          residencyAddress: data.personal.residentAddress,
+          workAddress: data.personal.workAddress,
+          countryOfOrigin: data.personal.countryOfOrigin,
+          firmName: data.entityType === "Firm" ? data.personal.firmName : undefined,
+          firmAddress: data.entityType === "Firm" ? data.personal.firmAddress : undefined,
+          firmContactRegistrationNumber: data.entityType === "Firm" ? data.personal.firmContactRegistrationNumber : undefined,
+          firmContactResidence: data.entityType === "Firm" ? data.personal.firmContactResidence : undefined,
+          firmMainBusinessActivity: data.entityType === "Firm" ? data.personal.firmMainBusinessActivity : undefined,
+          firmCountryOfIncorporation: data.entityType === "Firm" ? data.personal.firmCountryOfIncorporation : undefined,
+          firmPrincipalPlaceOfBusiness: data.entityType === "Firm" ? data.personal.firmPrincipalPlaceOfBusiness : undefined,
+          studentAssociation: data.studentAssociation,
+          competenceSummary: data.competenceSummary,
+          agreedToMentorshipIntent: data.agreedToMentorshipIntent,
+          noCriminalOffense: data.noCriminalOffense,
+          currentStep: step,
+        } as any, {
+          onSuccess: () => {
+            localStorage.removeItem('riqs_app_draft');
+            localStorage.removeItem('riqs_app_step');
+            logout();
+            router.push('/login');
+          },
+          onError: () => {
+            toast.error("Failed to save draft. Logging out anyway.");
+            logout();
+            router.push('/login');
+          }
+        });
+      } else {
+        logout();
+        router.push('/login');
+      }
+    };
+
+    window.addEventListener('riqs_save_and_logout', handleSaveAndLogout);
+    return () => window.removeEventListener('riqs_save_and_logout', handleSaveAndLogout);
+  }, [data, step, logout, router, saveMutation]);
 
   // ─── Education mutations ───────────────────────────────────────────────────
   const addEduMutation = useMutation({
@@ -684,6 +742,7 @@ export default function Application() {
         competenceSummary: data.competenceSummary,
         agreedToMentorshipIntent: data.agreedToMentorshipIntent,
         noCriminalOffense: data.noCriminalOffense,
+        currentStep: Math.min(STEPS.length - 1, step + 1),
       } as any);
     }
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
@@ -901,7 +960,7 @@ function WizardContent({
     }
   }, [documents]);
 
-  const EDUCATION_DOC_TYPES = ["transcript", "certificate"];
+  const EDUCATION_DOC_TYPES = ["transcript", "certificate", "degree", "student_association", "cpd_certificate"];
 
   const getContextualChecklist = () => {
     if (currentStepName === "Education") {

@@ -39,7 +39,7 @@ export default function Overview() {
 
   const { data: logbookProgress } = useQuery({
     queryKey: ["logbook-progress", profileData?.application?.id],
-    queryFn: () => logbookServices.getLogbookProgress(profileData!.application!.id),
+    queryFn: () => logbookServices.getMentorshipProgress(profileData!.application!.id),
     enabled: !!profileData?.application?.id && isGraduate
   });
 
@@ -109,7 +109,7 @@ export default function Overview() {
           ...(isFirm ? [] : [{
             i: isGraduate ? GraduationCap : Users,
             label: isGraduate ? "Logbook Progress" : "Active Mentees",
-            v: isGraduate ? `${logbookProgress?.overallProgress || 0}%` : activeMenteesCount.toString(),
+            v: isGraduate ? `${((logbookProgress?.entriesCount || 0) / 4) * 100}%` : activeMenteesCount.toString(),
             c: isGraduate ? "text-navy dark:text-gold" : "text-emerald-600",
           }]),
           {
@@ -156,10 +156,10 @@ export default function Overview() {
                     Overall Completion
                   </span>
                   <span className="font-semibold text-navy dark:text-gold">
-                    {logbookProgress?.overallProgress || 0}% completed
+                    {((logbookProgress?.entriesCount || 0) / 4) * 100}% completed
                   </span>
                 </div>
-                <Progress value={logbookProgress?.overallProgress || 0} className="mt-2 h-2.5" />
+                <Progress value={((logbookProgress?.entriesCount || 0) / 4) * 100} className="mt-2 h-2" />
 
                 <div className="mt-6 flex-1 flex flex-col items-center justify-center py-8 text-center bg-zinc-50 dark:bg-zinc-900/50 rounded-md border border-dashed border-zinc-200 dark:border-zinc-800">
                   <FileText className="h-8 w-8 text-gold mb-2" />

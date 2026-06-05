@@ -399,20 +399,49 @@ export function AppShell({
       
       <Dialog open={logoutOpen} onOpenChange={setLogoutOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Logout</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to sign out of your account? You will need to sign in again to access the dashboard.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="mt-4 gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setLogoutOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={confirmLogout} className="bg-red-600 text-white hover:bg-red-700">
-              Sign out
-            </Button>
-          </DialogFooter>
+          {(() => {
+            const appStatus = profileData?.application?.status;
+            const isEditingApplication = pathname === "/dashboard/application" && 
+              (!appStatus || appStatus === "Draft" || appStatus === "Correction_Required");
+            
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Confirm Logout</DialogTitle>
+                  <DialogDescription>
+                    {isEditingApplication 
+                      ? "You are currently filling out an application. Would you like to save your draft progress before signing out?"
+                      : "Are you sure you want to sign out of your account? You will need to sign in again to access the dashboard."}
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="mt-4 gap-2 sm:gap-0">
+                  <Button variant="outline" onClick={() => setLogoutOpen(false)}>
+                    Cancel
+                  </Button>
+                  {isEditingApplication ? (
+                    <>
+                      <Button onClick={confirmLogout} variant="outline" className="border-red-200 text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-300">
+                        Sign out without saving
+                      </Button>
+                      <Button 
+                        onClick={() => {
+                          setLogoutOpen(false);
+                          window.dispatchEvent(new CustomEvent('riqs_save_and_logout'));
+                        }} 
+                        className="bg-navy text-white hover:bg-navy/90 font-bold"
+                      >
+                        Save Draft & Sign out
+                      </Button>
+                    </>
+                  ) : (
+                    <Button onClick={confirmLogout} className="bg-red-600 text-white hover:bg-red-700">
+                      Sign out
+                    </Button>
+                  )}
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

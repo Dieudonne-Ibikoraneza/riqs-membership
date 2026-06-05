@@ -49,6 +49,7 @@ const STATUSES = [
   "Correction Required",
   "Approved",
   "Rejected",
+  "Mentorship Upgrade",
 ];
 
 type SortKey =
@@ -150,6 +151,10 @@ export default function AdminApps() {
   };
 
   const handleReviewClick = async (a: any) => {
+    if (a.status === "Mentorship Upgrade") {
+      router.push(`/admin/mentorship/${a.id}`);
+      return;
+    }
     if (a.status !== "Pending") {
       router.push(`/admin/applications/${a.id}`);
       return;
@@ -753,6 +758,8 @@ function StatusBadge({ status }: { status: string }) {
         "font-semibold border-none px-2.5 py-1 text-xs flex items-center w-fit gap-1",
         status === "Approved"
           ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+          : status === "Mentorship Upgrade"
+            ? "bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400"
           : status === "Pending"
             ? "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
             : status === "Under Review"
@@ -767,6 +774,9 @@ function StatusBadge({ status }: { status: string }) {
       )}
       {status === "Pending" && (
         <Clock className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" />
+      )}
+      {status === "Mentorship Upgrade" && (
+        <Clock className="h-3 w-3 shrink-0 text-purple-600 dark:text-purple-400" />
       )}
       {status === "Under Review" && (
         <Eye className="h-3 w-3 shrink-0 text-blue-600 dark:text-blue-400" />

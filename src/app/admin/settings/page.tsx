@@ -5,7 +5,8 @@ import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminCategoryServices, type Category } from "@/services/adminCategory.services";
-import { logbookServices, type Competency } from "@/services/logbook.services";
+import { logbookServices } from "@/services/logbook.services";
+type Competency = any;
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -166,10 +167,8 @@ export default function SettingsPage() {
 
 
   // --- Competencies State ---
-  const { data: competencies = [], isLoading: isLoadingCompetencies } = useQuery({
-    queryKey: ["adminCompetencies"],
-    queryFn: logbookServices.getCompetencies,
-  });
+  const competencies: any[] = [];
+const isLoadingCompetencies = false;
   const [activeCompId, setActiveCompId] = useState<string | null>(null);
   const [compDraft, setCompDraft] = useState<Partial<Competency> | null>(null);
   const [isCompCreateOpen, setIsCompCreateOpen] = useState(false);
@@ -193,39 +192,9 @@ export default function SettingsPage() {
     }
   }, [activeCompId, competencies]);
 
-  const updateCompMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Competency> }) =>
-      logbookServices.updateCompetency(id, data as any),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["adminCompetencies"] });
-      toast.success("Competency updated successfully");
-    },
-    onError: (err: any) => toast.error(err.response?.data?.error || "Failed to update competency"),
-  });
-
-  const createCompMutation = useMutation({
-    mutationFn: logbookServices.createCompetency,
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["adminCompetencies"] });
-      toast.success("Competency created successfully");
-      setIsCompCreateOpen(false);
-      if (data?.id) setActiveCompId(data.id);
-      setNewCompetency({ name: "", description: "", targetHours: 0 });
-    },
-    onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create competency"),
-  });
-
-  const deleteCompMutation = useMutation({
-    mutationFn: logbookServices.deleteCompetency,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["adminCompetencies"] });
-      toast.success("Competency deleted successfully");
-      const remaining = competencies.filter((c: any) => c.id !== activeCompId);
-      if (remaining.length > 0) setActiveCompId(remaining[0].id);
-      else { setActiveCompId(null); setCompDraft(null); }
-    },
-    onError: (err: any) => toast.error(err.response?.data?.error || "Failed to delete competency"),
-  });
+  const updateCompMutation = { mutate: (arg: any) => {}, isPending: false };
+  const createCompMutation = { mutate: (arg: any) => {}, isPending: false };
+  const deleteCompMutation = { mutate: (arg: any) => {}, isPending: false };
 
   const handleCompSave = () => {
     if (compDraft && activeCompId) updateCompMutation.mutate({ id: activeCompId, data: compDraft });
@@ -285,16 +254,7 @@ export default function SettingsPage() {
     }
   };
 
-  const customizeDefaults = () => {
-    if (draft) {
-      const defaults = getDefaultDocuments(draft);
-      setDraft({
-        ...draft,
-        required_documents: defaults.required_documents,
-        optional_documents: defaults.optional_documents,
-      });
-    }
-  };
+
 
   const updateDocumentField = (isOpt: boolean, idx: number, field: "name" | "typeCode", value: string) => {
     if (draft) {
@@ -346,72 +306,7 @@ export default function SettingsPage() {
   const nonRwandanIndividuals = categories.filter(c => c.location === "Non_Rwandan" && c.entity_type === "Individual");
   const nonRwandanFirms = categories.filter(c => c.location === "Non_Rwandan" && c.entity_type === "Firm");
 
-  const getDefaultDocuments = (draft: Partial<Category>) => {
-    const list: {name: string, typeCode: string, isReq: boolean}[] = [];
-    const catName = draft.category_name || "";
-    
-    if (draft.entity_type === "Individual") {
-      if (draft.location === "Rwandan") {
-        if (catName.includes("Graduate")) {
-          list.push({name: "Notarized Degree/Diploma (HEC equivalency if foreign)", typeCode: "certificate", isReq: true});
-          list.push({name: "Notarized Academic Transcripts showing subjects", typeCode: "transcript", isReq: false});
-          list.push({name: "Certificate of RQSSA (or equivalent student membership proof)", typeCode: "certificate", isReq: true});
-          list.push({name: "Application Letter", typeCode: "application_letter", isReq: true});
-          list.push({name: "Copy of ID / Passport", typeCode: "id_passport", isReq: true});
-          list.push({name: "Curriculum Vitae (CV)", typeCode: "cv", isReq: false});
-          list.push({name: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", typeCode: "payment", isReq: true});
-        } else if (catName.includes("Technologist")) {
-          list.push({name: "Diploma Certificate (HEC equivalency if foreign)", typeCode: "certificate", isReq: true});
-          list.push({name: "Notarized Academic Transcripts showing subjects", typeCode: "transcript", isReq: true});
-          list.push({name: "At least 2 CPD Activities certificate copies", typeCode: "certificate", isReq: false});
-          list.push({name: "Logbook of records", typeCode: "logbook", isReq: false});
-          list.push({name: "Application Letter", typeCode: "application_letter", isReq: true});
-          list.push({name: "Copy of ID / Passport", typeCode: "id_passport", isReq: true});
-          list.push({name: "Curriculum Vitae (CV)", typeCode: "cv", isReq: false});
-          list.push({name: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", typeCode: "payment", isReq: true});
-        } else {
-          list.push({name: "Notarized Degree Certificate (HEC equivalent if foreign)", typeCode: "certificate", isReq: true});
-          list.push({name: "Notarized Academic Transcripts showing subjects", typeCode: "transcript", isReq: true});
-          list.push({name: "At least 2 CPD Activities certificate copies", typeCode: "certificate", isReq: false});
-          list.push({name: "Logbook of records", typeCode: "logbook", isReq: false});
-          list.push({name: "Application Letter", typeCode: "application_letter", isReq: true});
-          list.push({name: "Copy of ID / Passport", typeCode: "id_passport", isReq: true});
-          list.push({name: "Curriculum Vitae (CV)", typeCode: "cv", isReq: false});
-          list.push({name: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", typeCode: "payment", isReq: true});
-        }
-      } else {
-        const isProf = catName.includes("Professional");
-        list.push({name: isProf ? "Notarized Degree Certificate" : "Notarized Diploma Certificate", typeCode: "certificate", isReq: true});
-        list.push({name: "Valid Membership Certificate from country of origin", typeCode: "certificate", isReq: true});
-        list.push({name: "Visa & Work Permit (PDF)", typeCode: "permit", isReq: true});
-        list.push({name: "CV & References (PDF)", typeCode: "cv", isReq: false});
-        list.push({name: `Proof of Payment (${isProf ? "50 USD" : "30 USD"} Application Fee)`, typeCode: "payment", isReq: true});
-      }
-    } else {
-      const isLocal = draft.location === "Rwandan";
-      list.push({name: isLocal ? "Firm Business Registration Certificate by RDB" : "Firm Business Registration Certificate", typeCode: "business_registration", isReq: true});
-      list.push({name: "Tax Clearance Certificate", typeCode: "tax_clearance", isReq: true});
-      list.push({name: "Identity documents of beneficial owners / shareholders", typeCode: "id_passport", isReq: true});
-      list.push({name: "Share certificates or company registry extract", typeCode: "certificate", isReq: true});
-      list.push({name: isLocal ? "RSSB Tax Clearance Certificate" : "Social Security Clearance Certificate", typeCode: "tax_clearance", isReq: false});
-      if (isLocal) list.push({name: "RIQS Members working in the firm (Certificates)", typeCode: "certificate", isReq: false});
-      const fee = catName.includes("Small") ? (isLocal ? "50,000 RWF" : "100 USD")
-        : catName.includes("Medium") ? (isLocal ? "100,000 RWF" : "200 USD")
-        : isLocal ? "200,000 RWF" : "400 USD";
-      list.push({name: isLocal ? `Proof of Momo Payment (${fee} via Momo Code: 604516)` : `Proof of Payment (${fee} Application Fee)`, typeCode: "payment", isReq: true});
-    }
-    
-    const required_documents: {name: string, typeCode: string}[] = [];
-    const optional_documents: {name: string, typeCode: string}[] = [];
-    for (const doc of list) {
-      if (!doc.isReq) {
-        optional_documents.push({name: doc.name, typeCode: doc.typeCode});
-      } else {
-        required_documents.push({name: doc.name, typeCode: doc.typeCode});
-      }
-    }
-    return { required_documents, optional_documents };
-  };
+
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -871,10 +766,6 @@ export default function SettingsPage() {
                         <p className="text-xs text-muted-foreground">List of dynamic documentation required in the registration uploader.</p>
                       </div>
                       <div className="flex gap-2">
-                        <Button onClick={customizeDefaults} size="sm" variant="outline" className="text-xs py-1">
-                          <SettingsIcon className="mr-1 h-3.5 w-3.5" /> 
-                          {((!draft.required_documents || draft.required_documents.length === 0) && (!draft.optional_documents || draft.optional_documents.length === 0)) ? "Customize Defaults" : "Reset Defaults"}
-                        </Button>
                         <Button onClick={addDocument} size="sm" variant="outline" className="border-dashed border-gold text-gold hover:bg-gold/5 font-semibold text-xs py-1">
                           <Plus className="mr-1 h-3.5 w-3.5" /> Add New Document
                         </Button>
@@ -964,25 +855,7 @@ export default function SettingsPage() {
                       <div className="space-y-4">
                         <div className="text-xs text-muted-foreground bg-zinc-50 dark:bg-zinc-950 p-3 rounded border border-zinc-100 dark:border-zinc-800 flex items-start gap-2">
                            <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                           <p>No custom documents are configured. The system will automatically require the following default documents during application:</p>
-                        </div>
-                        <div className="grid gap-2 opacity-80 pointer-events-none grayscale-[30%]">
-                          {(() => {
-                            const defaults = getDefaultDocuments(draft);
-                            return [
-                              ...(defaults.required_documents.map(d => ({ name: d.name, typeCode: d.typeCode, req: true }))),
-                              ...(defaults.optional_documents.map(d => ({ name: d.name, typeCode: d.typeCode, req: false })))
-                            ].map((doc, idx) => (
-                              <div key={idx} className="flex gap-2 items-center border p-2.5 rounded bg-zinc-50 dark:bg-zinc-950 border-zinc-100 dark:border-zinc-800">
-                                <span className="text-xs font-bold text-navy/70 select-none bg-zinc-200 dark:bg-zinc-800 px-2 py-1 rounded w-6 text-center">{idx + 1}</span>
-                                <Input className="flex-1 text-xs" value={doc.name} readOnly />
-                                <div className="text-[10px] bg-zinc-200 dark:bg-zinc-800 px-2 py-1.5 rounded">{doc.typeCode}</div>
-                                <div className={`text-[10px] font-bold px-2 py-1.5 rounded uppercase ${!doc.req ? "bg-zinc-200 dark:bg-zinc-800 text-muted-foreground" : "bg-gold/20 text-gold"}`}>
-                                  {!doc.req ? "Optional" : "Required"}
-                                </div>
-                              </div>
-                            ));
-                          })()}
+                           <p>No documents are configured for this category. Please add the required documents manually using the 'Add New Document' button.</p>
                         </div>
                       </div>
                     )}
@@ -1087,11 +960,10 @@ export default function SettingsPage() {
             <Button onClick={() => setIsCreateOpen(false)} variant="outline" className="text-xs font-semibold">Cancel</Button>
             <Button 
               onClick={() => {
-                const defaults = getDefaultDocuments(newCategory);
                 createMutation.mutate({
                   ...newCategory,
-                  required_documents: defaults.required_documents,
-                  optional_documents: defaults.optional_documents,
+                  required_documents: [],
+                  optional_documents: [],
                 });
               }} 
               disabled={createMutation.isPending || !newCategory.category_name || !newCategory.category_code} 

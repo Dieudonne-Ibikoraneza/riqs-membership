@@ -379,6 +379,49 @@ export default function Review({ params }: PageProps) {
     }
   };
 
+  const mentorshipDocuments: any[] = [];
+  const token = typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : '';
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+
+  if (app?.logbookEntries) {
+    app.logbookEntries.forEach((entry: any) => {
+      if (entry.documentUrl) {
+        mentorshipDocuments.push({
+          name: `${entry.period} Logbook`,
+          url: `${baseUrl}/files/downloadByUrl?url=${encodeURIComponent(entry.documentUrl)}&token=${token}`,
+          originalFileUrl: entry.documentUrl,
+          documentType: 'Logbook'
+        });
+      }
+    });
+  }
+  if (app?.mentorship?.yearOneReportUrl) {
+    mentorshipDocuments.push({
+      name: 'Year 1 Annual Report',
+      url: `${baseUrl}/files/downloadByUrl?url=${encodeURIComponent(app.mentorship.yearOneReportUrl)}&token=${token}`,
+      originalFileUrl: app.mentorship.yearOneReportUrl,
+      documentType: 'Annual_Report'
+    });
+  }
+  if (app?.mentorship?.yearTwoReportUrl) {
+    mentorshipDocuments.push({
+      name: 'Year 2 Annual Report',
+      url: `${baseUrl}/files/downloadByUrl?url=${encodeURIComponent(app.mentorship.yearTwoReportUrl)}&token=${token}`,
+      originalFileUrl: app.mentorship.yearTwoReportUrl,
+      documentType: 'Annual_Report'
+    });
+  }
+  if (app?.mentorship?.mentorRecommendationUrl) {
+    mentorshipDocuments.push({
+      name: 'Mentor Recommendation Letter',
+      url: `${baseUrl}/files/downloadByUrl?url=${encodeURIComponent(app.mentorship.mentorRecommendationUrl)}&token=${token}`,
+      originalFileUrl: app.mentorship.mentorRecommendationUrl,
+      documentType: 'Recommendation'
+    });
+  }
+
+  const displayDocs = mentorshipDocuments.length > 0 ? mentorshipDocuments : (app?.documents || []);
+
   return (
     <div className="space-y-4 font-sans">
       {/* Back to queue (mobile only) */}
@@ -407,6 +450,7 @@ export default function Review({ params }: PageProps) {
               Queue
             </Button>
           </Link>
+          <div className="hidden sm:block w-px h-6 bg-zinc-200 dark:bg-zinc-700" />
           <div>
             <h1 className="text-xl font-bold text-navy">{app.applicantName}</h1>
             <div className="text-xs text-muted-foreground">
@@ -415,407 +459,118 @@ export default function Review({ params }: PageProps) {
           </div>
           <Badge
             variant="outline"
-            className="border-zinc-200 dark:border-zinc-700"
+            className="border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/30 dark:text-purple-400 ml-2"
           >
-            {app.status}
+            Mentorship Upgrade
           </Badge>
         </div>
-
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:justify-end justify-center items-center">
-          {app.mentorship && (app.mentorship.upgradeRequested || (app.logbookEntries && app.logbookEntries.length > 0)) && (
-            <Link href={`/admin/mentorship/${app.id}`}>
-              <Button size="default" variant="default" className="bg-purple-600 hover:bg-purple-700 text-white font-medium shadow-sm">
-                Mentorship Upgrade Review
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          )}
-          {app.status === "Pending" && (role === "Reviewer" || role === "Admin") && (
+        <div className="flex items-center gap-2">
+          <Link href={`/admin/applications/${app.id}`}>
             <Button
-              className="bg-navy hover:bg-navy/90 text-white border-none shadow-sm"
-              onClick={() => handle("start_review")}
-              disabled={isSubmitting}
+              variant="outline"
+              size="sm"
+              className="text-navy dark:text-gold hover:bg-navy/5 border-zinc-200 dark:border-zinc-700 shadow-sm"
             >
-              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-              Take Over Review
+              Full Application <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-          )}
-
-          {app.status === "Under Review" && (role === "Reviewer" || role === "Admin") && (
-            <>
-              <Button
-                variant="outline"
-                className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-900/50 dark:text-orange-400 dark:hover:bg-orange-950/20"
-                onClick={() => setDialog("correction")}
-              >
-                <AlertTriangle className="mr-2 h-4 w-4" />
-                Flag correction
-              </Button>
-              <Button
-                className="bg-navy hover:bg-navy/90 text-white border-none"
-                onClick={() => setDialog("forward")}
-              >
-                <Check className="mr-2 h-4 w-4" />
-                Forward to Approver
-              </Button>
-            </>
-          )}
-
-          {app.status === "Pending Approval" && (role === "Approver" || role === "Admin") && (
-            <>
-              <Button
-                variant="outline"
-                className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20"
-                onClick={() => setDialog("reject")}
-              >
-                <X className="mr-2 h-4 w-4" />
-                Reject
-              </Button>
-              <Button
-                className="bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-emerald"
-                onClick={() => setDialog("approve")}
-              >
-                <Check className="mr-2 h-4 w-4" />
-                Approve
-              </Button>
-            </>
-          )}
+          </Link>
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        {/* Left column: Form data */}
-        <div className="space-y-4 lg:col-span-2">
-          {/* APC Assessments — link to dedicated module */}
-          {app.apcAssessments && app.apcAssessments.length > 0 && (
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start mt-6">
+          <div className="lg:col-span-1 space-y-6">
+            {app.mentorship && (
             <motion.div
               initial={{ opacity: 0, x: -15 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.15 }}
+              transition={{ delay: 0.2 }}
+              className="space-y-6"
             >
-              <div className={`flex items-center justify-between gap-3 p-3.5 rounded-lg border ${
-                app.apcAssessments.some((a: any) => a.status === "Requested")
-                  ? "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50"
-                  : app.apcAssessments.some((a: any) => a.status === "Scheduled")
-                    ? "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/50"
-                    : "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50"
-              }`}>
-                <div className="text-sm">
-                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">APC Status: </span>
-                  <span className="text-zinc-600 dark:text-zinc-400">
-                    {app.apcAssessments[0]?.status?.replace("_", " ")}
-                  </span>
-                </div>
-                <Link href="/admin/apc">
-                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-zinc-300 hover:border-zinc-400 shrink-0">
-                    Manage in APC Module
-                    <ArrowRight className="h-3 w-3" />
-                  </Button>
-                </Link>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Payment Clearance */}
-          {app.processingFeeTxId && (
-            <motion.div
-              initial={{ opacity: 0, x: -15 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <div className={`flex items-center justify-between gap-3 p-3.5 rounded-lg border ${
-                app.processingFeeCleared
-                  ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50"
-                  : "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50"
-              }`}>
-                <div className="text-sm">
-                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">Processing Fee: </span>
-                  <span className="text-zinc-600 dark:text-zinc-400">
-                    {app.processingFeeStatus}
-                  </span>
-                </div>
-                {!app.processingFeeCleared && role !== "Approver" && (
-                  <Button 
-                    size="sm" 
-                    onClick={() => verifyPaymentMutation.mutate({ txId: app.processingFeeTxId, action: "Cleared" })}
-                    disabled={verifyPaymentMutation.isPending}
-                    className="h-7 text-xs gap-1 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
-                  >
-                    {verifyPaymentMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                    Mark as Cleared
-                  </Button>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Reviewer Notes */}
-          {(() => {
-            const latestNote = app.statusHistory?.find((h: any) => h.reviewerNotes);
-            if (!latestNote) return null;
-            return (
-              <motion.div
-                initial={{ opacity: 0, x: -15 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <Card className="border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20">
-                  <CardHeader className="py-3 px-4 border-b border-amber-200/50 dark:border-amber-900/50">
-                    <CardTitle className="text-sm font-bold text-amber-900 dark:text-amber-500 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                      Latest Reviewer Notes
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 text-sm text-amber-800 dark:text-amber-400/90 whitespace-pre-wrap leading-relaxed">
-                    {latestNote.reviewerNotes}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })()}
-
-          <motion.div
-            initial={{ opacity: 0, x: -15 }}
-            animate={{ opacity: 1, x: 0 }}
-          >
-            <Card className="border-zinc-100 dark:border-zinc-800">
-              <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
-                <CardTitle className="text-sm font-bold text-navy">
-                  Personal Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 space-y-2.5 text-sm">
-                <Row k="Full name" v={app.applicantName} />
-                <Row k="Email" v={app.email} />
-                <Row k="Phone" v={app.phone} />
-                <Row k="Category" v={app.category} highlight />
-                <Row k="Entity" v={app.entityType} />
-                {app.entityType !== "Firm" && (
-                  <>
-                    <Row k="National ID/Passport" v={app.national_id_or_passport} />
-                    {app.gender && <Row k="Gender" v={app.gender} />}
-                    {app.nationality && <Row k="Nationality" v={app.nationality} />}
-                    {app.dateOfBirth && <Row k="Date of Birth" v={app.dateOfBirth} />}
-                    {app.yearsInProfession != null && <Row k="Years in Profession" v={`${app.yearsInProfession} years`} />}
-                    {app.countryOfOrigin && <Row k="Country of Origin" v={app.countryOfOrigin} />}
-                  </>
-                )}
-                {app.entityType === "Firm" && app.firmName && <Row k="Firm Name" v={app.firmName} />}
-                {app.entityType === "Firm" && app.firmAddress && <Row k="Firm Address" v={app.firmAddress} />}
-                {app.residencyAddress && <Row k="Residency Address" v={[app.residencyAddress.district, app.residencyAddress.sector, app.residencyAddress.cell, app.residencyAddress.village].filter(Boolean).join(", ")} />}
-                {app.workAddress && <Row k="Work Address" v={[app.workAddress.district, app.workAddress.sector, app.workAddress.cell, app.workAddress.village].filter(Boolean).join(", ")} />}
-                <Row k="Practice location" v={app.practiceLocation} />
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {app.studentAssociation && (
-            <motion.div
-              initial={{ opacity: 0, x: -15 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.05 }}
-            >
-              <Card className="border-zinc-100 dark:border-zinc-800 bg-blue-50/30 dark:bg-blue-950/10">
+              <Card className="border-zinc-100 dark:border-zinc-800 shadow-sm">
                 <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
-                  <CardTitle className="text-sm font-bold text-navy">
-                    Student Association
+                  <CardTitle className="text-sm font-bold text-navy flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-gold" />
+                    Mentorship Summary
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 space-y-2.5 text-sm">
-                  <Row k="Association Name" v={app.studentAssociation.associationName} />
-                  <Row k="Membership No" v={app.studentAssociation.membershipNumber} />
-                  <Row k="Registration Date" v={app.studentAssociation.registrationDate ? new Date(app.studentAssociation.registrationDate).toISOString().split('T')[0] : ""} />
-                  <Row k="Active Years" v={app.studentAssociation.activeYears?.toString()} />
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {app.competenceSummary && (app.competenceSummary.preContractDuties || app.competenceSummary.postContractDuties || app.competenceSummary.specialization) && (
-            <motion.div
-              initial={{ opacity: 0, x: -15 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.05 }}
-            >
-              <Card className="border-zinc-100 dark:border-zinc-800 bg-amber-50/30 dark:bg-amber-950/10">
-                <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
-                  <CardTitle className="text-sm font-bold text-navy">
-                    Professional Competence Summary
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 space-y-3 text-sm">
-                  {app.competenceSummary.preContractDuties && (
+                <CardContent className="p-4 space-y-4 text-sm bg-zinc-50/50 dark:bg-zinc-950/50">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <h4 className="font-semibold text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Mentor Name</h4>
+                      <div className="font-medium text-zinc-900 dark:text-zinc-100">{app.mentorship.mentor || "Not assigned"}</div>
+                    </div>
                     <div>
-                      <div className="font-semibold text-xs text-muted-foreground mb-1">Pre-Contract Duties</div>
-                      <div className="text-zinc-850 dark:text-zinc-200">{app.competenceSummary.preContractDuties}</div>
+                      <h4 className="font-semibold text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Duration</h4>
+                      <div className="font-medium text-zinc-900 dark:text-zinc-100">{app.mentorship.completedDurationMonths || 0} Months</div>
                     </div>
-                  )}
-                  {app.competenceSummary.postContractDuties && (
-                    <div>
-                      <div className="font-semibold text-xs text-muted-foreground mb-1">Post-Contract Duties</div>
-                      <div className="text-zinc-850 dark:text-zinc-200">{app.competenceSummary.postContractDuties}</div>
-                    </div>
-                  )}
-                  {app.competenceSummary.specialization && (
-                    <div>
-                      <div className="font-semibold text-xs text-muted-foreground mb-1">Specialization & Technical Skills</div>
-                      <div className="text-zinc-850 dark:text-zinc-200">{app.competenceSummary.specialization}</div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {app.entityType === "Individual" && (
-            <motion.div
-              initial={{ opacity: 0, x: -15 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.05 }}
-            >
-              <Card className="border-zinc-100 dark:border-zinc-800">
-                <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
-                  <CardTitle className="text-sm font-bold text-navy">
-                    Education Background
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 space-y-2 text-sm">
-                  {app.education.length > 0 ? app.education.map((e: any, i: number) => (
-                    <div
-                      key={i}
-                      className="rounded border border-zinc-100 dark:border-zinc-800 p-2.5 bg-zinc-50/55"
-                    >
-                      <div className="font-semibold text-zinc-850 dark:text-zinc-200">
-                        {e.degree}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {e.institution} ·{" "}
-                        {e.startMonthYear ? formatMonthYear(e.startMonthYear) : e.year} — {e.endMonthYear ? formatMonthYear(e.endMonthYear) : "Present"}
+                    <div className="col-span-2">
+                      <h4 className="font-semibold text-[10px] text-muted-foreground uppercase tracking-wider mb-1">APC Readiness</h4>
+                      <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                        {app.mentorship.apcReadiness === "Ready" ? (
+                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 border-none">Ready for APC</Badge>
+                        ) : app.mentorship.apcReadiness === "Not_Ready" ? (
+                          <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 border-none">Associate Route</Badge>
+                        ) : "Pending"}
                       </div>
                     </div>
-                  )) : (
-                    <div className="text-muted-foreground italic">No education records provided.</div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {app.entityType === "Individual" && (
-            <motion.div
-              initial={{ opacity: 0, x: -15 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <Card className="border-zinc-100 dark:border-zinc-800">
-                <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
-                  <CardTitle className="text-sm font-bold text-navy">
-                    Employment History
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 space-y-2 text-sm">
-                  {app.employment.length > 0 ? app.employment.map((e: any, i: number) => (
-                    <div
-                      key={i}
-                      className="rounded border border-zinc-100 dark:border-zinc-800 p-2.5 bg-zinc-50/55"
-                    >
-                      <div className="font-semibold text-zinc-850 dark:text-zinc-200">
-                        {e.role}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {e.company} · {formatMonthYear(e.from)} —{" "}
-                        {formatMonthYear(e.to) || "Present"}
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="text-muted-foreground italic">No employment records provided.</div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {app.entityType === "Individual" && app.mentorship && (
-            <motion.div
-              initial={{ opacity: 0, x: -15 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.15 }}
-            >
-              <Card className="border-zinc-100 dark:border-zinc-800">
-                <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
-                  <CardTitle className="text-sm font-bold text-navy">
-                    Mentorship
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 text-sm">
-                  <div className="font-medium">
-                    Assigned Mentor:{" "}
-                    <strong className="text-zinc-800 dark:text-zinc-200">
-                      {app.mentorship.mentor}
-                    </strong>
-                  </div>
-                  {app.mentorship.contact && (
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
-                      {app.mentorship.contact}
-                    </div>
-                  )}
-                  {app.mentorship.qualification && (
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                      {app.mentorship.qualification}
-                    </div>
-                  )}
-                  {app.mentorship.preferredMentors?.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
-                      <div className="text-xs font-semibold text-navy mb-1.5">Preferred Mentors:</div>
-                      <div className="space-y-1.5">
-                        {app.mentorship.preferredMentors.map((pm: any, idx: number) => (
-                          <div key={idx} className="text-xs flex flex-col">
-                            <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                              {idx + 1}. {pm.name || pm.regNumber}
-                            </span>
-                            {pm.regNumber && <span className="text-muted-foreground ml-3">ID: {pm.regNumber}</span>}
-                            {pm.contact && <span className="text-muted-foreground ml-3">Contact: {pm.contact}</span>}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {app.mentorship.preferredPracticeAreas?.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
-                      <div className="text-xs font-semibold text-navy mb-1.5">Preferred Practice Areas:</div>
-                      <div className="text-xs text-zinc-800 dark:text-zinc-200">
-                        {app.mentorship.preferredPracticeAreas.join(", ")}
-                      </div>
-                    </div>
-                  )}
-                  {app.mentorship.mentorshipPlan && (
-                    <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
-                      <div className="text-xs font-semibold text-navy mb-1.5">Mentorship Plan:</div>
-                      <div className="text-xs text-zinc-800 dark:text-zinc-200">
-                        {app.mentorship.mentorshipPlan}
-                      </div>
-                    </div>
-                  )}
-                  <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
-                    Started {app.mentorship.startedAt} ·{" "}
-                    {app.mentorship.progress} months completed
                   </div>
                 </CardContent>
               </Card>
+
+              {app.mentorship.status === "Pending_Admin_Review" && (role === "Admin" || role === "Approver") && (
+                <div className="bg-white dark:bg-zinc-900 border border-amber-200 dark:border-amber-900/50 rounded-xl p-5 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                    <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">Upgrade Decision</h4>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    The candidate has completed mentorship and {app.mentorship.apcReadiness === "Ready" ? <strong>requested to sit for the APC.</strong> : <strong>elected NOT to sit for the APC (Associate Route).</strong>}
+                  </p>
+                  <div className="pt-2 flex flex-col gap-2.5">
+                    <Button 
+                      size="sm" 
+                      className="w-full h-10 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all"
+                      onClick={() => {
+                        if (app.mentorship.apcReadiness !== "Ready") {
+                          mentorshipUpgradeMutation.mutateAsync({ action: "Approve" }).then(() => {
+                            awardAssociateMutation.mutate();
+                          });
+                        } else {
+                          mentorshipUpgradeMutation.mutate({ action: "Approve" });
+                        }
+                      }}
+                      disabled={mentorshipUpgradeMutation.isPending || awardAssociateMutation.isPending}
+                    >
+                      <Check className="h-4 w-4 mr-2" /> 
+                      {app.mentorship.apcReadiness === "Ready" ? "Approve & Move to APC" : "Approve & Award Associate"}
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="w-full h-10 text-xs border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-950/30 transition-all"
+                      onClick={() => {
+                         const notes = window.prompt("Reason for returning for correction:");
+                         if(notes) mentorshipUpgradeMutation.mutate({ action: "Reject", notes });
+                      }}
+                      disabled={mentorshipUpgradeMutation.isPending}
+                    >
+                      <X className="h-4 w-4 mr-2" /> Flag for Correction
+                    </Button>
+                  </div>
+                </div>
+              )}
             </motion.div>
-          )}
+            )}
+          </div>
 
-        </div>
-
-        {/* Right column: Document viewer */}
         <div className="lg:col-span-3">
-          <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col sticky top-2 h-[calc(100vh-5rem)]">
+          <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col sticky top-2 h-[calc(100vh-5rem)] shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800 py-3 px-4 shrink-0">
               <CardTitle className="text-sm font-bold text-navy">
-                Documents Workbench
+                Mentorship Documents
               </CardTitle>
             </CardHeader>
-          <CardContent className="p-4 flex-1 flex flex-col overflow-hidden">
+          <CardContent className="p-4 flex-1 flex flex-col overflow-hidden bg-zinc-50/30 dark:bg-zinc-950/30">
             <Tabs
               value={String(activeDoc)}
               onValueChange={(v) => {
@@ -836,20 +591,20 @@ export default function Review({ params }: PageProps) {
                   <span>Scroll horizontally to view all submitted documents</span>
                 </div>
                 <TabsList className="flex w-full h-auto overflow-x-auto justify-start bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-lg gap-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                  {app.documents.map((d: any, i: number) => (
+                  {displayDocs.map((d: any, i: number) => (
                     <TabsTrigger
                       key={i}
                       value={String(i)}
                       className="shrink-0 text-sm font-semibold px-5 py-2.5 whitespace-nowrap"
                     >
-                      {formatLabel(d.documentName || resolveDocName(d.documentType))}
+                      {formatLabel(d.name || d.documentName || resolveDocName(d.documentType))}
                     </TabsTrigger>
                   ))}
                 </TabsList>
               </div>
               {/* Pre-render all documents so PDFs do not reload when switching tabs */}
               <div className="relative flex-1 mt-0 overflow-hidden">
-                {app.documents.map((doc: any, i: number) => {
+                {displayDocs.map((doc: any, i: number) => {
                   const isActive = activeDoc === i;
                   const xPos = isActive ? "0%" : i < activeDoc ? "-100%" : "100%";
                   
@@ -924,94 +679,6 @@ export default function Review({ params }: PageProps) {
         </Card>
         </div>
       </div>
-
-
-
-      {/* Dynamic Action Modals */}
-      <Dialog open={!!dialog} onOpenChange={(o) => !o && setDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {dialog === "approve" && "Confirm approval"}
-              {dialog === "reject" && "Confirm rejection"}
-              {dialog === "correction" && "Request corrections"}
-              {dialog === "forward" && "Forward to Approver"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 text-sm py-2">
-            <p className="text-muted-foreground leading-relaxed">
-              {dialog === "approve" &&
-                "A new membership certificate, practicing license, and membership ID will be generated and dispatched automatically."}
-              {dialog === "reject" &&
-                "An administrative reason is required and will be sent directly to the candidate."}
-              {dialog === "correction" &&
-                "Specify the files or descriptions requiring update. The registration process will be suspended until complete."}
-              {dialog === "forward" &&
-                "The application will be sent to the Approver queue for final decision. You may include an optional note."}
-            </p>
-            <Textarea
-              rows={4}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={
-                (dialog === "approve" || dialog === "forward")
-                  ? "Add an optional note (e.g. well qualified candidate)"
-                  : "Please provide a reason for the applicant..."
-              }
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDialog(null)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => handle(dialog!)}
-              disabled={isSubmitting}
-              className={
-                dialog === "approve"
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                  : dialog === "reject" || dialog === "correction"
-                    ? "bg-red-600 hover:bg-red-700 text-white"
-                    : "bg-navy hover:bg-navy/90 text-white"
-              }
-            >
-              {isSubmitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="mr-2 h-4 w-4" />
-              )}
-              {dialog === "approve" && "Approve Applicant"}
-              {dialog === "reject" && "Reject Applicant"}
-              {dialog === "correction" && "Request Corrections"}
-              {dialog === "forward" && "Forward Application"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-    </div>
-  );
-}
-
-function Row({
-  k,
-  v,
-  highlight,
-}: {
-  k: string;
-  v: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div
-      className={`flex items-center justify-between rounded px-2.5 py-1.5 transition-all gap-6 ${highlight ? "bg-gold/15 text-[#1a1a1a] font-semibold" : ""}`}
-    >
-      <span className="text-xs text-muted-foreground">{k}</span>
-      <span className="font-medium text-zinc-900 dark:text-zinc-100">{v}</span>
     </div>
   );
 }

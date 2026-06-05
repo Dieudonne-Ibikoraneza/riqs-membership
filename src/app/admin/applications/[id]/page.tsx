@@ -175,6 +175,13 @@ export default function Review({ params }: PageProps) {
           practiceLocation: res.application.location,
           residencyAddress: res.application.residency_address,
           workAddress: res.application.work_address,
+          gender: res.application.gender,
+          nationality: res.application.nationality,
+          dateOfBirth: res.application.date_of_birth ? new Date(res.application.date_of_birth).toISOString().split('T')[0] : null,
+          yearsInProfession: res.application.years_in_profession,
+          countryOfOrigin: res.application.country_of_origin,
+          studentAssociation: res.studentAssociation,
+          competenceSummary: res.application.competenceSummary,
           status: res.application.status.replace("_", " "),
           submittedAt: res.application.submittedAt ? new Date(res.application.submittedAt).toISOString().split('T')[0] : "Unknown",
           processingFeeCleared: res.application.processing_fee_cleared,
@@ -190,14 +197,16 @@ export default function Review({ params }: PageProps) {
             from: new Date(e.startDate).toISOString().slice(0, 7),
             to: e.endDate ? new Date(e.endDate).toISOString().slice(0, 7) : undefined
           })),
-          mentorship: res.mentorship ? {
-            mentor: res.mentorship.mentorName || (res.mentorship.requestedInstitutionalAssignment ? "Requested Institutional Assignment" : "Unassigned"),
-            startedAt: new Date(res.mentorship.createdAt).toISOString().split('T')[0],
-            progress: res.mentorship.completedDurationMonths || 0,
-            contact: res.mentorship.mentorContact || "",
-            qualification: res.mentorship.mentorQualification || "",
-            preferredMentors: res.mentorship.preferredMentors || [],
-            isSelfAssigned: res.mentorship.isSelfAssigned
+          mentorship: res.mentorshipAssignment ? {
+            mentor: res.mentorshipAssignment.mentorName || (res.mentorshipAssignment.requestedInstitutionalAssignment ? "Requested Institutional Assignment" : "Unassigned"),
+            startedAt: new Date(res.mentorshipAssignment.createdAt).toISOString().split('T')[0],
+            progress: res.mentorshipAssignment.completedDurationMonths || 0,
+            contact: res.mentorshipAssignment.mentorContact || "",
+            qualification: res.mentorshipAssignment.mentorQualification || "",
+            preferredMentors: res.mentorshipAssignment.preferredMentors || [],
+            isSelfAssigned: res.mentorshipAssignment.isSelfAssigned,
+            mentorshipPlan: res.mentorshipAssignment.mentorshipPlan,
+            preferredPracticeAreas: res.mentorshipAssignment.preferredPracticeAreas || []
           } : null,
           shareholders: res.shareholders || [],
           documents: (res.documents || []).map((d: any) => {
@@ -286,6 +295,14 @@ export default function Review({ params }: PageProps) {
       
       if (action === "start_review") {
         setApp((prev: any) => ({ ...prev, status: "Under Review" }));
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (action === "forward") {
+        setApp((prev: any) => ({ ...prev, status: "Pending Approval" }));
+        setDialog(null);
+        setNote("");
         setIsSubmitting(false);
         return;
       }
@@ -400,6 +417,61 @@ export default function Review({ params }: PageProps) {
       <div className="grid gap-4 lg:grid-cols-5">
         {/* Left column: Form data */}
         <div className="space-y-4 lg:col-span-2">
+          {/* APC Assessments — link to dedicated module */}
+          {app.apcAssessments && app.apcAssessments.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, x: -15 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.15 }}
+            >
+              <div className={`flex items-center justify-between gap-3 p-3.5 rounded-lg border ${
+                app.apcAssessments.some((a: any) => a.status === "Requested")
+                  ? "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50"
+                  : app.apcAssessments.some((a: any) => a.status === "Scheduled")
+                    ? "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/50"
+                    : "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50"
+              }`}>
+                <div className="text-sm">
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">APC Status: </span>
+                  <span className="text-zinc-600 dark:text-zinc-400">
+                    {app.apcAssessments[0]?.status?.replace("_", " ")}
+                  </span>
+                </div>
+                <Link href="/admin/apc">
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-zinc-300 hover:border-zinc-400 shrink-0">
+                    Manage in APC Module
+                    <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Reviewer Notes */}
+          {(() => {
+            const latestNote = app.statusHistory?.find((h: any) => h.reviewerNotes);
+            if (!latestNote) return null;
+            return (
+              <motion.div
+                initial={{ opacity: 0, x: -15 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <Card className="border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20">
+                  <CardHeader className="py-3 px-4 border-b border-amber-200/50 dark:border-amber-900/50">
+                    <CardTitle className="text-sm font-bold text-amber-900 dark:text-amber-500 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      Latest Reviewer Notes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 text-sm text-amber-800 dark:text-amber-400/90 whitespace-pre-wrap leading-relaxed">
+                    {latestNote.reviewerNotes}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })()}
+
           <motion.div
             initial={{ opacity: 0, x: -15 }}
             animate={{ opacity: 1, x: 0 }}
@@ -416,7 +488,16 @@ export default function Review({ params }: PageProps) {
                 <Row k="Phone" v={app.phone} />
                 <Row k="Category" v={app.category} highlight />
                 <Row k="Entity" v={app.entityType} />
-                {app.entityType !== "Firm" && <Row k="National ID/Passport" v={app.national_id_or_passport} />}
+                {app.entityType !== "Firm" && (
+                  <>
+                    <Row k="National ID/Passport" v={app.national_id_or_passport} />
+                    {app.gender && <Row k="Gender" v={app.gender} />}
+                    {app.nationality && <Row k="Nationality" v={app.nationality} />}
+                    {app.dateOfBirth && <Row k="Date of Birth" v={app.dateOfBirth} />}
+                    {app.yearsInProfession != null && <Row k="Years in Profession" v={`${app.yearsInProfession} years`} />}
+                    {app.countryOfOrigin && <Row k="Country of Origin" v={app.countryOfOrigin} />}
+                  </>
+                )}
                 {app.entityType === "Firm" && app.firmName && <Row k="Firm Name" v={app.firmName} />}
                 {app.entityType === "Firm" && app.firmAddress && <Row k="Firm Address" v={app.firmAddress} />}
                 {app.residencyAddress && <Row k="Residency Address" v={[app.residencyAddress.district, app.residencyAddress.sector, app.residencyAddress.cell, app.residencyAddress.village].filter(Boolean).join(", ")} />}
@@ -425,6 +506,64 @@ export default function Review({ params }: PageProps) {
               </CardContent>
             </Card>
           </motion.div>
+
+          {app.studentAssociation && (
+            <motion.div
+              initial={{ opacity: 0, x: -15 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.05 }}
+            >
+              <Card className="border-zinc-100 dark:border-zinc-800 bg-blue-50/30 dark:bg-blue-950/10">
+                <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
+                  <CardTitle className="text-sm font-bold text-navy">
+                    Student Association
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-2.5 text-sm">
+                  <Row k="Association Name" v={app.studentAssociation.associationName} />
+                  <Row k="Membership No" v={app.studentAssociation.membershipNumber} />
+                  <Row k="Registration Date" v={app.studentAssociation.registrationDate ? new Date(app.studentAssociation.registrationDate).toISOString().split('T')[0] : ""} />
+                  <Row k="Active Years" v={app.studentAssociation.activeYears?.toString()} />
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {app.competenceSummary && (app.competenceSummary.preContractDuties || app.competenceSummary.postContractDuties || app.competenceSummary.specialization) && (
+            <motion.div
+              initial={{ opacity: 0, x: -15 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.05 }}
+            >
+              <Card className="border-zinc-100 dark:border-zinc-800 bg-amber-50/30 dark:bg-amber-950/10">
+                <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
+                  <CardTitle className="text-sm font-bold text-navy">
+                    Professional Competence Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-3 text-sm">
+                  {app.competenceSummary.preContractDuties && (
+                    <div>
+                      <div className="font-semibold text-xs text-muted-foreground mb-1">Pre-Contract Duties</div>
+                      <div className="text-zinc-850 dark:text-zinc-200">{app.competenceSummary.preContractDuties}</div>
+                    </div>
+                  )}
+                  {app.competenceSummary.postContractDuties && (
+                    <div>
+                      <div className="font-semibold text-xs text-muted-foreground mb-1">Post-Contract Duties</div>
+                      <div className="text-zinc-850 dark:text-zinc-200">{app.competenceSummary.postContractDuties}</div>
+                    </div>
+                  )}
+                  {app.competenceSummary.specialization && (
+                    <div>
+                      <div className="font-semibold text-xs text-muted-foreground mb-1">Specialization & Technical Skills</div>
+                      <div className="text-zinc-850 dark:text-zinc-200">{app.competenceSummary.specialization}</div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
           {app.entityType === "Individual" && (
             <motion.div
@@ -539,7 +678,23 @@ export default function Review({ params }: PageProps) {
                       </div>
                     </div>
                   )}
-                  <div className="text-xs text-muted-foreground mt-2 pt-1 border-t border-zinc-100 dark:border-zinc-800/60">
+                  {app.mentorship.preferredPracticeAreas?.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
+                      <div className="text-xs font-semibold text-navy mb-1.5">Preferred Practice Areas:</div>
+                      <div className="text-xs text-zinc-800 dark:text-zinc-200">
+                        {app.mentorship.preferredPracticeAreas.join(", ")}
+                      </div>
+                    </div>
+                  )}
+                  {app.mentorship.mentorshipPlan && (
+                    <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
+                      <div className="text-xs font-semibold text-navy mb-1.5">Mentorship Plan:</div>
+                      <div className="text-xs text-zinc-800 dark:text-zinc-200">
+                        {app.mentorship.mentorshipPlan}
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
                     Started {app.mentorship.startedAt} ·{" "}
                     {app.mentorship.progress} months completed
                   </div>
@@ -583,60 +738,6 @@ export default function Review({ params }: PageProps) {
             </motion.div>
           )}
 
-          {/* APC Assessments — link to dedicated module */}
-          {app.apcAssessments && app.apcAssessments.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, x: -15 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.15 }}
-            >
-              <div className={`flex items-center justify-between gap-3 p-3.5 rounded-lg border ${
-                app.apcAssessments.some((a: any) => a.status === "Requested")
-                  ? "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50"
-                  : app.apcAssessments.some((a: any) => a.status === "Scheduled")
-                    ? "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/50"
-                    : "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50"
-              }`}>
-                <div className="text-sm">
-                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">APC Status: </span>
-                  <span className="text-zinc-600 dark:text-zinc-400">
-                    {app.apcAssessments[0]?.status?.replace("_", " ")}
-                  </span>
-                </div>
-                <Link href="/admin/apc">
-                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-zinc-300 hover:border-zinc-400 shrink-0">
-                    Manage in APC Module
-                    <ArrowRight className="h-3 w-3" />
-                  </Button>
-                </Link>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Reviewer Notes */}
-          {(() => {
-            const latestNote = app.statusHistory?.find((h: any) => h.reviewerNotes);
-            if (!latestNote) return null;
-            return (
-              <motion.div
-                initial={{ opacity: 0, x: -15 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <Card className="border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20">
-                  <CardHeader className="py-3 px-4 border-b border-amber-200/50 dark:border-amber-900/50">
-                    <CardTitle className="text-sm font-bold text-amber-900 dark:text-amber-500 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                      Latest Reviewer Notes
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 text-sm text-amber-800 dark:text-amber-400/90 whitespace-pre-wrap leading-relaxed">
-                    {latestNote.reviewerNotes}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })()}
         </div>
 
         {/* Right column: Document viewer */}

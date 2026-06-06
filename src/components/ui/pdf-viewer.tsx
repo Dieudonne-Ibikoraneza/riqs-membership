@@ -14,6 +14,9 @@ import {
 interface PDFViewerProps {
     src: string;
     fileName?: string;
+    thumbnailMode?: boolean;
+    className?: string;
+    hideControls?: boolean;
 }
 
 interface PDFDocument {
@@ -56,12 +59,12 @@ declare global {
     }
 }
 
-const PDFViewer = ({ src, fileName = "document.pdf" }: PDFViewerProps) => {
+const PDFViewer = ({ src, fileName = "document.pdf", thumbnailMode = false, className, hideControls = false }: PDFViewerProps) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
-    const [scale, setScale] = useState(1.0);
+    const [scale, setScale] = useState(thumbnailMode ? 0.3 : 1.0);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showControls, setShowControls] = useState(true);
@@ -106,7 +109,12 @@ const PDFViewer = ({ src, fileName = "document.pdf" }: PDFViewerProps) => {
                 const pdfjsLib = window.pdfjsLib as PDFJSLib;
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-                const loadingTask = pdfjsLib.getDocument(src);
+                const loadingTask = pdfjsLib.getDocument({
+                    url: src,
+                    cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+                    cMapPacked: true,
+                    standardFontDataUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/'
+                });
                 const pdf = await loadingTask.promise;
 
                 if (!mounted) return;
@@ -121,11 +129,13 @@ const PDFViewer = ({ src, fileName = "document.pdf" }: PDFViewerProps) => {
                         <div key={pageNum} className="relative">
                             <canvas
                                 id={`${instanceIdRef.current}-page-${pageNum}`}
-                                className="shadow-lg bg-white"
+                                className={`shadow-sm bg-white ${thumbnailMode ? 'mx-auto' : ''}`}
                             />
-                            <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                                Page {pageNum}
-                            </div>
+                            {!thumbnailMode && (
+                                <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                                    Page {pageNum}
+                                </div>
+                            )}
                         </div>
                     );
                 }
@@ -350,7 +360,7 @@ const PDFViewer = ({ src, fileName = "document.pdf" }: PDFViewerProps) => {
             ref={containerRef}
             className={`relative bg-zinc-100 dark:bg-zinc-900 overflow-hidden flex flex-col ${
                 isFullscreen ? 'w-screen h-screen' : 'h-full w-full'
-            }`}
+            } ${className || ''}`}
             onMouseEnter={() => setShowControls(true)}
             onMouseLeave={() => setShowControls(false)}
         >
@@ -379,118 +389,120 @@ const PDFViewer = ({ src, fileName = "document.pdf" }: PDFViewerProps) => {
             {!isLoading && !error && (
                 <div
                     ref={scrollContainerRef}
-                    className="w-full h-full overflow-auto bg-gray-300"
-                    style={{ padding: '20px 0' }}
+                    className={`w-full h-full overflow-auto ${thumbnailMode ? 'bg-transparent' : 'bg-gray-300'} ${thumbnailMode ? 'scrollbar-hide pointer-events-none' : ''}`}
+                    style={{ padding: thumbnailMode ? '10px 0' : '20px 0' }}
                 >
                     <div className="flex flex-col items-center gap-4">
-                        {canvasElements}
+                        {thumbnailMode ? canvasElements[0] : canvasElements}
                     </div>
                 </div>
             )}
 
             {/* Custom Controls Overlay */}
-            <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-4 transition-opacity duration-300 ${
-                showControls ? 'opacity-100' : 'opacity-0'
-            }`}>
-                {/* Page Navigation */}
-                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                    <div className="flex items-center gap-4 flex-wrap">
-                        {/* Page Controls */}
-                        <div className="flex items-center gap-2 bg-black/50 rounded-lg px-3 py-2">
-                            <button
-                                onClick={prevPage}
-                                disabled={currentPage <= 1}
-                                className="text-white hover:bg-white/20 p-1 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                            </button>
+            {!thumbnailMode && !hideControls && (
+                <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-4 transition-opacity duration-300 ${
+                    showControls ? 'opacity-100' : 'opacity-0'
+                }`}>
+                    {/* Page Navigation */}
+                    <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                        <div className="flex items-center gap-4 flex-wrap">
+                            {/* Page Controls */}
+                            <div className="flex items-center gap-2 bg-black/50 rounded-lg px-3 py-2">
+                                <button
+                                    onClick={prevPage}
+                                    disabled={currentPage <= 1}
+                                    className="text-white hover:bg-white/20 p-1 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </button>
 
-                            <div className="flex items-center gap-2 text-white text-sm">
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max={totalPages}
-                                    value={currentPage}
-                                    onChange={(e) => goToPage(parseInt(e.target.value) || 1)}
-                                    className="w-12 bg-white/20 border border-white/30 rounded px-2 py-1 text-center text-white"
-                                />
-                                <span className="text-white/70">of {totalPages}</span>
+                                <div className="flex items-center gap-2 text-white text-sm">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max={totalPages}
+                                        value={currentPage}
+                                        onChange={(e) => goToPage(parseInt(e.target.value) || 1)}
+                                        className="w-12 bg-white/20 border border-white/30 rounded px-2 py-1 text-center text-white"
+                                    />
+                                    <span className="text-white/70">of {totalPages}</span>
+                                </div>
+
+                                <button
+                                    onClick={nextPage}
+                                    disabled={currentPage >= totalPages}
+                                    className="text-white hover:bg-white/20 p-1 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </button>
                             </div>
 
-                            <button
-                                onClick={nextPage}
-                                disabled={currentPage >= totalPages}
-                                className="text-white hover:bg-white/20 p-1 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                                <ChevronRight className="h-4 w-4" />
-                            </button>
+                            {/* Zoom Controls */}
+                            <div className="flex items-center gap-2 bg-black/50 rounded-lg px-3 py-2">
+                                <button
+                                    onClick={zoomOut}
+                                    disabled={scale <= 0.5}
+                                    className="text-white hover:bg-white/20 p-1 rounded transition-colors disabled:opacity-30"
+                                >
+                                    <ZoomOut className="h-4 w-4" />
+                                </button>
+
+                                <button
+                                    onClick={resetZoom}
+                                    className="text-white text-sm hover:bg-white/20 px-2 py-1 rounded transition-colors min-w-[60px]"
+                                >
+                                    {formatZoom()}
+                                </button>
+
+                                <button
+                                    onClick={zoomIn}
+                                    disabled={scale >= 3}
+                                    className="text-white hover:bg-white/20 p-1 rounded transition-colors disabled:opacity-30"
+                                >
+                                    <ZoomIn className="h-4 w-4" />
+                                </button>
+                            </div>
                         </div>
 
-                        {/* Zoom Controls */}
-                        <div className="flex items-center gap-2 bg-black/50 rounded-lg px-3 py-2">
+                        <div className="flex items-center gap-2">
+                            {/* Additional Tools */}
                             <button
-                                onClick={zoomOut}
-                                disabled={scale <= 0.5}
-                                className="text-white hover:bg-white/20 p-1 rounded transition-colors disabled:opacity-30"
+                                onClick={rotate}
+                                className="text-white hover:bg-white/20 p-2 rounded transition-colors"
+                                title="Rotate"
                             >
-                                <ZoomOut className="h-4 w-4" />
+                                <RotateCw className="h-4 w-4" />
                             </button>
 
                             <button
-                                onClick={resetZoom}
-                                className="text-white text-sm hover:bg-white/20 px-2 py-1 rounded transition-colors min-w-[60px]"
+                                onClick={downloadPDF}
+                                className="text-white hover:bg-white/20 p-2 rounded transition-colors"
+                                title="Download"
                             >
-                                {formatZoom()}
+                                <Download className="h-4 w-4" />
                             </button>
 
                             <button
-                                onClick={zoomIn}
-                                disabled={scale >= 3}
-                                className="text-white hover:bg-white/20 p-1 rounded transition-colors disabled:opacity-30"
+                                onClick={toggleFullscreen}
+                                className="text-white hover:bg-white/20 p-2 rounded transition-colors"
                             >
-                                <ZoomIn className="h-4 w-4" />
+                                {isFullscreen ? (
+                                    <Minimize className="h-4 w-4" />
+                                ) : (
+                                    <Maximize className="h-4 w-4" />
+                                )}
                             </button>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        {/* Additional Tools */}
-                        <button
-                            onClick={rotate}
-                            className="text-white hover:bg-white/20 p-2 rounded transition-colors"
-                            title="Rotate"
-                        >
-                            <RotateCw className="h-4 w-4" />
-                        </button>
-
-                        <button
-                            onClick={downloadPDF}
-                            className="text-white hover:bg-white/20 p-2 rounded transition-colors"
-                            title="Download"
-                        >
-                            <Download className="h-4 w-4" />
-                        </button>
-
-                        <button
-                            onClick={toggleFullscreen}
-                            className="text-white hover:bg-white/20 p-2 rounded transition-colors"
-                        >
-                            {isFullscreen ? (
-                                <Minimize className="h-4 w-4" />
-                            ) : (
-                                <Maximize className="h-4 w-4" />
-                            )}
-                        </button>
+                    {/* Zoom Level Indicator */}
+                    <div className="flex justify-center">
+                        <div className="bg-black/70 text-white text-xs px-3 py-1 rounded-full text-center max-w-full truncate">
+                            Page {currentPage} of {totalPages} • {formatZoom()} • {fileName}
+                        </div>
                     </div>
                 </div>
-
-                {/* Zoom Level Indicator */}
-                <div className="flex justify-center">
-                    <div className="bg-black/70 text-white text-xs px-3 py-1 rounded-full text-center max-w-full truncate">
-                        Page {currentPage} of {totalPages} • {formatZoom()} • {fileName}
-                    </div>
-                </div>
-            </div>
+            )}
         </div>
     );
 };

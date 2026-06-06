@@ -29,6 +29,7 @@ import {
   ChevronsRight,
   Settings,
   FileCode,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -103,6 +104,7 @@ export function AppShell({
   const adminLinks = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
     { href: "/admin/applications", label: "Applications", icon: ClipboardList },
+    { href: "/admin/mentorship", label: "Mentorship", icon: BookOpen },
     ...(role === "Admin" ? [{ href: "/admin/apc", label: "APC Assessments", icon: GraduationCap }] : []),
     ...(role === "Admin" ? [{ href: "/admin/payments", label: "Finance & Payments", icon: Wallet }] : []),
     { href: "/admin/members", label: "Members", icon: Users },

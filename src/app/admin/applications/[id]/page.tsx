@@ -269,14 +269,28 @@ export default function Review({ params }: PageProps) {
 
 
   const mentorshipUpgradeMutation = useMutation({
-    mutationFn: ({ action, notes }: { action: "Approve" | "Reject", notes?: string }) => 
-      import("@/lib/api/admin").then(m => m.adminReviewUpgrade({ applicationId: app?.id, action, notes })),
-    onSuccess: (data, variables) => {
-      toast.success(`Mentorship upgrade ${variables.action.toLowerCase()}ed successfully.`);
-      setApp((prev: any) => ({
-        ...prev,
-      mentorship: { ...prev.mentorship, status: variables.action === "Approve" ? "Approved" : "Rejected" }
-      }));
+    mutationFn: ({ action, notes }: { action: "Approve" | "Reject", notes?: string }) => {
+      if (action === "Approve") {
+        return import("@/lib/api/admin").then(m => m.approveMentorshipUpgrade(app?.id, notes));
+      } else {
+        return import("@/lib/api/admin").then(m => m.flagMentorshipForCorrection(app?.id, notes || "Flagged for correction."));
+      }
+    },
+    onSuccess: (data: any, variables) => {
+      if (variables.action === "Approve") {
+        toast.success("Mentorship upgrade approved! Redirecting to APC assessment…");
+        if (data?.apcAssessmentId) {
+          router.push(`/admin/apc/${data.apcAssessmentId}`);
+        } else {
+          router.push(`/admin/apc`);
+        }
+      } else {
+        toast.success("Mentorship upgrade flagged for correction.");
+        setApp((prev: any) => ({
+          ...prev,
+          mentorship: { ...prev.mentorship, status: "Correction_Required" }
+        }));
+      }
     },
     onError: (err: any) => toast.error(err.response?.data?.error || "Failed to review mentorship upgrade")
   });

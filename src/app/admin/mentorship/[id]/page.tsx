@@ -269,14 +269,29 @@ export default function Review({ params }: PageProps) {
 
 
   const mentorshipUpgradeMutation = useMutation({
-    mutationFn: ({ action, notes }: { action: "Approve" | "Reject", notes?: string }) => 
-      import("@/lib/api/admin").then(m => m.adminReviewUpgrade({ applicationId: app?.id, action, notes })),
-    onSuccess: (data, variables) => {
-      toast.success(`Mentorship upgrade ${variables.action.toLowerCase()}ed successfully.`);
-      setApp((prev: any) => ({
-        ...prev,
-      mentorship: { ...prev.mentorship, status: variables.action === "Approve" ? "Approved" : "Rejected" }
-      }));
+    mutationFn: ({ action, notes }: { action: "Approve" | "Reject", notes?: string }) => {
+      if (action === "Approve") {
+        return import("@/lib/api/admin").then(m => m.approveMentorshipUpgrade(app?.id, notes));
+      } else {
+        return import("@/lib/api/admin").then(m => m.flagMentorshipForCorrection(app?.id, notes || "Flagged for correction."));
+      }
+    },
+    onSuccess: (data: any, variables) => {
+      if (variables.action === "Approve") {
+        toast.success("Mentorship upgrade approved! Redirecting to APC assessment…");
+        // Navigate to the APC detail page for this candidate
+        if (data?.apcAssessmentId) {
+          router.push(`/admin/apc/${data.apcAssessmentId}`);
+        } else {
+          router.push(`/admin/apc`);
+        }
+      } else {
+        toast.success("Mentorship upgrade flagged for correction.");
+        setApp((prev: any) => ({
+          ...prev,
+          mentorship: { ...prev.mentorship, status: "Correction_Required" }
+        }));
+      }
     },
     onError: (err: any) => toast.error(err.response?.data?.error || "Failed to review mentorship upgrade")
   });
@@ -314,8 +329,8 @@ export default function Review({ params }: PageProps) {
           The requested ID does not exist in the candidate records.
         </p>
         <Link
-          href="/admin/applications"
-          className="text-navy dark:text-gold underline mt-4 inline-block font-semibold"
+          href="/admin/mentorship"
+          className="inline-flex items-center text-sm font-medium text-navy hover:text-navy/80 dark:text-gold dark:hover:text-gold/80 transition-colors"
         >
           Back to queue
         </Link>
@@ -371,7 +386,7 @@ export default function Review({ params }: PageProps) {
       setDialog(null);
       setNote("");
 
-      setTimeout(() => router.push("/admin/applications"), 650);
+      setTimeout(() => router.push("/admin/mentorship"), 650);
     } catch (err: any) {
       toast.error(err?.response?.data?.error || "Failed to process decision");
     } finally {
@@ -425,12 +440,12 @@ export default function Review({ params }: PageProps) {
   return (
     <div className="space-y-4 font-sans">
       {/* Back to queue (mobile only) */}
-      <div className="sm:hidden">
-        <Link href="/admin/applications">
+      <div className="sm:hidden mb-4">
+        <Link href="/admin/mentorship">
           <Button
             variant="ghost"
             size="sm"
-            className="text-navy dark:text-gold hover:bg-navy/5"
+            className="gap-2 -ml-2 text-muted-foreground hover:text-navy dark:hover:text-gold hover:bg-navy/5"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Queue
@@ -440,11 +455,11 @@ export default function Review({ params }: PageProps) {
       {/* Header controls bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-zinc-100 dark:border-zinc-800">
         <div className="flex items-center gap-3">
-          <Link href="/admin/applications" className="hidden sm:inline-flex">
+          <Link href="/admin/mentorship" className="hidden sm:inline-flex">
             <Button
               variant="ghost"
               size="sm"
-              className="text-navy dark:text-gold hover:bg-navy/5"
+              className="gap-2 -ml-2 mb-2 text-muted-foreground hover:text-navy dark:hover:text-gold hover:bg-navy/5"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Queue

@@ -272,15 +272,55 @@ export async function getAllApc(status?: string, page: number = 1, limit: number
 }
 
 // --- Mentorship Bundle Review ---
-export async function adminReviewUpgrade(payload: {
+
+export interface MentorshipQueueResponse {
+  queue: {
+    id: string;
+    member_id: string;
+    full_name: string;
+    email: string;
+    category_name: string;
+    location: string;
+    submitted_at: string;
+    status: string;
+    mentor_name: string;
+    apc_readiness: string;
+    duration_months: number;
+    photoId?: string;
+  }[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+}
+
+export async function getMentorshipQueue(
+  page: number = 1,
+  limit: number = 10,
+  q?: string,
+  status?: string
+): Promise<MentorshipQueueResponse> {
+  const params = new URLSearchParams();
+  params.append("page", page.toString());
+  params.append("limit", limit.toString());
+  if (q) params.append("q", q);
+  if (status) params.append("status", status);
+  const { data } = await axiosClient.get<MentorshipQueueResponse>(`/admin/mentorship/queue?${params.toString()}`);
+  return data;
+}
+
+export async function approveMentorshipUpgrade(applicationId: string, notes?: string): Promise<{
+  message: string;
+  apcAssessmentId: string;
   applicationId: string;
-  action: "Approve" | "Reject";
-  notes?: string;
-}): Promise<any> {
-  const { data } = await axiosClient.put(`/logbook/upgrade/${payload.applicationId}/admin-review`, {
-    status: payload.action === "Approve" ? "Approved" : "Rejected",
-    adminNotes: payload.notes
-  });
+}> {
+  const { data } = await axiosClient.post("/admin/mentorship/approve", { applicationId, notes });
+  return data;
+}
+
+export async function flagMentorshipForCorrection(applicationId: string, notes: string): Promise<any> {
+  const { data } = await axiosClient.post("/admin/mentorship/flag", { applicationId, notes });
   return data;
 }
 

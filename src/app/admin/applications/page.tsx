@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useMemo, useState, useEffect } from "react";
 import { getApplicationsQueue, takeOverApplication, sendAdminEmail } from "@/lib/api/admin";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,8 +62,11 @@ type SortKey =
 
 export default function AdminApps() {
   const { role } = useAuth();
+  const pathname = usePathname();
+  const isMentorshipRoute = pathname?.includes("mentorship");
+  
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<string>("all");
+  const [status, setStatus] = useState<string>(isMentorshipRoute ? "Mentorship Upgrade" : "all");
   const [loc, setLoc] = useState<string>("all");
   const [cat, setCat] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("submitted");
@@ -257,10 +260,11 @@ export default function AdminApps() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-navy tracking-tight">
-            {view === 'queue' ? 'Application Queue' : view === 'assigned' ? 'My Assigned Applications' : 'All Applications'}
+            {isMentorshipRoute ? 'Mentorship Queue' : view === 'queue' ? 'Application Queue' : view === 'assigned' ? 'My Assigned Applications' : 'All Applications'}
           </h1>
           <p className="text-sm text-muted-foreground font-sans mt-1">
-            {view === 'queue' ? 'Review, verify, and take over incoming practice applications.' : 
+            {isMentorshipRoute ? 'Review, assign mentors, and track APC readiness for candidates.' :
+             view === 'queue' ? 'Review, verify, and take over incoming practice applications.' : 
              view === 'assigned' ? 'Applications currently assigned to you for review or correction.' : 
              'Complete global view of all applications in the registry.'}
           </p>

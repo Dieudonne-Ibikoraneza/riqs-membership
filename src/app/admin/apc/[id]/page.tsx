@@ -46,7 +46,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { MonthYearPicker } from "@/components/ui/month-picker";
-import { scheduleApc, gradeApc } from "@/lib/api/admin";
+import { scheduleApc, gradeApc, getApplicationDetail } from "@/lib/api/admin";
 import { axiosClient } from "@/lib/axiosClient";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -110,21 +110,54 @@ export default function ApcDetailPage({ params }: PageProps) {
       if (!found) throw new Error("Not found");
       setApc(found);
 
-      if (found.application?.uploadedDocuments) {
+      if (found.application?.id) {
+        const appDetails = await getApplicationDetail(found.application.id);
         const token = typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : '';
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-        
-        const relevantDocs = found.application.uploadedDocuments.filter((d: any) => 
-          ["MentorRecommendation", "AnnualReport"].includes(d.documentType)
-        );
 
-        const mappedDocs = relevantDocs.map((d: any) => ({
-          name: d.documentName || d.documentType,
-          documentType: d.documentType,
-          url: `${baseUrl}/files/download/${d.id}?token=${token}`,
-          originalFileUrl: d.fileUrl
-        }));
-        setApcDocs(mappedDocs);
+        const mentorshipDocuments: any[] = [];
+        
+        if (appDetails.logbookEntries) {
+          appDetails.logbookEntries.forEach((entry: any) => {
+            if (entry.documentUrl) {
+              mentorshipDocuments.push({
+                name: `${entry.period} Logbook`,
+                url: `${baseUrl}/files/downloadByUrl?url=${encodeURIComponent(entry.documentUrl)}&token=${token}`,
+                originalFileUrl: entry.documentUrl,
+                documentType: 'Logbook'
+              });
+            }
+          });
+        }
+        
+        const mAssignment = appDetails.mentorship || appDetails.application?.mentorshipAssignment;
+        if (mAssignment) {
+          if (mAssignment.yearOneReportUrl) {
+            mentorshipDocuments.push({
+              name: 'Year 1 Annual Report',
+              url: `${baseUrl}/files/downloadByUrl?url=${encodeURIComponent(mAssignment.yearOneReportUrl)}&token=${token}`,
+              originalFileUrl: mAssignment.yearOneReportUrl,
+              documentType: 'Annual_Report'
+            });
+          }
+          if (mAssignment.yearTwoReportUrl) {
+            mentorshipDocuments.push({
+              name: 'Year 2 Annual Report',
+              url: `${baseUrl}/files/downloadByUrl?url=${encodeURIComponent(mAssignment.yearTwoReportUrl)}&token=${token}`,
+              originalFileUrl: mAssignment.yearTwoReportUrl,
+              documentType: 'Annual_Report'
+            });
+          }
+          if (mAssignment.mentorRecommendationUrl) {
+            mentorshipDocuments.push({
+              name: 'Mentor Recommendation Letter',
+              url: `${baseUrl}/files/downloadByUrl?url=${encodeURIComponent(mAssignment.mentorRecommendationUrl)}&token=${token}`,
+              originalFileUrl: mAssignment.mentorRecommendationUrl,
+              documentType: 'Recommendation'
+            });
+          }
+        }
+        setApcDocs(mentorshipDocuments);
       }
     } catch {
       toast.error("Could not load this APC record.");
@@ -321,15 +354,15 @@ export default function ApcDetailPage({ params }: PageProps) {
       </div>
 
       {/* Right Column: Document viewer */}
-      {apcDocs.length > 0 && (
-        <div className="lg:col-span-4">
-          <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col sticky top-6 h-[calc(100vh-8rem)]">
-            <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800 py-3 px-4 shrink-0">
-              <CardTitle className="text-sm font-bold text-navy flex items-center gap-2">
-                <FileText className="h-4 w-4 text-gold" /> Uploaded Documents
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 flex-1 flex flex-col overflow-hidden">
+      <div className="lg:col-span-4">
+        <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col sticky top-6 h-[calc(100vh-8rem)]">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800 py-3 px-4 shrink-0">
+            <CardTitle className="text-sm font-bold text-navy flex items-center gap-2">
+              <FileText className="h-4 w-4 text-gold" /> Uploaded Documents
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 flex-1 flex flex-col overflow-hidden">
+            {apcDocs.length > 0 ? (
               <Tabs 
                 value={String(activeDoc)} 
                 onValueChange={(v) => {
@@ -386,10 +419,18 @@ export default function ApcDetailPage({ params }: PageProps) {
                   })}
                 </div>
               </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-muted-foreground">
+                <div className="bg-zinc-100 dark:bg-zinc-800/50 p-4 rounded-full mb-4">
+                  <FileText className="h-8 w-8 opacity-50" />
+                </div>
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">No documents uploaded</h3>
+                <p className="text-sm max-w-xs mx-auto">This candidate does not have any documents attached to their APC assessment yet.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
 
       {/* Schedule Board Dialog */}

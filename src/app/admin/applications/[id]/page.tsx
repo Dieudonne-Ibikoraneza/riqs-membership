@@ -531,7 +531,7 @@ export default function Review({ params }: PageProps) {
           )}
 
           {/* Payment Clearance */}
-          {app.processingFeeTxId && (
+          {role === "Admin" && app.processingFeeTxId && (
             <motion.div
               initial={{ opacity: 0, x: -15 }}
               animate={{ opacity: 1, x: 0 }}

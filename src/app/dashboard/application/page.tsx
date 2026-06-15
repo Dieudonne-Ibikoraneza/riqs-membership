@@ -344,7 +344,8 @@ export default function Application() {
       preferredPracticeAreas: savedLocal?.preferredPracticeAreas || (profileData?.mentorship as any)?.preferredPracticeAreas || [],
       studentAssociation: savedLocal?.studentAssociation || (profileData as any)?.studentAssociation || { associationName: "", membershipNumber: "", registrationDate: "", activeYears: "" },
       competenceSummary: savedLocal?.competenceSummary || (application as any)?.competenceSummary || {},
-      noCriminalOffense: savedLocal?.noCriminalOffense ?? ((application as any)?.noCriminalOffense || false),
+      agreedToTerms: savedLocal?.agreedToTerms ?? ((application as any)?.agreedToDeclarations || false),
+      noCriminalOffense: savedLocal?.noCriminalOffense ?? ((application as any)?.agreedToDeclarations || false),
     }));
     
     setStep(savedStep);
@@ -496,7 +497,7 @@ export default function Application() {
           studentAssociation: data.studentAssociation,
           competenceSummary: data.competenceSummary,
           agreedToMentorshipIntent: data.agreedToMentorshipIntent,
-          noCriminalOffense: data.noCriminalOffense,
+          agreedToDeclarations: !!(data.noCriminalOffense && data.agreedToTerms),
           currentStep: step,
         } as any, {
           onSuccess: () => {
@@ -741,7 +742,7 @@ export default function Application() {
         studentAssociation: data.studentAssociation,
         competenceSummary: data.competenceSummary,
         agreedToMentorshipIntent: data.agreedToMentorshipIntent,
-        noCriminalOffense: data.noCriminalOffense,
+        agreedToDeclarations: !!(data.noCriminalOffense && data.agreedToTerms),
         currentStep: Math.min(STEPS.length - 1, step + 1),
       } as any);
     }
@@ -1715,30 +1716,17 @@ function WizardContent({
 
                   <div className="space-y-2 border p-4 rounded-md bg-zinc-50 dark:bg-zinc-900/50">
                     <Label>Preferred Practice Areas <span className="text-muted-foreground font-normal">(Optional)</span></Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 max-h-48 overflow-y-auto p-2 border rounded bg-white dark:bg-zinc-950">
-                      {competencies.map((c: any) => {
-                        const isSelected = data.preferredPracticeAreas?.includes(c.name);
-                        return (
-                          <div key={c.id} className="flex flex-row items-start space-x-3 space-y-0 p-2 rounded hover:bg-zinc-50 dark:hover:bg-zinc-900">
-                            <Checkbox
-                              id={`competency-${c.id}`}
-                              checked={isSelected}
-                              onCheckedChange={(checked) => {
-                                const current = data.preferredPracticeAreas || [];
-                                const updated = checked 
-                                  ? [...current, c.name] 
-                                  : current.filter((name: string) => name !== c.name);
-                                setData({ ...data, preferredPracticeAreas: updated, preferredPracticeAreasRaw: updated.join(', ') });
-                              }}
-                            />
-                            <div className="space-y-1 leading-none">
-                              <Label htmlFor={`competency-${c.id}`} className="font-medium text-sm cursor-pointer">{c.name}</Label>
-                            </div>
-                          </div>
-                        )
-                      })}
-                      {competencies.length === 0 && <span className="text-xs text-muted-foreground italic">No competencies found in settings.</span>}
-                    </div>
+                    <Textarea 
+                      placeholder="Type your preferred practice areas here (e.g., Cost Planning, Contract Administration)"
+                      maxLength={250}
+                      value={data.preferredPracticeAreasRaw ?? data.preferredPracticeAreas?.join(', ') ?? ''}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const arr = raw.split(',').map(s => s.trim()).filter(Boolean);
+                        setData({ ...data, preferredPracticeAreas: arr, preferredPracticeAreasRaw: raw });
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">List areas separated by commas. Maximum 250 characters.</p>
                   </div>
 
                   {data.mentors.map((m: any, i: number) => (

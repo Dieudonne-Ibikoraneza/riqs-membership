@@ -79,7 +79,7 @@ function MenteeCard({ mentee, onDownloadClick }: {
     recommendMutation.mutate(selectedFile);
   };
 
-  const canRecommend = mentee.entriesCount >= 4 && !mentee.mentorRecommendationUrl;
+  const canRecommend = mentee.entriesCount >= 2 && !mentee.mentorRecommendationUrl;
 
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50/50 dark:bg-zinc-900/50 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
@@ -113,7 +113,7 @@ function MenteeCard({ mentee, onDownloadClick }: {
             Submit Recommendation
           </Button>
         ) : mentee.mentorRecommendationUrl ? (
-          <Badge variant="secondary" className="bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border border-blue-200 dark:border-blue-900/50">
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/30 dark:text-blue-400 dark:hover:bg-blue-900/60 border-blue-200 dark:border-blue-900/50 transition-colors">
             <Check className="h-3 w-3 mr-1" /> Recommendation Submitted
           </Badge>
         ) : null}
@@ -148,9 +148,14 @@ function MenteeCard({ mentee, onDownloadClick }: {
                         variant="outline" 
                         size="sm" 
                         className="text-xs gap-1"
-                        onClick={() => onDownloadClick(entry.id, `logbook_${entry.period}.pdf`)}
+                        onClick={() => {
+                          const token = typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : '';
+                          const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+                          const fileUrl = `${baseUrl}/files/downloadByUrl?url=${encodeURIComponent(entry.documentUrl)}&token=${token}`;
+                          window.open(fileUrl, '_blank');
+                        }}
                       >
-                        <Download className="h-3 w-3" /> Download
+                        <ExternalLink className="h-3 w-3" /> Open in new tab
                       </Button>
                     </div>
                   ))}
@@ -411,8 +416,8 @@ export default function Mentorship() {
   const renewalDue = monthsElapsed >= 12;
   const isRenewalLocked = renewalDue && !renewalCleared;
 
-  const logbookComplete = (mentorshipProgress?.entriesCount || 0) >= 4;
-  const logbookPercentage = Math.min(100, (mentorshipProgress?.entriesCount || 0) * 25);
+  const logbookComplete = (mentorshipProgress?.entriesCount || 0) >= 2;
+  const logbookPercentage = Math.min(100, (mentorshipProgress?.entriesCount || 0) * 50);
   const twoYearsElapsed = monthsElapsed >= 24;
   const monthsToGo = Math.max(0, 24 - monthsElapsed);
   const upgradeEligible = logbookComplete;
@@ -576,7 +581,7 @@ export default function Mentorship() {
               )})}
 
               {/* Dynamic Uploader Card */}
-              {!upgradeRequested && (mentorshipProgress?.entriesCount || 0) < 4 && (
+              {!upgradeRequested && (mentorshipProgress?.entriesCount || 0) < 2 && (
                 <div 
                   className={cn(
                     "relative group rounded-xl border-2 border-dashed transition-all w-full flex flex-col justify-center items-center py-12 px-6 cursor-pointer overflow-hidden",
@@ -606,10 +611,7 @@ export default function Mentorship() {
                     setSelectedLogbookFile(file);
                     
                     const periodName = 
-                      (mentorshipProgress?.entriesCount || 0) === 0 ? "Month 1-6" :
-                      (mentorshipProgress?.entriesCount || 0) === 1 ? "Month 7-12" :
-                      (mentorshipProgress?.entriesCount || 0) === 2 ? "Month 13-18" :
-                      "Month 19-24";
+                      (mentorshipProgress?.entriesCount || 0) === 0 ? "Year 1" : "Year 2";
                     
                     submitLogbookMutation.mutate({
                       file: file,
@@ -628,10 +630,7 @@ export default function Mentorship() {
                       setSelectedLogbookFile(file);
                       
                       const periodName = 
-                        (mentorshipProgress?.entriesCount || 0) === 0 ? "Month 1-6" :
-                        (mentorshipProgress?.entriesCount || 0) === 1 ? "Month 7-12" :
-                        (mentorshipProgress?.entriesCount || 0) === 2 ? "Month 13-18" :
-                        "Month 19-24";
+                        (mentorshipProgress?.entriesCount || 0) === 0 ? "Year 1" : "Year 2";
                       
                       submitLogbookMutation.mutate({
                         file: file,
@@ -649,10 +648,7 @@ export default function Mentorship() {
                       </div>
                       <h3 className="font-bold text-lg text-navy dark:text-zinc-100 mb-2">
                         Submit {
-                          (mentorshipProgress?.entriesCount || 0) === 0 ? "Month 1-6" :
-                          (mentorshipProgress?.entriesCount || 0) === 1 ? "Month 7-12" :
-                          (mentorshipProgress?.entriesCount || 0) === 2 ? "Month 13-18" :
-                          "Month 19-24"
+                          (mentorshipProgress?.entriesCount || 0) === 0 ? "Year 1" : "Year 2"
                         } Logbook
                       </h3>
                       <p className="text-sm text-muted-foreground font-sans text-center max-w-sm">
@@ -762,7 +758,7 @@ export default function Mentorship() {
                 <div className="font-bold text-2xl text-navy dark:text-zinc-100">{logbookPercentage}<span className="text-sm font-normal text-muted-foreground">%</span></div>
                 <div className="text-xs text-muted-foreground font-sans flex items-center">
                   {logbookComplete ? (
-                    <div className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-500" /><span className="text-emerald-700 dark:text-emerald-400 font-medium">4 Logbooks uploaded</span></div>
+                    <div className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-500" /><span className="text-emerald-700 dark:text-emerald-400 font-medium">2 Logbooks uploaded</span></div>
                   ) : (
                     `${100 - logbookPercentage}% still needed`
                   )}
@@ -821,7 +817,7 @@ export default function Mentorship() {
                           <div 
                             className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50 hover:border-gold transition-all h-[500px]"
                             onClick={() => {
-                              if ((mentorshipProgress?.entriesCount || 0) < 2) return toast.error("Upload at least 2 logbooks before attaching Year 1 Report.");
+                              if ((mentorshipProgress?.entriesCount || 0) < 1) return toast.error("Upload Year 1 logbook before attaching Year 1 Report.");
                               document.getElementById("report-upload-input-1")?.click();
                             }}
                           >
@@ -852,7 +848,7 @@ export default function Mentorship() {
                           <div 
                             className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50 hover:border-gold transition-all h-[500px]"
                             onClick={() => {
-                              if (!upgradeEligible) return toast.error("You must upload all 4 logbooks before attaching Year 2 Report.");
+                              if (!upgradeEligible) return toast.error("You must upload both logbooks before attaching Year 2 Report.");
                               document.getElementById("report-upload-input-2")?.click();
                             }}
                           >
@@ -877,7 +873,7 @@ export default function Mentorship() {
               <Clock className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
               <div className="text-blue-800 dark:text-blue-300 font-sans">
                 <strong className="font-semibold">Not yet eligible for upgrade.</strong>{" "}
-                You need <strong>4 submitted logbooks</strong> to initiate an upgrade. You currently have {mentorshipProgress?.entriesCount || 0}. Keep logging your progress.
+                You need <strong>2 submitted logbooks</strong> to initiate an upgrade. You currently have {mentorshipProgress?.entriesCount || 0}. Keep logging your progress.
               </div>
             </div>
           )}

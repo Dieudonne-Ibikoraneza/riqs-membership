@@ -167,47 +167,7 @@ export default function SettingsPage() {
 
 
   // --- Competencies State ---
-  const competencies: any[] = [];
-const isLoadingCompetencies = false;
-  const [activeCompId, setActiveCompId] = useState<string | null>(null);
-  const [compDraft, setCompDraft] = useState<Partial<Competency> | null>(null);
-  const [isCompCreateOpen, setIsCompCreateOpen] = useState(false);
-  const [newCompetency, setNewCompetency] = useState<Omit<Competency, "id">>({
-    name: "",
-    description: "",
-    targetHours: 0
-  });
-
-  useEffect(() => {
-    if (competencies.length > 0 && !activeCompId) {
-      setActiveCompId(competencies[0].id);
-      setCompDraft(competencies[0]);
-    }
-  }, [competencies, activeCompId]);
-
-  useEffect(() => {
-    if (activeCompId) {
-      const found = competencies.find((c: any) => c.id === activeCompId);
-      if (found) setCompDraft(found);
-    }
-  }, [activeCompId, competencies]);
-
-  const updateCompMutation = { mutate: (arg: any) => {}, isPending: false };
-  const createCompMutation = { mutate: (arg: any) => {}, isPending: false };
-  const deleteCompMutation = { mutate: (arg: any) => {}, isPending: false };
-
-  const handleCompSave = () => {
-    if (compDraft && activeCompId) updateCompMutation.mutate({ id: activeCompId, data: compDraft });
-  };
-  const handleCompDelete = () => {
-    if (activeCompId) deleteCompMutation.mutate(activeCompId);
-  };
-  const compHasChanges = useMemo(() => {
-    if (!compDraft || !activeCompId) return false;
-    const original = competencies.find((c: any) => c.id === activeCompId);
-    if (!original) return false;
-    return JSON.stringify(original) !== JSON.stringify(compDraft);
-  }, [compDraft, activeCompId, competencies]);
+  // Removed as requested
 
   if (role !== "Admin") return null;
 
@@ -324,7 +284,6 @@ const isLoadingCompetencies = false;
       <Tabs defaultValue="categories" className="w-full">
         <TabsList className="bg-muted p-1">
           <TabsTrigger value="categories">Categories & Documents</TabsTrigger>
-          <TabsTrigger value="competencies">Logbook Competencies</TabsTrigger>
           <TabsTrigger value="practice">Practice Locations</TabsTrigger>
           <TabsTrigger value="entity">Entity Types</TabsTrigger>
         </TabsList>
@@ -447,130 +406,7 @@ const isLoadingCompetencies = false;
           </Card>
         </TabsContent>
 
-        
-        {/* ─── TAB 4: LOGBOOK COMPETENCIES ───────────────────────────────────── */}
-        <TabsContent value="competencies" className="mt-4">
-          <div className="grid gap-6 md:grid-cols-[260px_1fr] items-start">
-            
-            {/* Sidebar of Competencies */}
-            <Card className="lg:sticky lg:top-6 border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 lg:max-h-[calc(100vh-140px)] max-h-[500px] overflow-y-auto flex flex-col">
-              <CardHeader className="p-4 border-b">
-                <CardTitle className="text-sm font-bold text-navy">Practice Areas</CardTitle>
-                <p className="text-xs text-muted-foreground">Manage logbook competencies</p>
-              </CardHeader>
-              <div className="p-2 space-y-4 flex-1">
-                {isLoadingCompetencies ? (
-                  <div className="flex flex-col items-center justify-center py-10 space-y-2">
-                    <Loader2 className="h-6 w-6 text-gold animate-spin" />
-                    <span className="text-xs text-muted-foreground">Loading...</span>
-                  </div>
-                ) : (
-                  <div className="space-y-0.5 font-sans text-xs">
-                    {competencies.map((c: any) => (
-                      <button key={c.id} onClick={() => setActiveCompId(c.id)}
-                        className={`w-full text-left px-3 py-1.5 rounded transition-colors ${activeCompId === c.id ? "bg-navy text-white font-semibold" : "hover:bg-muted text-muted-foreground"}`}>
-                        {c.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                
-                <Dialog open={isCompCreateOpen} onOpenChange={setIsCompCreateOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="w-full bg-gold text-[#1a1a1a] hover:bg-gold/90 border-none font-bold text-xs mt-2 py-1.5">
-                      <Plus className="mr-1 h-3.5 w-3.5" /> Add Competency
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add New Competency</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 mt-4">
-                      <div>
-                        <Label>Practice Area Name</Label>
-                        <Input value={newCompetency.name} onChange={(e) => setNewCompetency({...newCompetency, name: e.target.value})} placeholder="e.g. Cost Planning" />
-                      </div>
-                      <div>
-                        <Label>Target Hours</Label>
-                        <Input type="number" value={newCompetency.targetHours} onChange={(e) => setNewCompetency({...newCompetency, targetHours: parseInt(e.target.value) || 0})} />
-                      </div>
-                      <div>
-                        <Label>Description</Label>
-                        <Input value={newCompetency.description} onChange={(e) => setNewCompetency({...newCompetency, description: e.target.value})} placeholder="Details..." />
-                      </div>
-                      <Button onClick={() => createCompMutation.mutate(newCompetency as any)} className="w-full bg-navy text-white" disabled={createCompMutation.isPending}>
-                        {createCompMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Save Competency
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </Card>
 
-            {/* Editor Panel */}
-            {compDraft ? (
-              <Card className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
-                <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-                  <div>
-                    <span className="text-xs bg-gold/10 text-gold font-bold px-2 py-0.5 rounded border border-gold/30 uppercase tracking-wider">Target: {compDraft.targetHours} Hrs</span>
-                    <CardTitle className="text-lg font-bold text-navy mt-1.5">{compDraft.name}</CardTitle>
-                  </div>
-                  <div className="flex gap-2">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" className="text-destructive hover:bg-destructive/5 font-semibold text-xs border border-transparent hover:border-destructive/10">
-                          <Trash2 className="h-4 w-4 mr-1" /> Delete
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Delete Competency</DialogTitle>
-                          <DialogDescription>
-                            Are you sure? This cannot be deleted if users have already logged hours against it.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter className="mt-4">
-                          <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                          <DialogClose asChild>
-                            <Button variant="destructive" onClick={handleCompDelete} disabled={deleteCompMutation.isPending}>
-                              {deleteCompMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Trash2 className="h-4 w-4 mr-1.5" />}
-                              Confirm Delete
-                            </Button>
-                          </DialogClose>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <Label className="text-xs font-bold text-navy">Competency Name</Label>
-                      <Input className="mt-1" value={compDraft.name || ""} onChange={(e) => setCompDraft({...compDraft, name: e.target.value})} />
-                    </div>
-                    <div>
-                      <Label className="text-xs font-bold text-navy">Target Hours</Label>
-                      <Input type="number" className="mt-1" value={compDraft.targetHours ?? 0} onChange={(e) => setCompDraft({...compDraft, targetHours: parseInt(e.target.value) || 0})} />
-                    </div>
-                    <div className="col-span-2">
-                      <Label className="text-xs font-bold text-navy">Description</Label>
-                      <Input className="mt-1" value={compDraft.description || ""} onChange={(e) => setCompDraft({...compDraft, description: e.target.value})} />
-                    </div>
-                  </div>
-                </CardContent>
-                <div className="border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 p-4 rounded-b-xl flex justify-end">
-                  <Button onClick={handleCompSave} disabled={updateCompMutation.isPending || !compHasChanges} className="bg-navy text-white hover:bg-navy/90 font-bold text-xs px-6 py-2">
-                    {updateCompMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />} Save Changes
-                  </Button>
-                </div>
-              </Card>
-            ) : (
-              <Card className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 p-8 text-center text-sm text-muted-foreground">
-                Select a competency or create a new one.
-              </Card>
-            )}
-          </div>
-        </TabsContent>
 
 
         {/* ─── TAB 3: DYNAMIC CATEGORIES AND DOCUMENTS CRUD ───────────────────────── */}

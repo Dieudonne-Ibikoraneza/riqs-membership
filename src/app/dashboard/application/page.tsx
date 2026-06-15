@@ -753,7 +753,12 @@ export default function Application() {
   const submit = () => {
     if (!appId) return toast.error("Application not found. Please complete all steps first.");
     if (!data.agreedToTerms) return toast.error("Please agree to the terms and conditions.");
-    if (!data.noCriminalOffense) return toast.error("Please agree to the criminal offense declaration.");
+    if (!data.noCriminalOffense) {
+      const msg = data.entityType === "Firm" 
+        ? "Please agree to the Beneficial Ownership & Compliance declaration."
+        : "Please agree to the criminal offense declaration.";
+      return toast.error(msg);
+    }
     submitMutation.mutate(appId);
   };
 
@@ -1947,10 +1952,12 @@ function WizardContent({
                       <Checkbox id="no-criminal" checked={data.noCriminalOffense} onCheckedChange={(c) => setData({ ...data, noCriminalOffense: c === true })} className="mt-1" />
                       <div className="space-y-1 leading-none">
                         <Label htmlFor="no-criminal" className="font-semibold text-sm cursor-pointer">
-                          Declaration of No Criminal Offense
+                          {data.entityType === "Firm" ? "Beneficial Ownership & Compliance Undertaking" : "Declaration of No Criminal Offense"}
                         </Label>
                         <p className="text-xs text-muted-foreground font-sans leading-relaxed">
-                          I declare that I have not been convicted of any criminal offense, nor have I been subject to any disciplinary action by any professional body.
+                          {data.entityType === "Firm" 
+                            ? "I/We declare that all listed shareholders are the true and lawful beneficial owners of the firm. The firm acknowledges that any misrepresentation shall constitute a fraudulent declaration."
+                            : "I declare that I have not been convicted of any criminal offense, nor have I been subject to any disciplinary action by any professional body."}
                         </p>
                       </div>
                     </div>
@@ -1962,7 +1969,7 @@ function WizardContent({
                           I agree to the Terms & Conditions and Code of Conduct
                         </Label>
                         <p className="text-xs text-muted-foreground font-sans leading-relaxed">
-                          By checking this box, I confirm that all information provided is accurate and truthful. I agree to abide by the RIQS Code of Professional Conduct.
+                          By checking this box, I confirm that all information provided is accurate and truthful. I agree to abide by the RIQS Code of Professional Conduct and regulatory requirements.
                         </p>
                       </div>
                     </div>

@@ -544,20 +544,32 @@ export default function Review({ params }: PageProps) {
               }`}>
                 <div className="text-sm">
                   <span className="font-semibold text-zinc-800 dark:text-zinc-200">Processing Fee: </span>
-                  <span className="text-zinc-600 dark:text-zinc-400">
-                    {app.processingFeeStatus}
+                  <span className="text-zinc-600 dark:text-zinc-400 capitalize">
+                    {app.processingFeeStatus?.replace(/_/g, " ")}
                   </span>
                 </div>
                 {!app.processingFeeCleared && role !== "Approver" && (
-                  <Button 
-                    size="sm" 
-                    onClick={() => verifyPaymentMutation.mutate({ txId: app.processingFeeTxId, action: "Cleared" })}
-                    disabled={verifyPaymentMutation.isPending}
-                    className="h-7 text-xs gap-1 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
-                  >
-                    {verifyPaymentMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                    Mark as Cleared
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      size="sm" 
+                      onClick={() => verifyPaymentMutation.mutate({ txId: app.processingFeeTxId, action: "Failed" })}
+                      disabled={verifyPaymentMutation.isPending}
+                      variant="outline"
+                      className="h-7 px-2.5 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30"
+                    >
+                      <X className="mr-1 h-3 w-3" />
+                      Failed
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      onClick={() => verifyPaymentMutation.mutate({ txId: app.processingFeeTxId, action: "Cleared" })}
+                      disabled={verifyPaymentMutation.isPending}
+                      className="h-7 text-xs gap-1 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
+                    >
+                      {verifyPaymentMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                      Mark as Cleared
+                    </Button>
+                  </div>
                 )}
               </div>
             </motion.div>
@@ -565,7 +577,7 @@ export default function Review({ params }: PageProps) {
 
           {/* Reviewer Notes */}
           {(() => {
-            const latestNote = app.statusHistory?.find((h: any) => h.reviewerNotes);
+            const latestNote = app.statusHistory?.find((h: any) => h.reviewerNotes && !["Approved by Approver.", "Rejected by Approver."].includes(h.reviewerNotes));
             if (!latestNote) return null;
             return (
               <motion.div

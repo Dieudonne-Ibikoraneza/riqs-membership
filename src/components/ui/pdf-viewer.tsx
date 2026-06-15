@@ -50,7 +50,7 @@ interface PDFJSLib {
     GlobalWorkerOptions: {
         workerSrc: string;
     };
-    getDocument(src: string): { promise: Promise<PDFDocument> };
+    getDocument(src: string | { url: string; cMapUrl?: string; cMapPacked?: boolean; standardFontDataUrl?: string; }): { promise: Promise<PDFDocument> };
 }
 
 declare global {

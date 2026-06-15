@@ -115,6 +115,10 @@ export default function ApcPage() {
   };
 
   const handleGrade = async () => {
+    if (["Passed", "Failed"].includes(gradeForm.status) && !gradeForm.score) {
+      toast.error("Score percentage is required.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       await gradeApc({
@@ -380,7 +384,12 @@ export default function ApcPage() {
             {["Passed", "Failed"].includes(gradeForm.status) && (
               <div className="space-y-2">
                 <Label>Score Percentage (%)</Label>
-                <Input type="number" min="0" max="100" placeholder="e.g. 78.5" value={gradeForm.score} onChange={(e) => setGradeForm({ ...gradeForm, score: e.target.value })} />
+                <Input type="number" min="0" max="100" placeholder="e.g. 78.5" value={gradeForm.score} onChange={(e) => {
+                  let v = e.target.value;
+                  if (parseFloat(v) > 100) v = "100";
+                  if (parseFloat(v) < 0) v = "0";
+                  setGradeForm({ ...gradeForm, score: v });
+                }} />
               </div>
             )}
             <div className="space-y-2">

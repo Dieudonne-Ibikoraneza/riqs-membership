@@ -54,7 +54,7 @@ export default function Mentorship() {
   const [collapsedDocs, setCollapsedDocs] = useState<Record<string, boolean>>({});
   const [isDragging, setIsDragging] = useState(false);
   const [activeReportTab, setActiveReportTab] = useState<'year1' | 'year2'>('year1');
-
+  const [reportUploadProgress, setReportUploadProgress] = useState<{ year: "1" | "2" | null, progress: number }>({ year: null, progress: 0 });
 
 
   // 2. Fetch profile data (Graduate scope)
@@ -76,6 +76,9 @@ export default function Mentorship() {
     enabled: !!profileData?.application?.id
   });
 
+  const isAssociate = profileData?.profile?.membershipClass === "Associate" || profileData?.application?.category_name?.includes("Associate");
+  const isFullyUpgraded = ["Professional", "Fellow", "Technologist"].includes(profileData?.profile?.membershipClass || "");
+
   // 4. Mutation: Upload Two Year Report (Graduate scope)
   const uploadReportMutation = useMutation({
     mutationFn: async ({ file, year }: { file: File, year: "1" | "2" }) => {
@@ -86,7 +89,15 @@ export default function Mentorship() {
       formData.append("file", file);
       formData.append("applicationId", profileData.application.id);
       formData.append("year", year);
-      return logbookServices.uploadAnnualReport(formData);
+      
+      setReportUploadProgress({ year, progress: 0 });
+      
+      return logbookServices.uploadAnnualReport(formData, (progressEvent) => {
+        if (progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setReportUploadProgress({ year, progress: percentCompleted });
+        }
+      });
     },
     onSuccess: (_, variables) => {
       toast.success(`Year ${variables.year} Report uploaded successfully!`);
@@ -94,6 +105,9 @@ export default function Mentorship() {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.error || "Failed to upload annual report.");
+    },
+    onSettled: () => {
+      setTimeout(() => setReportUploadProgress({ year: null, progress: 0 }), 1000);
     }
   });
 
@@ -231,7 +245,8 @@ export default function Mentorship() {
                         </Badge>
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5 font-sans">
-                        {mentorship.mentorQualification || "PQS"} · {mentorship.mentorEmployer || "RIQS Registered Firm"}
+                        {mentorship.mentorQualification || "PQS"}
+                        {mentorship.mentorEmployer ? ` • ${mentorship.mentorEmployer}` : ""}
                       </div>
                     </div>
                   </div>
@@ -569,6 +584,21 @@ export default function Mentorship() {
                               />
                             )}
                           </div>
+                        ) : reportUploadProgress.year === '1' ? (
+                          <div className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-zinc-50 dark:bg-zinc-900/50 h-[500px]">
+                            <div className="w-full max-w-sm space-y-4">
+                              <div className="flex justify-between items-center text-sm font-semibold text-navy dark:text-zinc-200">
+                                <span>Upload progress</span>
+                                <span>{reportUploadProgress.progress}%</span>
+                              </div>
+                              <div className="h-2 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-navy dark:bg-gold transition-all duration-300"
+                                  style={{ width: `${reportUploadProgress.progress}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
                         ) : (
                           <div 
                             className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50 hover:border-gold transition-all h-[500px]"
@@ -600,6 +630,21 @@ export default function Mentorship() {
                               />
                             )}
                           </div>
+                        ) : reportUploadProgress.year === '2' ? (
+                          <div className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-zinc-50 dark:bg-zinc-900/50 h-[500px]">
+                            <div className="w-full max-w-sm space-y-4">
+                              <div className="flex justify-between items-center text-sm font-semibold text-navy dark:text-zinc-200">
+                                <span>Upload progress</span>
+                                <span>{reportUploadProgress.progress}%</span>
+                              </div>
+                              <div className="h-2 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-navy dark:bg-gold transition-all duration-300"
+                                  style={{ width: `${reportUploadProgress.progress}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
                         ) : (
                           <div 
                             className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50 hover:border-gold transition-all h-[500px]"
@@ -624,7 +669,7 @@ export default function Mentorship() {
           </div>
 
           {/* Not yet eligible message */}
-          {!upgradeEligible && (
+          {!isFullyUpgraded && !upgradeEligible && (
             <div className="flex items-start gap-3 p-4 rounded-lg border border-blue-200 dark:border-blue-900/40 bg-blue-50/50 dark:bg-blue-950/20 text-sm mt-5">
               <Clock className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
               <div className="text-blue-800 dark:text-blue-300 font-sans">
@@ -635,7 +680,7 @@ export default function Mentorship() {
           )}
 
           {/* Two upgrade paths — only shown when eligible and not yet requested */}
-          {upgradeEligible && !upgradeRequested && (
+          {!isFullyUpgraded && upgradeEligible && (!upgradeRequested || assignment?.status === 'Approved') && (
             <div className="space-y-4 mt-6 pt-6 border-t border-zinc-100 dark:border-zinc-800">
               <div>
                 <h3 className="text-lg font-bold text-navy dark:text-zinc-100">Ready to Upgrade?</h3>
@@ -645,6 +690,7 @@ export default function Mentorship() {
               <div className="grid gap-4 md:grid-cols-2 mt-4">
 
                 {/* Path A: Associate (no APC) */}
+                {!isAssociate && (
                 <div className="group relative rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-300">
                   <div className="absolute top-0 left-0 w-1 h-full bg-zinc-300 dark:bg-zinc-700 transition-all group-hover:w-1.5"></div>
                   <div className="p-6 pl-8">
@@ -670,6 +716,7 @@ export default function Mentorship() {
                     </Button>
                   </div>
                 </div>
+                )}
 
                 {/* Path B: Full Professional (with APC) */}
                 <div className="group relative rounded-xl border border-gold/30 bg-gradient-to-b from-gold/5 to-transparent dark:from-gold/10 dark:to-zinc-900/50 overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-md hover:border-gold/60 transition-all duration-300">
@@ -715,7 +762,7 @@ export default function Mentorship() {
           )}
 
           {/* Upgrade already in progress */}
-          {upgradeRequested && (
+          {!isFullyUpgraded && upgradeRequested && assignment?.status !== 'Approved' && (
             <div className="flex items-center gap-3 mt-4 p-4 rounded-lg border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 text-sm">
               <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
               <div className="text-emerald-800 dark:text-emerald-300 font-sans">

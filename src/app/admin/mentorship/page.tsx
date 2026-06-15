@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 const APC_READINESS_BADGE: Record<string, { label: string; className: string }> = {
   Ready:    { label: "Ready for APC",  className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400" },
   Unknown:  { label: "Unknown",        className: "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400" },
-  "Not Ready": { label: "Not Ready",   className: "bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400" },
+  Not_Ready: { label: "Not Ready",   className: "bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400" },
 };
 
 function Avatar({ name, url }: { name: string; url?: string }) {
@@ -247,7 +247,7 @@ export default function MentorshipQueuePage() {
                         >
                           {a.apc_readiness === "Ready" && <CheckCircle2 className="h-3 w-3 shrink-0" />}
                           {a.apc_readiness === "Unknown" && <Clock className="h-3 w-3 shrink-0" />}
-                          {a.apc_readiness === "Not Ready" && <XCircle className="h-3 w-3 shrink-0" />}
+                          {a.apc_readiness === "Not_Ready" && <XCircle className="h-3 w-3 shrink-0" />}
                           {readiness.label}
                         </Badge>
                       </td>

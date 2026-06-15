@@ -31,6 +31,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { MonthYearPicker } from "@/components/ui/month-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { getAllApc, scheduleApc, gradeApc } from "@/lib/api/admin";
 import { cn } from "@/lib/utils";
 
@@ -75,7 +76,7 @@ export default function ApcPage() {
   const [scheduleDialog, setScheduleDialog] = useState<any>(null); // apc row being scheduled
   const [gradeDialog, setGradeDialog] = useState<any>(null); // apc row being graded
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [scheduleForm, setScheduleForm] = useState({ date: "", time: "", chair: "", exam1: "", exam2: "" });
+  const [scheduleForm, setScheduleForm] = useState({ date: "", time: "", chair: "", chairEmail: "", exam1: "", exam1Email: "", exam2: "", exam2Email: "" });
   const [gradeForm, setGradeForm] = useState({ status: "Passed", score: "", notes: "" });
 
   const currentTab = TABS.find((t) => t.id === activeTab)!;
@@ -96,12 +97,15 @@ export default function ApcPage() {
         applicationId: scheduleDialog.application.id,
         assessmentDate: new Date(`${scheduleForm.date}T${scheduleForm.time || "09:00"}`).toISOString(),
         panelChair: scheduleForm.chair,
+        panelChairEmail: scheduleForm.chairEmail,
         examiner1: scheduleForm.exam1,
+        examiner1Email: scheduleForm.exam1Email,
         examiner2: scheduleForm.exam2,
+        examiner2Email: scheduleForm.exam2Email,
       });
       toast.success("APC Board successfully scheduled.");
       setScheduleDialog(null);
-      setScheduleForm({ date: "", time: "", chair: "", exam1: "", exam2: "" });
+      setScheduleForm({ date: "", time: "", chair: "", chairEmail: "", exam1: "", exam1Email: "", exam2: "", exam2Email: "" });
       queryClient.invalidateQueries({ queryKey: ["apcAll"] });
     } catch (err: any) {
       toast.error(err?.response?.data?.error || "Failed to schedule APC board.");
@@ -248,7 +252,7 @@ export default function ApcPage() {
                             <Button
                               size="sm"
                               className="h-7 text-xs bg-gold text-[#1a1a1a] hover:bg-gold/90 border-none font-bold"
-                              onClick={() => { setScheduleDialog(apc); setScheduleForm({ date: "", time: "", chair: "", exam1: "", exam2: "" }); }}
+                              onClick={() => { setScheduleDialog(apc); setScheduleForm({ date: "", time: "", chair: "", chairEmail: "", exam1: "", exam1Email: "", exam2: "", exam2Email: "" }); }}
                             >
                               Schedule Board
                             </Button>
@@ -299,21 +303,39 @@ export default function ApcPage() {
                 <div className="flex-1">
                   <MonthYearPicker value={scheduleForm.date} onChange={(v) => setScheduleForm({ ...scheduleForm, date: v })} placeholder="Select date" />
                 </div>
-                <Input type="time" className="w-32" value={scheduleForm.time} onChange={(e) => setScheduleForm({ ...scheduleForm, time: e.target.value })} />
+                <div className="w-[140px]">
+                  <TimePicker value={scheduleForm.time} onChange={(v) => setScheduleForm({ ...scheduleForm, time: v })} placeholder="Select time" />
+                </div>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Panel Chair Name</Label>
-              <Input placeholder="e.g. John Doe (PrQS)" value={scheduleForm.chair} onChange={(e) => setScheduleForm({ ...scheduleForm, chair: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Examiner 1</Label>
+                <Label>Panel Chair Name</Label>
+                <Input placeholder="e.g. John Doe (PrQS)" value={scheduleForm.chair} onChange={(e) => setScheduleForm({ ...scheduleForm, chair: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Panel Chair Email</Label>
+                <Input placeholder="chair@example.com" value={scheduleForm.chairEmail} onChange={(e) => setScheduleForm({ ...scheduleForm, chairEmail: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Examiner 1 Name</Label>
                 <Input placeholder="e.g. Jane Smith (PrQS)" value={scheduleForm.exam1} onChange={(e) => setScheduleForm({ ...scheduleForm, exam1: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Examiner 2</Label>
+                <Label>Examiner 1 Email</Label>
+                <Input placeholder="exam1@example.com" value={scheduleForm.exam1Email} onChange={(e) => setScheduleForm({ ...scheduleForm, exam1Email: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Examiner 2 Name</Label>
                 <Input placeholder="e.g. Robert Brown (PrQS)" value={scheduleForm.exam2} onChange={(e) => setScheduleForm({ ...scheduleForm, exam2: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Examiner 2 Email</Label>
+                <Input placeholder="exam2@example.com" value={scheduleForm.exam2Email} onChange={(e) => setScheduleForm({ ...scheduleForm, exam2Email: e.target.value })} />
               </div>
             </div>
           </div>

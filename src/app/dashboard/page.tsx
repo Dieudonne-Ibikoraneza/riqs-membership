@@ -36,11 +36,13 @@ export default function Overview() {
   const rawStatus = profileData?.application?.status || "Pending";
   const appStatus = rawStatus.replace(/_/g, " ");
   const isGraduate = membershipCategory.includes("Graduate");
+  const isAssociate = membershipCategory.includes("Associate");
+  const isMentor = profileData?.profile?.systemRole === "Mentor" || membershipCategory.includes("Professional") || membershipCategory.includes("Fellow");
 
   const { data: logbookProgress } = useQuery({
     queryKey: ["logbook-progress", profileData?.application?.id],
     queryFn: () => logbookServices.getMentorshipProgress(profileData!.application!.id),
-    enabled: !!profileData?.application?.id && isGraduate
+    enabled: !!profileData?.application?.id && (isGraduate || isAssociate)
   });
 
   const { data: menteesData } = useQuery({
@@ -143,7 +145,7 @@ export default function Overview() {
       {/* Grid: CPD and Actions */}
       <div className="grid gap-4 md:grid-cols-3">
         {!isFirm ? (
-          isGraduate ? (
+          (isGraduate || isAssociate) ? (
             <Card className="md:col-span-2 border-zinc-100 dark:border-zinc-800 flex flex-col h-full shadow-sm">
               <CardHeader>
                 <CardTitle className="text-navy dark:text-zinc-100">
@@ -171,7 +173,7 @@ export default function Overview() {
                 </div>
               </CardContent>
             </Card>
-          ) : (
+          ) : isMentor ? (
             <Card className="md:col-span-2 border-zinc-100 dark:border-zinc-800 flex flex-col h-full shadow-sm">
               <CardHeader>
                 <CardTitle className="text-navy dark:text-zinc-100">
@@ -193,13 +195,13 @@ export default function Overview() {
                   <Users className="h-8 w-8 text-emerald-600 mb-2" />
                   <div className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Mentorship Dashboard</div>
                   <div className="text-[11px] text-muted-foreground mt-1 mb-4 font-sans">Review logbooks and supervise your assigned graduates.</div>
-                  <Link href="/dashboard/mentorship">
+                  <Link href="/dashboard/mentees">
                     <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Manage Mentees</Button>
                   </Link>
                 </div>
               </CardContent>
             </Card>
-          )
+          ) : null
         ) : (
           <Card className="md:col-span-2 border-zinc-100 dark:border-zinc-800">
             <CardHeader>

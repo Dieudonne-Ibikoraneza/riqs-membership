@@ -34,11 +34,12 @@ export const logbookServices = {
     return data;
   },
 
-  uploadAnnualReport: async (formData: FormData): Promise<any> => {
+  uploadAnnualReport: async (formData: FormData, onUploadProgress?: (progressEvent: any) => void): Promise<any> => {
     const { data } = await axiosClient.post("/logbook/annual-report", formData, {
       headers: {
         "Content-Type": "multipart/form-data"
-      }
+      },
+      onUploadProgress
     });
     return data;
   },

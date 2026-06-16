@@ -322,7 +322,7 @@ export function AppShell({
               <div className="flex items-center gap-2">
                 <motion.div
                   whileHover={{ scale: 1.05 }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-gold text-[11px] font-bold text-[#1a1a1a]"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold text-[11px] font-bold text-[#1a1a1a]"
                 >
                   {initials}
                 </motion.div>
@@ -339,7 +339,7 @@ export function AppShell({
                 onClick={doLogout}
                 variant="ghost"
                 size="sm"
-                className="mt-2 w-full justify-start text-white hover:bg-white/10 transition-colors"
+                className="mt-2 w-full justify-start text-white hover:bg-red-500/20 hover:text-red-400 transition-colors"
               >
                 <LogOut className="mr-2 h-4 w-4" /> Sign out
               </Button>
@@ -347,7 +347,7 @@ export function AppShell({
           ) : (
             <button
               onClick={doLogout}
-              className="flex w-full items-center justify-center bg-white/5 py-2 text-white/70 hover:bg-white/10 hover:text-white rounded-md"
+              className="flex w-full items-center justify-center bg-white/5 py-2 text-white/70 hover:bg-red-500/20 hover:text-red-400 rounded-md transition-colors"
             >
               <LogOut className="h-4 w-4" />
             </button>

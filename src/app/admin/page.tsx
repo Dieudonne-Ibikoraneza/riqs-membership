@@ -347,12 +347,12 @@ export default function AdminOverview() {
                 >
                   <div className="h-2 w-2 mt-1.5 rounded-full bg-[#f1a500] animate-pulse shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <div className="text-[#0b3363] text-sm">
+                    <div className="text-[#0b3363] text-sm break-words whitespace-normal">
                       <span className="font-semibold">{a.actionByEmail}</span>
                       {" "}<span className="text-muted-foreground">{a.actionType?.toLowerCase().replace(/_/g, " ")}</span>
                     </div>
                     {a.details && (
-                      <div className="text-[#0b3363] font-semibold text-sm mt-0.5 leading-snug">
+                      <div className="text-[#0b3363] font-semibold text-sm mt-0.5 leading-snug break-words whitespace-normal">
                         {typeof a.details === "object" ? JSON.stringify(a.details) : String(a.details)}
                       </div>
                     )}

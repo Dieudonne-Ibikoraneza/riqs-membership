@@ -72,15 +72,22 @@ export default function AdminOverview() {
       setRole(payload.role || "Admin");
     } catch (_) {}
 
-    fetch(`${API}/admin/stats`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(await res.text());
-        return res.json();
+    const fetchStats = () => {
+      fetch(`${API}/admin/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
       })
-      .then((data) => { setStats(data); setLoading(false); })
-      .catch((err) => { setError(err.message); setLoading(false); });
+        .then(async (res) => {
+          if (!res.ok) throw new Error(await res.text());
+          return res.json();
+        })
+        .then((data) => { setStats(data); setLoading(false); })
+        .catch((err) => { setError(err.message); setLoading(false); });
+    };
+
+    fetchStats();
+    const intervalId = setInterval(fetchStats, 15000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   // Pick the right role slice

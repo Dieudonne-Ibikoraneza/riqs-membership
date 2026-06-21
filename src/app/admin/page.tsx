@@ -240,6 +240,7 @@ export default function AdminOverview() {
             <Badge className="bg-[#f1a500]/20 text-[#a26d00]">12 mo</Badge>
           </CardHeader>
           <CardContent>
+            <div className="w-full overflow-hidden">
             <div className="h-72">
               {loading
                 ? <Skeleton className="h-full w-full" />
@@ -266,6 +267,7 @@ export default function AdminOverview() {
                   </ResponsiveContainer>
               }
             </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -275,6 +277,7 @@ export default function AdminOverview() {
             <CardDescription>{isReviewer ? "Applications you forwarded" : "Overall pipeline conversion"}</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="w-full overflow-hidden">
             <div className="h-52 relative">
               {loading
                 ? <Skeleton className="h-full w-full rounded-full mx-auto" style={{ width: "10rem", height: "10rem", borderRadius: "9999px" }} />
@@ -293,6 +296,7 @@ export default function AdminOverview() {
                     </div>
                   </>
               }
+            </div>
             </div>
             {isReviewer ? (
               <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
@@ -342,7 +346,7 @@ export default function AdminOverview() {
               : recentActivity.map((a: any, i: number) => (
                 <div
                   key={i}
-                  className="flex items-start gap-3 border-l-2 border-[#f1a500]/60 bg-accent/30 px-3 py-2 text-sm transition-all hover:bg-accent/60"
+                  className="flex items-start gap-3 border-l-2 border-[#f1a500]/60 bg-accent/30 px-3 py-2 text-sm transition-all hover:bg-accent/60 overflow-hidden"
                   style={{ animation: `fadeIn .4s ${i * 80}ms both` }}
                 >
                   <div className="h-2 w-2 mt-1.5 rounded-full bg-[#f1a500] animate-pulse shrink-0" />

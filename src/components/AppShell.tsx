@@ -392,13 +392,13 @@ export function AppShell({
         </header>
 
         {/* Content scrolls independently */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden pt-20">
+        <main className="flex-1 overflow-y-auto pt-20">
           <motion.div
             key={pathname}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
-            className="p-4 md:p-6 max-w-full min-w-0"
+            className="p-4 md:p-6"
           >
             {children}
           </motion.div>

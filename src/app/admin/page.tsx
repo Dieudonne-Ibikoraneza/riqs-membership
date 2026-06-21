@@ -197,7 +197,7 @@ export default function AdminOverview() {
       )}
 
       {/* Grid Stats */}
-      <div className={`grid gap-4 ${kpiStats.length <= 3 ? "md:grid-cols-3" : kpiStats.length === 4 ? "md:grid-cols-4" : "md:grid-cols-5"}`}>
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${kpiStats.length <= 3 ? "lg:grid-cols-3" : kpiStats.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-5"}`}>
         {loading
           ? Array.from({ length: isReviewer ? 3 : isApprover ? 2 : 5 }).map((_, i) => (
               <Card key={i}><CardContent className="p-4"><Skeleton className="h-20 w-full" /></CardContent></Card>
@@ -205,11 +205,12 @@ export default function AdminOverview() {
           : kpiStats.map((s, i) => (
               <motion.div
                 key={s.label}
+                className="h-full"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
               >
-                <Card className={`border transition-all ${s.border}`}>
+                <Card className={`border transition-all h-full flex flex-col ${s.border}`}>
                   <CardContent className="p-4">
                     <div className={`inline-flex rounded-md p-2 mb-3 ${s.bg}`}>
                       <s.i className={`h-5 w-5 ${s.c}`} />

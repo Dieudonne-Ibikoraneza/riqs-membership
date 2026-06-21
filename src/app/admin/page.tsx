@@ -51,8 +51,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 /* ── Skeleton ─────────────────────────────────────────────────── */
-const Skeleton = ({ className }: { className?: string }) => (
-  <div className={`animate-pulse rounded bg-zinc-200 dark:bg-zinc-700 ${className}`} />
+const Skeleton = ({ className, style }: { className?: string, style?: React.CSSProperties }) => (
+  <div className={`animate-pulse rounded bg-zinc-200 dark:bg-zinc-700 ${className}`} style={style} />
 );
 
 /* ── Main Page ─────────────────────────────────────────────────── */

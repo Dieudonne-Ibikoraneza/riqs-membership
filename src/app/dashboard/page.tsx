@@ -37,7 +37,7 @@ export default function Overview() {
   const appStatus = rawStatus.replace(/_/g, " ");
   const isGraduate = membershipCategory.includes("Graduate");
   const isAssociate = membershipCategory.includes("Associate");
-  const isMentor = profileData?.profile?.systemRole === "Mentor" || membershipCategory.includes("Professional") || membershipCategory.includes("Fellow");
+  const isMentor = (profileData?.profile as any)?.systemRole === "Mentor" || membershipCategory.includes("Professional") || membershipCategory.includes("Fellow");
 
   const { data: logbookProgress } = useQuery({
     queryKey: ["logbook-progress", profileData?.application?.id],

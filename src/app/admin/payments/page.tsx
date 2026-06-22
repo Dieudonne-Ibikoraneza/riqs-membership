@@ -47,6 +47,7 @@ export default function AdminPaymentsPage() {
   const [verifyAction, setVerifyAction] = useState<"Cleared" | "Failed">("Cleared");
   const [rejectionReason, setRejectionReason] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [viewingCpd, setViewingCpd] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -78,7 +79,8 @@ export default function AdminPaymentsPage() {
   const openVerifyDialog = (tx: AdminPaymentTransaction) => {
     setSelectedTx(tx);
     setVerifyAction("Cleared");
-    setRejectionReason("");
+    setViewingCpd(false);
+    setIsDialogOpen(true);
   };
 
   const getStatusBadge = (s: string) => {
@@ -104,7 +106,8 @@ export default function AdminPaymentsPage() {
     const isImage = selectedTx.receiptFileName?.match(/\.(jpeg|jpg|gif|png)$/i) != null || selectedTx.receiptUrl?.match(/\.(jpeg|jpg|gif|png)$/i) != null;
     const token = typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : '';
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-    const documentUrl = selectedTx.receiptUrl ? `${baseUrl}/files/download/${selectedTx.receiptUrl}?token=${token}` : null;
+    const activeDocId = viewingCpd ? (selectedTx as any).cpdDocumentUrl : selectedTx.receiptUrl;
+    const documentUrl = activeDocId ? `${baseUrl}/files/download/${activeDocId}?token=${token}` : null;
 
     return (
       <div className="space-y-6">
@@ -173,7 +176,27 @@ export default function AdminPaymentsPage() {
           <div className="lg:col-span-3">
             <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col sticky top-2 h-[calc(100vh-5rem)]">
               <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800 py-3 px-4 shrink-0">
-                <CardTitle className="text-sm font-bold text-navy">Receipt Document</CardTitle>
+                <div className="flex items-center gap-4">
+                  <CardTitle className="text-sm font-bold text-navy">
+                    {viewingCpd ? "CPD Document" : "Receipt Document"}
+                  </CardTitle>
+                  {(selectedTx as any)?.cpdDocumentUrl && (
+                    <div className="flex bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-md">
+                      <button 
+                        onClick={() => setViewingCpd(false)} 
+                        className={`px-3 py-1 text-xs font-medium rounded-sm ${!viewingCpd ? "bg-white shadow-sm text-navy" : "text-zinc-500 hover:text-zinc-700"}`}
+                      >
+                        Receipt
+                      </button>
+                      <button 
+                        onClick={() => setViewingCpd(true)} 
+                        className={`px-3 py-1 text-xs font-medium rounded-sm ${viewingCpd ? "bg-white shadow-sm text-navy" : "text-zinc-500 hover:text-zinc-700"}`}
+                      >
+                        CPD Report
+                      </button>
+                    </div>
+                  )}
+                </div>
                 {documentUrl && (
                   <Button variant="ghost" size="sm" onClick={() => window.open(documentUrl, '_blank')} className="h-8">
                     <FileText className="mr-2 h-4 w-4" />

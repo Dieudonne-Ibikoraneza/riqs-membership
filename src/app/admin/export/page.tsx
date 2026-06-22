@@ -6,20 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, FileSpreadsheet } from "lucide-react";
-import { MEMBERS } from "@/lib/mock-data";
+import { getMembersRegistry } from "@/lib/api/admin";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
 
 const FIELDS = [
   { k: "membershipId", l: "Membership ID" },
   { k: "fullName", l: "Full Name" },
   { k: "category", l: "Category" },
   { k: "practiceLocation", l: "Practice Location" },
-  { k: "entityType", l: "Entity Type" },
-  { k: "phone", l: "Phone" },
+  { k: "country", l: "Country" },
+  { k: "phoneNumber", l: "Phone" },
   { k: "email", l: "Email" },
   { k: "status", l: "Status" },
-  { k: "joinedAt", l: "Joined Date" },
   { k: "expiresAt", l: "Expiry Date" },
 ];
 
@@ -29,17 +28,33 @@ export default function Export() {
   );
   const [filter, setFilter] = useState("all");
 
-  const data = filter === "all" ? MEMBERS : MEMBERS.filter(m => m.status === filter);
+  const { data: apiData, isLoading } = useQuery({
+    queryKey: ["adminExportAllMembers"],
+    queryFn: () => getMembersRegistry(1, 100000), // Get up to 100k members for full export
+  });
+
+  const rawData = apiData?.members || [];
+  const data = filter === "all" ? rawData : rawData.filter((m: any) => m.status === filter);
   const chosen = FIELDS.filter(f => fields[f.k]);
 
   const doExport = (format: "csv" | "xlsx") => {
+    if (isLoading) return;
     const rows = [chosen.map(f => f.l)];
-    data.forEach(m => rows.push(chosen.map(f => String((m as any)[f.k] ?? ""))));
+    data.forEach(m => {
+      rows.push(chosen.map(f => {
+        let val = (m as any)[f.k] ?? "";
+        // Basic formatting for dates if needed
+        if (f.k === "expiresAt" && val) {
+          val = new Date(val).toLocaleDateString();
+        }
+        return String(val);
+      }));
+    });
     const blob = new Blob([rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob); 
     const a = document.createElement("a");
     a.href = url; 
-    a.download = `riqs-export.${format === "xlsx" ? "csv" : "csv"}`; 
+    a.download = `riqs-export.${format === "xlsx" ? "csv" : "csv"}`; // Keep CSV for now
     a.click();
     toast.success(`${data.length} records exported successfully as ${format.toUpperCase()}`);
   };

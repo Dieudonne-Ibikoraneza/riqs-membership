@@ -87,7 +87,12 @@ export default function Overview() {
           <div className="rounded-lg bg-white/10 px-4 py-3 backdrop-blur border border-white/10">
             <div className="text-xs text-white/70">Membership expires</div>
             <div className="flex items-center gap-2 text-lg font-semibold mt-0.5">
-              <Calendar className="h-4 w-4 text-gold" /> 31 Dec 2025
+              <Calendar className="h-4 w-4 text-gold" />
+              {(profileData?.profile as any)?.membershipExpiresAt ? (
+                new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date((profileData?.profile as any).membershipExpiresAt))
+              ) : (
+                <span className="text-sm">Not Set</span>
+              )}
             </div>
           </div>
         </div>

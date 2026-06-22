@@ -59,6 +59,7 @@ export default function Payments() {
   const paymentsData = rawPaymentsData as any;
 
   const [file, setFile] = useState<File | null>(null);
+  const [cpdFile, setCpdFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const { mutate: submit, isPending } = useMutation<any, any, any>({
@@ -67,6 +68,7 @@ export default function Payments() {
       toast.success("Payment submitted successfully — pending administrative verification.");
       queryClient.invalidateQueries({ queryKey: queryKeys.applicant.payments() });
       setFile(null);
+      setCpdFile(null);
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.error || "Failed to submit payment. Please try again.";
@@ -114,6 +116,12 @@ export default function Payments() {
   let canUpload = true;
   let isUpToDate = false;
 
+  const membershipExpiresAt = data?.profile?.membershipExpiresAt ? new Date(data.profile.membershipExpiresAt) : null;
+  const isExpired = membershipExpiresAt ? membershipExpiresAt < new Date() : false;
+  // Prompt renewal if within 30 days of expiry
+  const isExpiringSoon = membershipExpiresAt && (membershipExpiresAt.getTime() - new Date().getTime() < 30 * 24 * 60 * 60 * 1000);
+  const needsRenewal = isExpired || isExpiringSoon;
+
   if (unpaidTx) {
     displayDesc = unpaidTx.status === "Failed" ? `${unpaidTx.txType.replace(/_/g, " ")} Failed` : unpaidTx.txType.replace(/_/g, " ") + " Due";
     displayAmount = `${unpaidTx.currency} ${Number(unpaidTx.amount).toLocaleString()}`;
@@ -143,11 +151,22 @@ export default function Payments() {
     displayAmount = "Awaiting Admin";
     canUpload = false;
   } else if (isAppApproved && !unpaidTx && pendingCount === 0) {
-    // App is approved and no unpaid/pending fees
-    displayDesc = "All Fees Up to Date";
-    displayAmount = "No payment due";
-    canUpload = false;
-    isUpToDate = true;
+    if (needsRenewal) {
+      displayDesc = isExpired ? "Membership Expired (Annual Renewal Due)" : "Membership Expiring Soon (Annual Renewal Due)";
+      displayAmount = feeAmount;
+      canUpload = true;
+      isUpToDate = false;
+      defaultTxType = "Annual_Renewal";
+      defaultAmountNum = feeNumber;
+      displayDocName = "Annual Renewal Receipt";
+      paymentCode = "Annual_Renewal_receipt";
+    } else {
+      // App is approved and no unpaid/pending fees, and not expired
+      displayDesc = "All Fees Up to Date";
+      displayAmount = "No payment due";
+      canUpload = false;
+      isUpToDate = true;
+    }
   } else if (isAppApproved && !unpaidTx && pendingCount > 0) {
     // App is approved but some fees are pending verification
     displayDesc = "Payment Under Review";
@@ -160,6 +179,10 @@ export default function Payments() {
       toast.error("Please upload your payment document/receipt.");
       return;
     }
+    if (defaultTxType === "Annual_Renewal" && !cpdFile) {
+      toast.error("Please upload your CPD / Annual Report document.");
+      return;
+    }
 
     const applicationId = data?.application?.id;
     if (!applicationId) {
@@ -168,6 +191,7 @@ export default function Payments() {
     }
 
     let receiptUrl: string | undefined = undefined;
+    let cpdUrl: string | undefined = undefined;
 
     setIsUploading(true);
     const formData = new FormData();
@@ -188,6 +212,23 @@ export default function Payments() {
       setIsUploading(false);
       return;
     }
+
+    if (cpdFile) {
+      const cpdData = new FormData();
+      cpdData.append("file", cpdFile);
+      cpdData.append("applicationId", applicationId);
+      cpdData.append("documentType", "CPD_Annual_Report");
+      cpdData.append("skipTransaction", "true");
+      try {
+        const cpdRes = await applicantServices.uploadDocument(cpdData);
+        if (cpdRes?.document?.id) cpdUrl = cpdRes.document.id;
+      } catch (err: any) {
+        toast.error("Failed to upload CPD document.");
+        setIsUploading(false);
+        return;
+      }
+    }
+
     setIsUploading(false);
 
     const generatedTxRef = `REF-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -201,6 +242,7 @@ export default function Payments() {
       paymentMethod: isRwandan ? "MTN_Momo" : "Bank_Transfer",
       transactionReference: generatedTxRef,
       receiptUrl,
+      cpdDocumentUrl: cpdUrl,
     });
   }
 
@@ -324,23 +366,87 @@ export default function Payments() {
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          type="button"
-                          onClick={handleUpload}
-                          disabled={isUploading || isPending}
-                          className="bg-navy hover:bg-navy/90 text-white shadow-sm"
-                        >
-                          {isUploading || isPending ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting...
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle className="w-4 h-4 mr-2" /> Submit Record
-                            </>
-                          )}
-                        </Button>
                       </div>
+                    </div>
+                  )}
+
+                  {/* CPD File Upload for Annual Renewal */}
+                  {defaultTxType === "Annual_Renewal" && (
+                    <div className="mt-6">
+                      <Label className="text-navy font-semibold">CPD / Annual Report Document <span className="text-red-500">*</span></Label>
+                      <div className="mt-3">
+                        {!cpdFile ? (
+                          <label 
+                            htmlFor="cpdFile" 
+                            className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg cursor-pointer bg-white/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-800 transition-colors"
+                          >
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              <UploadCloud className="w-8 h-8 mb-2 text-gold" />
+                              <p className="mb-1 text-sm text-zinc-600 dark:text-zinc-400">
+                                <span className="font-bold text-navy dark:text-gold hover:underline">Click to upload CPD</span>
+                              </p>
+                              <p className="text-xs text-zinc-500">PDF, JPG, PNG (Max 5MB)</p>
+                            </div>
+                            <input 
+                              id="cpdFile" 
+                              type="file" 
+                              className="hidden" 
+                              accept=".pdf,.png,.jpg,.jpeg"
+                              onChange={(e) => {
+                                if (e.target.files && e.target.files[0]) {
+                                  setCpdFile(e.target.files[0]);
+                                }
+                              }}
+                            />
+                          </label>
+                        ) : (
+                          <div className="flex items-center justify-between p-3 border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 shadow-sm">
+                            <div className="flex items-center space-x-3 overflow-hidden">
+                              <div className="p-2 bg-blue-50 dark:bg-blue-950/30 rounded-md shrink-0">
+                                <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                              </div>
+                              <div className="truncate pr-4">
+                                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{cpdFile.name}</p>
+                                <p className="text-xs text-zinc-500">{(cpdFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => setCpdFile(null)}
+                                disabled={isUploading || isPending}
+                                className="text-zinc-400 hover:text-red-500"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Submit Button */}
+                  {(file && (defaultTxType !== "Annual_Renewal" || cpdFile)) && (
+                    <div className="mt-6 flex justify-end">
+                      <Button 
+                        type="button"
+                        onClick={handleUpload}
+                        disabled={isUploading || isPending}
+                        className="bg-navy hover:bg-navy/90 text-white shadow-sm w-full md:w-auto"
+                      >
+                        {isUploading || isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4 mr-2" /> Submit Payment &amp; Renewal
+                          </>
+                        )}
+                      </Button>
                     </div>
                   )}
                 </div>

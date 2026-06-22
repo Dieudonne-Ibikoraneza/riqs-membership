@@ -128,7 +128,7 @@ export default function Register() {
                       placeholder="e.g. john@example.com"
                     />
                   </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <Label>Password</Label>
                         <div className="relative">

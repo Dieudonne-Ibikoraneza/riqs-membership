@@ -55,7 +55,7 @@ export default function MembersPage() {
   const exportCsv = () => {
     // In a real app, this should either hit a dedicated export endpoint or we alert the user that export only covers the current page.
     const rows = [["Membership ID", "Full Name", "Category", "Phone", "Email"]];
-    members.forEach(m => rows.push([m.membership_id || m.id, m.full_name, formatMembershipClass(m.membership_class), m.phone_number ? m.phone_number.replace(/^\+/, '') : "", m.email]));
+    members.forEach(m => rows.push([m.membershipId || m.id, m.fullName, formatMembershipClass(m.membershipClass), m.phoneNumber ? m.phoneNumber.replace(/^\+/, '') : "", m.email]));
     const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -272,18 +272,18 @@ export default function MembersPage() {
                       <tr key={m.id} className={cn("border-b border-zinc-100 dark:border-zinc-800/80 transition-colors hover:bg-gold/5", i % 2 === 1 && "bg-zinc-50/20 dark:bg-zinc-950/10")}>
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            <Avatar name={m.full_name} />
+                            <Avatar name={m.fullName} />
                             <div>
-                              <div className="font-semibold text-zinc-900 dark:text-zinc-100">{m.full_name}</div>
+                              <div className="font-semibold text-zinc-900 dark:text-zinc-100">{m.fullName}</div>
                               <div className="text-xs text-muted-foreground">{m.email}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-5 py-4 text-xs font-semibold text-navy dark:text-gold">{m.membership_id || m.id}</td>
+                        <td className="px-5 py-4 text-xs font-semibold text-navy dark:text-gold">{m.membershipId || m.id}</td>
                         <td className="px-5 py-4">
-                          <Badge variant="outline" className="border-navy/20 bg-navy/5 text-navy dark:border-zinc-700 dark:text-zinc-300 font-semibold">{formatMembershipClass(m.membership_class)}</Badge>
+                          <Badge variant="outline" className="border-navy/20 bg-navy/5 text-navy dark:border-zinc-700 dark:text-zinc-300 font-semibold">{formatMembershipClass(m.membershipClass)}</Badge>
                         </td>
-                        <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400">{m.phone_number}</td>
+                        <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400">{m.phoneNumber}</td>
                         <td className="px-5 py-4">
                           <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none font-semibold">
                             <BadgeCheck className="mr-1 h-3.5 w-3.5 text-emerald-600 inline shrink-0" /> Approved
@@ -347,7 +347,7 @@ function MemberCard({ m }: { m: any }) {
       <div className="relative h-20 brand-gradient">
         <div className="absolute -bottom-7 left-5">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-navy to-[#14467f] text-sm font-bold text-white ring-4 ring-white dark:ring-zinc-900">
-            {(m.full_name || "").split(" ").map((s: string) => s[0]).join("").slice(0, 2).toUpperCase()}
+            {(m.fullName || "").split(" ").map((s: string) => s[0]).join("").slice(0, 2).toUpperCase()}
           </div>
         </div>
         <Badge className="absolute right-4 top-4 bg-emerald-500/20 text-emerald-100 border-emerald-400/40 backdrop-blur font-semibold">
@@ -355,13 +355,13 @@ function MemberCard({ m }: { m: any }) {
         </Badge>
       </div>
       <CardContent className="pt-10 pb-5 px-5">
-        <div className="text-[10px] uppercase tracking-wider gold-text font-bold">{m.membership_id || m.id}</div>
-        <div className="mt-1 text-base font-bold text-navy dark:text-white leading-tight">{m.full_name}</div>
+        <div className="text-[10px] uppercase tracking-wider gold-text font-bold">{m.membershipId || m.id}</div>
+        <div className="mt-1 text-base font-bold text-navy dark:text-white leading-tight">{m.fullName}</div>
         <div className="mt-1.5">
-          <Badge variant="outline" className="border-navy/15 bg-navy/5 text-navy dark:border-zinc-800 dark:text-zinc-350 text-[10px] font-semibold">{formatMembershipClass(m.membership_class)}</Badge>
+          <Badge variant="outline" className="border-navy/15 bg-navy/5 text-navy dark:border-zinc-800 dark:text-zinc-350 text-[10px] font-semibold">{formatMembershipClass(m.membershipClass)}</Badge>
         </div>
         <div className="mt-4 space-y-2 text-xs text-muted-foreground font-sans">
-          <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-gold shrink-0" /> {m.phone_number}</div>
+          <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-gold shrink-0" /> {m.phoneNumber}</div>
           <div className="flex items-center gap-2 truncate"><Mail className="h-3.5 w-3.5 text-gold shrink-0" /> <span className="truncate">{m.email}</span></div>
         </div>
       </CardContent>

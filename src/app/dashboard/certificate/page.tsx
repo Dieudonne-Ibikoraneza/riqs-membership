@@ -366,16 +366,22 @@ function CertificateContent() {
   const regNo = profileData?.profile?.membershipId || `RIQS/2026/PrQs/${profileData?.profile?.id?.slice(0, 4).toUpperCase() || "0001"}`;
   const categoryName = profileData?.application?.category_name || "Professional Quantity Surveyor";
 
-  // Calculate 1 year validity from payment / submission date
-  const paymentDate = profileData?.application?.submittedAt
-    ? new Date(profileData.application.submittedAt)
-    : profileData?.application?.approvedAt
-    ? new Date(profileData.application.approvedAt)
-    : new Date();
-  const validUntilDate = new Date(paymentDate);
-  validUntilDate.setFullYear(validUntilDate.getFullYear() + 1);
-
-  const paymentYear = paymentDate.getFullYear();
+  // Use actual expiration date from the backend profile
+  let validUntilDate: Date;
+  let paymentYear: number;
+  
+  if ((profileData?.profile as any)?.membershipExpiresAt) {
+    validUntilDate = new Date((profileData?.profile as any).membershipExpiresAt);
+    paymentYear = validUntilDate.getFullYear();
+  } else {
+    // Fallback for legacy records or before admin sets expiry
+    const paymentDate = profileData?.application?.approvedAt
+      ? new Date(profileData.application.approvedAt)
+      : new Date();
+    validUntilDate = new Date(paymentDate);
+    validUntilDate.setFullYear(validUntilDate.getFullYear() + 1);
+    paymentYear = validUntilDate.getFullYear();
+  }
   const formattedValidUntil = validUntilDate.toLocaleDateString("en-GB", {
     day: "numeric",
     month: "long",

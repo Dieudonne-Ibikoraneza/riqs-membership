@@ -324,7 +324,7 @@ export default function AdminOverview() {
       </div>
 
       {/* Live activity + Recent applications */}
-      <div className="grid gap-4 lg:grid-cols-2 items-start">
+      <div className="grid gap-4 lg:grid-cols-2 items-start max-w-screen">
         {/* Live Activity */}
         <Card>
           <CardHeader>
@@ -351,12 +351,12 @@ export default function AdminOverview() {
                 >
                   <div className="h-2 w-2 mt-1.5 rounded-full bg-[#f1a500] animate-pulse shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <div className="text-[#0b3363] text-sm break-words whitespace-normal">
+                    <div className="text-[#0b3363] text-sm break-all whitespace-normal">
                       <span className="font-semibold">{a.actionByEmail}</span>
                       {" "}<span className="text-muted-foreground">{a.actionType?.toLowerCase().replace(/_/g, " ")}</span>
                     </div>
                     {a.details && (
-                      <div className="text-[#0b3363] font-semibold text-sm mt-0.5 leading-snug break-words whitespace-normal">
+                      <div className="text-[#0b3363] font-semibold text-sm mt-0.5 leading-snug break-all whitespace-normal">
                         {typeof a.details === "object" ? JSON.stringify(a.details) : String(a.details)}
                       </div>
                     )}
@@ -395,16 +395,16 @@ export default function AdminOverview() {
                 <Link
                   key={a.id}
                   href={`/admin/review/${a.id}`}
-                  className="flex items-center justify-between border border-zinc-200 bg-white p-4 transition-all hover:border-[#f1a500] hover:shadow-md"
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between border border-zinc-200 bg-white p-4 transition-all hover:border-[#f1a500] hover:shadow-md gap-3"
                   style={{ animation: `fadeUp .4s ${i * 60}ms both` }}
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 w-full sm:w-auto">
                     <div className="truncate text-[17px] font-semibold text-[#0b3363] mb-0.5">{a.applicantName}</div>
                     <div className="truncate text-[13px] text-muted-foreground">
                       {a.id?.slice(0, 8)}… · {a.category} · {a.practiceLocation}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
                     <Badge variant="outline" className="rounded-full px-3 py-0.5 border-[#f1a500] text-[#a26d00] bg-transparent">
                       {a.status?.replace(/_/g, " ")}
                     </Badge>

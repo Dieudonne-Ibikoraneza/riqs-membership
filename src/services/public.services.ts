@@ -18,10 +18,10 @@ export interface Category {
 
 export interface PublicMember {
   id: string;
-  membershipId: string;
-  fullName: string;
-  membershipClass: string;
-  phoneNumber: string;
+  membership_id: string;
+  full_name: string;
+  membership_class: string;
+  phone_number: string;
   email: string;
 }
 

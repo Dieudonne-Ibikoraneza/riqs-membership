@@ -1536,7 +1536,7 @@ function WizardContent({
                       <div>
                         <Label>Membership ID</Label>
                         <div className="flex gap-2">
-                          <Input placeholder="e.g. RQIS-001" value={m.membershipId || ""}
+                          <Input placeholder="e.g. RIQS-001" value={m.membershipId || ""}
                             onChange={(e) => { const v = [...data.mentors]; v[i].membershipId = e.target.value; setData({ ...data, mentors: v }); }}
                             onBlur={() => verifyMentor(i, m.membershipId)}
                           />

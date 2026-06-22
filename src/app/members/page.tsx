@@ -320,7 +320,8 @@ export default function MembersPage() {
 }
 
 function Avatar({ name }: { name: string }) {
-  const initials = name.split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase();
+  const safeName = name || "?";
+  const initials = safeName.split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase();
   return (
     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-navy to-[#14467f] text-xs font-bold text-white">
       {initials}

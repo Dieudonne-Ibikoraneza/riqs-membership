@@ -353,7 +353,7 @@ export default function AdminOverview() {
         <Card>
           <CardHeader>
             <CardTitle className="font-display text-lg text-[#0b3363] flex items-center gap-2">
-              <Activity className="h-4 w-4 text-[#f1a500]" /> 
+              {!loading && <Activity className="h-4 w-4 text-[#f1a500]" />}
               {loading ? <Skeleton className="h-6 w-32" /> : "Live activity"}
             </CardTitle>
             <CardDescription className="mt-1">

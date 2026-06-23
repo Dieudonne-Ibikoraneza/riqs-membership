@@ -249,7 +249,7 @@ export default function AdminOverview() {
                 {isReviewer ? "My Reviews" : "Applications vs Approvals"}
               </CardTitle>
               <CardDescription>
-                {isReviewer ? "Applications assigned & forwarded — last 12 months" : "Monthly throughput — last 12 months"}
+                {isReviewer ? "Total applications & forwarded — last 12 months" : "Monthly throughput — last 12 months"}
               </CardDescription>
             </div>
             <Badge className="bg-[#f1a500]/20 text-[#a26d00]">12 mo</Badge>
@@ -276,8 +276,8 @@ export default function AdminOverview() {
                       <YAxis stroke={MUTED} fontSize={12} />
                       <Tooltip content={<CustomTooltip />} cursor={{ stroke: GOLD, strokeWidth: 1 }} />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Area type="monotone" dataKey="applications" name="Applications" stroke={GOLD} strokeWidth={2} fill="url(#gApps)" />
-                      <Area type="monotone" dataKey="approved" name="Approved" stroke={NAVY} strokeWidth={2} fill="url(#gApp)" />
+                      <Area type="monotone" dataKey="applications" name={isReviewer ? "Received" : "Applications"} stroke={GOLD} strokeWidth={2} fill="url(#gApps)" />
+                      <Area type="monotone" dataKey="approved" name={isReviewer ? "Forwarded" : "Approved"} stroke={NAVY} strokeWidth={2} fill="url(#gApp)" />
                     </AreaChart>
                   </ResponsiveContainer>
               }

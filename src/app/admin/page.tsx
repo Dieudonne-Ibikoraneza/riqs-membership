@@ -252,7 +252,7 @@ export default function AdminOverview() {
                 {loading ? <Skeleton className="h-4 w-64" /> : (isReviewer ? "Total applications & forwarded — last 12 months" : "Monthly throughput — last 12 months")}
               </CardDescription>
             </div>
-            <Badge className="bg-[#f1a500]/20 text-[#a26d00]">12 mo</Badge>
+            {!loading && <Badge className="bg-[#f1a500]/20 text-[#a26d00]">12 mo</Badge>}
           </CardHeader>
           <CardContent>
             <div className="w-full overflow-hidden">
@@ -408,9 +408,11 @@ export default function AdminOverview() {
                 {loading ? <Skeleton className="h-4 w-32" /> : "Latest submissions"}
               </CardDescription>
             </div>
-            <Link href="/admin/applications" className="text-sm font-medium text-[#0b3363] hover:underline flex items-center">
-              View all <ArrowRight className="ml-1 h-4 w-4" />
-            </Link>
+            {!loading && (
+              <Link href="/admin/applications" className="text-sm font-medium text-[#0b3363] hover:underline flex items-center">
+                View all <ArrowRight className="ml-1 h-4 w-4" />
+              </Link>
+            )}
           </CardHeader>
           <CardContent className="space-y-3">
             {loading

@@ -317,7 +317,12 @@ export default function AdminOverview() {
               }
             </div>
             </div>
-            {isReviewer ? (
+            {loading ? (
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : isReviewer ? (
               <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
                 <div className="border-l-2 border-emerald-500 bg-emerald-50 px-2 py-1.5">
                   <div className="text-emerald-700 font-semibold">{forwardedCount} forwarded</div>

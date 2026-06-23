@@ -78,7 +78,7 @@ export default function AdminApps() {
   const [isLoading, setIsLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
   const [takingOverId, setTakingOverId] = useState<string | null>(null);
-  const [view, setView] = useState<"queue" | "assigned" | "all">("all");
+  const [view, setView] = useState<"queue" | "assigned" | "all">("queue");
   
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeMinimized, setComposeMinimized] = useState(false);

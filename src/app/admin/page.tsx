@@ -5,6 +5,9 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { takeOverApplication } from "@/lib/api/admin";
 import {
   CheckCircle2, ArrowRight, Activity,
   ClipboardList, AlertTriangle, Clock, Users, Loader2
@@ -61,6 +64,7 @@ export default function AdminOverview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<string>("Admin");
+  const router = useRouter();
 
   useEffect(() => {
     const token = localStorage.getItem("riqs.auth.token");
@@ -159,6 +163,17 @@ export default function AdminOverview() {
     : isReviewer
     ? "Review assigned applications, take over pending cases, and track your approval history."
     : "Review applications that have cleared the reviewer stage and make final approval decisions.";
+
+  const handleTakeOver = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await takeOverApplication(id);
+      router.push(`/admin/applications/${id}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to take over application.");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -394,7 +409,7 @@ export default function AdminOverview() {
               : recentApps.map((a: any, i: number) => (
                 <Link
                   key={a.id}
-                  href={`/admin/review/${a.id}`}
+                  href={`/admin/applications/${a.id}`}
                   className="flex flex-col sm:flex-row items-start sm:items-center justify-between border border-zinc-200 bg-white p-4 transition-all hover:border-[#f1a500] hover:shadow-md gap-3"
                   style={{ animation: `fadeUp .4s ${i * 60}ms both` }}
                 >
@@ -413,7 +428,7 @@ export default function AdminOverview() {
                         size="sm"
                         variant="ghost"
                         className="h-7 text-xs font-semibold text-[#0b3363] hover:bg-[#0b3363]/10"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        onClick={(e) => handleTakeOver(e, a.id)}
                       >
                         Take Over
                       </Button>

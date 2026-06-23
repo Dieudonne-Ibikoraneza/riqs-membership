@@ -95,9 +95,9 @@ export default function AdminOverview() {
   }, []);
 
   // Pick the right role slice
-  const isAdmin    = !!stats?.admin;
-  const isReviewer = !!stats?.reviewer;
-  const isApprover = !!stats?.approver;
+  const isAdmin    = role === "Admin" || !!stats?.admin;
+  const isReviewer = role === "Reviewer" || !!stats?.reviewer;
+  const isApprover = role === "Approver" || !!stats?.approver;
   const d = stats?.admin || stats?.reviewer || stats?.approver || null;
 
   // Derived values — reviewers use reviewRate, others use approvalRate
@@ -246,10 +246,10 @@ export default function AdminOverview() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="font-display text-lg text-[#0b3363]">
-                {isReviewer ? "My Reviews" : "Applications vs Approvals"}
+                {loading ? <Skeleton className="h-6 w-48" /> : (isReviewer ? "My Reviews" : "Applications vs Approvals")}
               </CardTitle>
-              <CardDescription>
-                {isReviewer ? "Total applications & forwarded — last 12 months" : "Monthly throughput — last 12 months"}
+              <CardDescription className="mt-1">
+                {loading ? <Skeleton className="h-4 w-64" /> : (isReviewer ? "Total applications & forwarded — last 12 months" : "Monthly throughput — last 12 months")}
               </CardDescription>
             </div>
             <Badge className="bg-[#f1a500]/20 text-[#a26d00]">12 mo</Badge>
@@ -288,8 +288,12 @@ export default function AdminOverview() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="font-display text-lg text-[#0b3363]">{isReviewer ? "Review rate" : "Approval rate"}</CardTitle>
-            <CardDescription>{isReviewer ? "Applications you forwarded" : "Overall pipeline conversion"}</CardDescription>
+            <CardTitle className="font-display text-lg text-[#0b3363]">
+              {loading ? <Skeleton className="h-6 w-32" /> : (isReviewer ? "Review rate" : "Approval rate")}
+            </CardTitle>
+            <CardDescription className="mt-1">
+              {loading ? <Skeleton className="h-4 w-48" /> : (isReviewer ? "Applications you forwarded" : "Overall pipeline conversion")}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="w-full overflow-hidden">
@@ -344,9 +348,12 @@ export default function AdminOverview() {
         <Card>
           <CardHeader>
             <CardTitle className="font-display text-lg text-[#0b3363] flex items-center gap-2">
-              <Activity className="h-4 w-4 text-[#f1a500]" /> Live activity
+              <Activity className="h-4 w-4 text-[#f1a500]" /> 
+              {loading ? <Skeleton className="h-6 w-32" /> : "Live activity"}
             </CardTitle>
-            <CardDescription>Recent system events</CardDescription>
+            <CardDescription className="mt-1">
+              {loading ? <Skeleton className="h-4 w-40" /> : "Recent system events"}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {loading
@@ -389,8 +396,12 @@ export default function AdminOverview() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-4">
             <div>
-              <CardTitle className="font-display text-lg text-[#0b3363]">Recent applications</CardTitle>
-              <CardDescription>Latest submissions</CardDescription>
+              <CardTitle className="font-display text-lg text-[#0b3363]">
+                {loading ? <Skeleton className="h-6 w-40" /> : "Recent applications"}
+              </CardTitle>
+              <CardDescription className="mt-1">
+                {loading ? <Skeleton className="h-4 w-32" /> : "Latest submissions"}
+              </CardDescription>
             </div>
             <Link href="/admin/applications" className="text-sm font-medium text-[#0b3363] hover:underline flex items-center">
               View all <ArrowRight className="ml-1 h-4 w-4" />

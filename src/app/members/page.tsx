@@ -55,7 +55,7 @@ export default function MembersPage() {
   const exportCsv = () => {
     // In a real app, this should either hit a dedicated export endpoint or we alert the user that export only covers the current page.
     const rows = [["Membership ID", "Full Name", "Category", "Phone", "Email"]];
-    members.forEach(m => rows.push([m.membershipId || m.id, m.fullName, formatMembershipClass(m.membershipClass), m.phoneNumber ? m.phoneNumber.replace(/^\+/, '') : "", m.email]));
+    members.forEach(m => rows.push([m.membership_id || m.id, m.full_name, formatMembershipClass(m.membership_class), m.phone_number ? m.phone_number.replace(/^\+/, '') : "", m.email]));
     const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);

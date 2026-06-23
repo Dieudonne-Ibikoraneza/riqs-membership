@@ -77,6 +77,17 @@ export default function Review({ params }: PageProps) {
   const queryClient = useQueryClient();
   const [app, setApp] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string>("");
+
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem("riqs.auth.token");
+      if (token) {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        if (payload.id) setUserId(payload.id);
+      }
+    } catch (e) {}
+  }, []);
 
   // Fetch document types to resolve human-readable names
   const { data: docTypes = [] } = useQuery({
@@ -455,7 +466,7 @@ export default function Review({ params }: PageProps) {
             </Button>
           )}
 
-          {app.status === "Under Review" && (role === "Reviewer" || role === "Admin") && (
+          {app.status === "Under Review" && (role === "Admin" || (role === "Reviewer" && app.assignedReviewerId === userId)) && (
             <>
               <Button
                 variant="outline"

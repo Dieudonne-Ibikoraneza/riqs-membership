@@ -198,6 +198,7 @@ export default function Review({ params }: PageProps) {
           studentAssociation: res.studentAssociation,
           competenceSummary: res.application.competenceSummary,
           status: res.application.status.replace("_", " "),
+          assignedReviewerId: res.application.assignedReviewerId,
           submittedAt: res.application.submittedAt ? new Date(res.application.submittedAt).toISOString().split('T')[0] : "Unknown",
           processingFeeCleared: res.application.processing_fee_cleared,
           processingFeeTxId: res.application.processing_fee_tx_id,

@@ -49,6 +49,7 @@ export default function AdminPaymentsPage() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewingCpd, setViewingCpd] = useState(false);
+  const [activeDocType, setActiveDocType] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -107,6 +108,22 @@ export default function AdminPaymentsPage() {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
     const activeDocId = viewingCpd ? (selectedTx as any).cpdDocumentUrl : selectedTx.receiptUrl;
     const documentUrl = activeDocId ? `${baseUrl}/files/download/${activeDocId}?token=${token}` : null;
+
+    React.useEffect(() => {
+      if (documentUrl) {
+        setActiveDocType(null);
+        fetch(documentUrl, { method: "HEAD" })
+          .then(res => {
+            const type = res.headers.get("content-type");
+            setActiveDocType(type);
+          })
+          .catch(err => {
+            console.error("Failed to fetch doc type", err);
+          });
+      }
+    }, [documentUrl]);
+
+    const isActuallyImage = activeDocType ? activeDocType.startsWith("image/") : isImage;
 
     return (
       <div className="space-y-6">
@@ -175,7 +192,7 @@ export default function AdminPaymentsPage() {
           <div className="lg:col-span-3">
             <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col sticky top-2 h-[calc(100vh-5rem)]">
               <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800 py-3 px-4 shrink-0">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-1">
                   {!(selectedTx as any)?.cpdDocumentUrl && (
                     <CardTitle className="text-sm font-bold text-navy">
                       Receipt Document
@@ -218,7 +235,7 @@ export default function AdminPaymentsPage() {
                     className="absolute inset-0 w-full h-full flex flex-col"
                   >
                     {documentUrl ? (
-                      (viewingCpd ? false : isImage) ? (
+                      isActuallyImage ? (
                         <div className="w-full h-full p-4 relative flex items-center justify-center">
                           <ImageViewer src={documentUrl} alt="Receipt" fileName={selectedTx.receiptFileName || "receipt.png"} />
                         </div>

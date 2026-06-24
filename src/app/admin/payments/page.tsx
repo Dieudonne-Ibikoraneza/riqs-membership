@@ -50,30 +50,37 @@ export default function AdminPaymentsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewingCpd, setViewingCpd] = useState(false);
   const [activeDocType, setActiveDocType] = useState<string | null>(null);
+  const [cpdDocType, setCpdDocType] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
   // Top level calculations to avoid Rules of Hooks violations
   const token = typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : '';
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-  const activeDocId = selectedTx 
-    ? (viewingCpd ? (selectedTx as any).cpdDocumentUrl : selectedTx.receiptUrl)
-    : null;
-  const documentUrl = activeDocId ? `${baseUrl}/files/download/${activeDocId}?token=${token}` : null;
+  
+  const receiptDocId = selectedTx?.receiptUrl || null;
+  const cpdDocId = (selectedTx as any)?.cpdDocumentUrl || null;
+
+  const receiptUrl = receiptDocId ? `${baseUrl}/files/download/${receiptDocId}?token=${token}` : null;
+  const cpdUrl = cpdDocId ? `${baseUrl}/files/download/${cpdDocId}?token=${token}` : null;
 
   React.useEffect(() => {
-    if (documentUrl) {
+    if (receiptUrl) {
       setActiveDocType(null);
-      fetch(documentUrl, { method: "HEAD" })
-        .then(res => {
-          const type = res.headers.get("content-type");
-          setActiveDocType(type);
-        })
-        .catch(err => {
-          console.error("Failed to fetch doc type", err);
-        });
+      fetch(receiptUrl, { method: "HEAD" })
+        .then(res => setActiveDocType(res.headers.get("content-type")))
+        .catch(err => console.error("Failed to fetch receipt type", err));
     }
-  }, [documentUrl]);
+  }, [receiptUrl]);
+
+  React.useEffect(() => {
+    if (cpdUrl) {
+      setCpdDocType(null);
+      fetch(cpdUrl, { method: "HEAD" })
+        .then(res => setCpdDocType(res.headers.get("content-type")))
+        .catch(err => console.error("Failed to fetch CPD type", err));
+    }
+  }, [cpdUrl]);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["adminPayments", page, status],
@@ -125,8 +132,37 @@ export default function AdminPaymentsPage() {
   };
 
   if (selectedTx) {
-    const isImage = selectedTx.receiptFileName?.match(/\.(jpeg|jpg|gif|png)$/i) != null || selectedTx.receiptUrl?.match(/\.(jpeg|jpg|gif|png)$/i) != null;
-    const isActuallyImage = activeDocType ? activeDocType.startsWith("image/") : isImage;
+    const isReceiptImage = activeDocType ? activeDocType.startsWith("image/") : (selectedTx.receiptFileName?.match(/\.(jpeg|jpg|gif|png)$/i) != null || selectedTx.receiptUrl?.match(/\.(jpeg|jpg|gif|png)$/i) != null);
+    const isCpdImage = cpdDocType ? cpdDocType.startsWith("image/") : false;
+
+    const currentDownloadUrl = viewingCpd ? cpdUrl : receiptUrl;
+
+    const renderViewer = (url: string | null, isImg: boolean, fileName: string, isVisible: boolean, emptyText: string) => {
+      return (
+        <div 
+          className={cn(
+            "absolute inset-0 w-full h-full flex flex-col transition-all duration-300",
+            isVisible ? "opacity-100 z-10 scale-100 pointer-events-auto" : "opacity-0 z-0 scale-95 pointer-events-none"
+          )}
+        >
+          {url ? (
+            isImg ? (
+              <div className="w-full h-full p-4 relative flex items-center justify-center">
+                <ImageViewer src={url} alt={fileName} fileName={fileName} />
+              </div>
+            ) : (
+              <PDFViewer src={url} fileName={fileName} />
+            )
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-8 text-center bg-zinc-50 dark:bg-zinc-950/50">
+              <FileText className="h-12 w-12 mb-4 opacity-50" />
+              <p className="text-sm font-medium">No document uploaded</p>
+              <p className="text-xs mt-1">{emptyText}</p>
+            </div>
+          )}
+        </div>
+      );
+    };
 
     return (
       <div className="space-y-6">
@@ -203,16 +239,16 @@ export default function AdminPaymentsPage() {
                   )}
                   {(selectedTx as any)?.cpdDocumentUrl && (
                     <Tabs value={viewingCpd ? "cpd" : "receipt"} onValueChange={(v) => setViewingCpd(v === "cpd")} className="w-full">
-                      <TabsList className="grid w-full grid-cols-2 bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-lg gap-1">
+                      <TabsList className="grid w-full grid-cols-2 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg">
                         <TabsTrigger 
                           value="receipt" 
-                          className="px-4 py-2 text-sm font-medium whitespace-nowrap data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-950 data-[state=active]:text-navy dark:data-[state=active]:text-gold data-[state=active]:shadow-sm rounded-md transition-all text-zinc-600 dark:text-zinc-400"
+                          className="data-[state=active]:text-navy dark:data-[state=active]:text-gold"
                         >
                           Receipt
                         </TabsTrigger>
                         <TabsTrigger 
                           value="cpd" 
-                          className="px-4 py-2 text-sm font-medium whitespace-nowrap data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-950 data-[state=active]:text-navy dark:data-[state=active]:text-gold data-[state=active]:shadow-sm rounded-md transition-all text-zinc-600 dark:text-zinc-400"
+                          className="data-[state=active]:text-navy dark:data-[state=active]:text-gold"
                         >
                           CPD Report
                         </TabsTrigger>
@@ -220,40 +256,16 @@ export default function AdminPaymentsPage() {
                     </Tabs>
                   )}
                 </div>
-                {documentUrl && (
-                  <Button variant="ghost" size="sm" onClick={() => window.open(documentUrl, '_blank')} className="h-8">
+                {currentDownloadUrl && (
+                  <Button variant="ghost" size="sm" onClick={() => window.open(currentDownloadUrl, '_blank')} className="h-8">
                     <FileText className="mr-2 h-4 w-4" />
                     Open Original
                   </Button>
                 )}
               </CardHeader>
               <CardContent className="p-0 flex-1 flex flex-col overflow-hidden bg-zinc-50 dark:bg-zinc-950/50 relative">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={viewingCpd ? "cpd" : "receipt"}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute inset-0 w-full h-full flex flex-col"
-                  >
-                    {documentUrl ? (
-                      isActuallyImage ? (
-                        <div className="w-full h-full p-4 relative flex items-center justify-center">
-                          <ImageViewer src={documentUrl} alt="Receipt" fileName={selectedTx.receiptFileName || "receipt.png"} />
-                        </div>
-                      ) : (
-                        <PDFViewer src={documentUrl} fileName={viewingCpd ? "cpd_report.pdf" : (selectedTx.receiptFileName || "receipt.pdf")} />
-                      )
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-8 text-center">
-                        <FileText className="h-12 w-12 mb-4 opacity-50" />
-                        <p className="text-sm font-medium">No document uploaded</p>
-                        <p className="text-xs mt-1">This transaction does not have an attached {viewingCpd ? "CPD report" : "receipt"}.</p>
-                      </div>
-                    )}
-                  </motion.div>
-                </AnimatePresence>
+                {renderViewer(receiptUrl, isReceiptImage, selectedTx.receiptFileName || "receipt.pdf", !viewingCpd, "This transaction does not have an attached receipt.")}
+                {renderViewer(cpdUrl, isCpdImage, "cpd_report.pdf", viewingCpd, "This transaction does not have an attached CPD report.")}
               </CardContent>
             </Card>
           </div>

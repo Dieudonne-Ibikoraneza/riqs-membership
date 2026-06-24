@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Wallet, AlertCircle, CheckCircle2, Clock, Loader2, UploadCloud, FileText, Trash2, CheckCircle } from "lucide-react";
+import { Wallet, AlertCircle, CheckCircle2, Clock, Loader2, UploadCloud, FileText, Trash2, CheckCircle, Calendar, TrendingUp, RefreshCw, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -295,21 +295,83 @@ export default function Payments() {
         </motion.div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3 items-start">
+      {/* Membership expiry warning banner */}
+      {isExpiringSoon && !isUpToDate && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`flex items-start gap-3 rounded-xl border px-4 py-3.5 text-sm ${
+            isExpired
+              ? "border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 text-red-800 dark:text-red-300"
+              : "border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 text-amber-800 dark:text-amber-300"
+          }`}
+        >
+          <ShieldAlert className="h-5 w-5 mt-0.5 shrink-0" />
+          <div className="flex flex-col gap-0.5">
+            <span className="font-bold">{isExpired ? "Your membership has expired!" : "Your membership is expiring soon!"}</span>
+            <span className="text-xs opacity-90">
+              {isExpired
+                ? "Please renew your membership immediately to restore full access to your practicing license."
+                : `Your membership expires on ${membershipExpiresAt?.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}. Please renew before it lapses.`}
+            </span>
+          </div>
+        </motion.div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-3 items-stretch">
         {/* Next payment card */}
-        <Card className="md:col-span-2 border-gold/45 bg-gold/5 dark:bg-gold/10">
+        <Card className={`md:col-span-2 overflow-hidden ${
+          isUpToDate
+            ? "border-emerald-200 dark:border-emerald-900/50"
+            : isExpired
+              ? "border-red-200 dark:border-red-900/50"
+              : isExpiringSoon
+                ? "border-amber-200 dark:border-amber-900/50"
+                : "border-gold/45"
+        }`}>
+          {/* Coloured top accent bar */}
+          <div className={`h-1.5 w-full ${
+            isUpToDate ? "bg-emerald-500" : isExpired ? "bg-red-500" : isExpiringSoon ? "bg-amber-500" : "bg-gold"
+          }`} />
           <CardContent className="flex flex-col gap-4 p-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-gold text-[#1a1a1a]">
-                {isUpToDate ? <CheckCircle className="h-6 w-6" /> : canUpload ? <Wallet className="h-6 w-6" /> : <Clock className="h-6 w-6" />}
+            <div className="flex items-start gap-4">
+              <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-white shadow-sm ${
+                isUpToDate ? "bg-emerald-500" : isExpired ? "bg-red-500" : isExpiringSoon ? "bg-amber-500" : "bg-gold text-[#1a1a1a]"
+              }`}>
+                {isUpToDate ? <CheckCircle className="h-7 w-7" /> : canUpload ? <Wallet className="h-7 w-7" /> : <Clock className="h-7 w-7" />}
               </div>
               <div className="flex-1">
-                <div className="text-sm text-muted-foreground font-medium">{displayDesc}</div>
-                <div className="text-xl font-bold text-navy mt-0.5">
-                  {isLoading ? "Loading..." : displayAmount}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{displayDesc}</span>
+                  {isExpired && <span className="inline-flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-2 py-0.5 rounded-full"><AlertCircle className="h-3 w-3" />Expired</span>}
+                  {isExpiringSoon && !isExpired && <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full"><Clock className="h-3 w-3" />Due Soon</span>}
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {isUpToDate ? "Your account is active and in good standing" : canUpload ? (isRwandan ? "Pay via MoMo Code: 604516" : "Pay via international bank transfer") : "Awaiting administrator review"}
+                <div className="text-2xl font-bold text-navy dark:text-zinc-100 mt-1">
+                  {isLoading ? <div className="h-7 w-32 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse" /> : displayAmount}
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
+                  {canUpload && !isUpToDate && (
+                    <span className="flex items-center gap-1">
+                      <Wallet className="h-3 w-3" />
+                      {isRwandan ? "Pay via MoMo Code: 604516" : "Pay via international bank transfer"}
+                    </span>
+                  )}
+                  {isUpToDate && (
+                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                      <CheckCircle2 className="h-3 w-3" /> Account active and in good standing
+                    </span>
+                  )}
+                  {!canUpload && !isUpToDate && (
+                    <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                      <Clock className="h-3 w-3" /> Awaiting administrator review
+                    </span>
+                  )}
+                  {membershipExpiresAt && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Membership expires: <strong>{membershipExpiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</strong>
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -455,16 +517,53 @@ export default function Payments() {
           </CardContent>
         </Card>
 
-        {/* Lifetime Paid card */}
-        <Card className="border-zinc-100 dark:border-zinc-800">
-          <CardContent className="p-6">
-            <div className="text-sm text-muted-foreground">Total paid (lifetime)</div>
-            <div className="mt-1 text-2xl font-bold text-navy">
-              {isPaymentsLoading ? "..." : `RWF ${totalPaid.toLocaleString()}`}
+        {/* Lifetime Paid + Steps card */}
+        <Card className="border-zinc-100 dark:border-zinc-800 overflow-hidden h-full flex flex-col">
+          <div className="h-1.5 w-full bg-navy dark:bg-gold" />
+          <CardContent className="p-6 flex flex-col gap-5 flex-1">
+            {/* Total paid stat */}
+            <div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
+                <TrendingUp className="h-4 w-4 text-navy dark:text-gold" />
+                Total paid (lifetime)
+              </div>
+              <div className="mt-2 text-2xl font-bold text-navy dark:text-zinc-100">
+                {isPaymentsLoading ? <div className="h-8 w-28 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse" /> : (isRwandan ? `RWF ${totalPaid.toLocaleString()}` : `USD ${totalPaid.toLocaleString()}`)}
+              </div>
+              <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                {transactions.filter((tx: any) => tx.status === "Cleared").length} cleared transaction{transactions.filter((tx: any) => tx.status === "Cleared").length !== 1 ? "s" : ""}
+              </div>
+              {pendingCount > 0 && (
+                <div className="mt-1 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                  <Clock className="h-3.5 w-3.5" />
+                  {pendingCount} pending verification
+                </div>
+              )}
             </div>
-            <div className="mt-2 text-xs text-muted-foreground">
-              {transactions.filter((tx: any) => tx.status === "Cleared").length} cleared
-              transaction{transactions.filter((tx: any) => tx.status === "Cleared").length !== 1 ? "s" : ""}
+
+            {/* Divider */}
+            <div className="border-t border-zinc-100 dark:border-zinc-800" />
+
+            {/* How to renew steps */}
+            <div className="flex-1">
+              <p className="text-xs font-bold text-navy dark:text-gold uppercase tracking-wide mb-3">How to renew</p>
+              <ol className="space-y-3">
+                {[
+                  { n: "1", label: "Make payment", desc: isRwandan ? "Pay via MoMo Code: 604516" : "Pay via international bank transfer" },
+                  { n: "2", label: "Upload receipt", desc: "Take a screenshot or scan your proof of payment" },
+                  { n: "3", label: "Upload CPD report", desc: "Attach your latest CPD Annual Report" },
+                  { n: "4", label: "Submit & wait", desc: "Admin will verify and clear your account" },
+                ].map((step) => (
+                  <li key={step.n} className="flex items-start gap-3">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-navy/10 dark:bg-gold/10 text-navy dark:text-gold text-xs font-bold">{step.n}</div>
+                    <div>
+                      <p className="text-xs font-semibold text-navy dark:text-zinc-200">{step.label}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{step.desc}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             </div>
           </CardContent>
         </Card>

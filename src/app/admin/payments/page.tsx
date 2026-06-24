@@ -137,14 +137,9 @@ export default function AdminPaymentsPage() {
 
     const currentDownloadUrl = viewingCpd ? cpdUrl : receiptUrl;
 
-    const renderViewer = (url: string | null, isImg: boolean, fileName: string, isVisible: boolean, emptyText: string) => {
+    const renderViewer = (url: string | null, isImg: boolean, fileName: string, emptyText: string) => {
       return (
-        <div 
-          className={cn(
-            "absolute inset-0 w-full h-full flex flex-col transition-all duration-300",
-            isVisible ? "opacity-100 z-10 scale-100 pointer-events-auto" : "opacity-0 z-0 scale-95 pointer-events-none"
-          )}
-        >
+        <div className="w-full h-full shrink-0 relative flex flex-col">
           {url ? (
             isImg ? (
               <div className="w-full h-full p-4 relative flex items-center justify-center">
@@ -263,9 +258,14 @@ export default function AdminPaymentsPage() {
                   </Button>
                 )}
               </CardHeader>
-              <CardContent className="p-0 flex-1 flex flex-col overflow-hidden bg-zinc-50 dark:bg-zinc-950/50 relative">
-                {renderViewer(receiptUrl, isReceiptImage, selectedTx.receiptFileName || "receipt.pdf", !viewingCpd, "This transaction does not have an attached receipt.")}
-                {renderViewer(cpdUrl, isCpdImage, "cpd_report.pdf", viewingCpd, "This transaction does not have an attached CPD report.")}
+              <CardContent className="p-0 flex-1 overflow-hidden bg-zinc-50 dark:bg-zinc-950/50 relative">
+                <div 
+                  className="flex w-full h-full transition-transform duration-500 ease-in-out"
+                  style={{ transform: viewingCpd ? "translateX(-100%)" : "translateX(0%)" }}
+                >
+                  {renderViewer(receiptUrl, isReceiptImage, selectedTx.receiptFileName || "receipt.pdf", "This transaction does not have an attached receipt.")}
+                  {renderViewer(cpdUrl, isCpdImage, "cpd_report.pdf", "This transaction does not have an attached CPD report.")}
+                </div>
               </CardContent>
             </Card>
           </div>

@@ -53,6 +53,28 @@ export default function AdminPaymentsPage() {
 
   const queryClient = useQueryClient();
 
+  // Top level calculations to avoid Rules of Hooks violations
+  const token = typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : '';
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+  const activeDocId = selectedTx 
+    ? (viewingCpd ? (selectedTx as any).cpdDocumentUrl : selectedTx.receiptUrl)
+    : null;
+  const documentUrl = activeDocId ? `${baseUrl}/files/download/${activeDocId}?token=${token}` : null;
+
+  React.useEffect(() => {
+    if (documentUrl) {
+      setActiveDocType(null);
+      fetch(documentUrl, { method: "HEAD" })
+        .then(res => {
+          const type = res.headers.get("content-type");
+          setActiveDocType(type);
+        })
+        .catch(err => {
+          console.error("Failed to fetch doc type", err);
+        });
+    }
+  }, [documentUrl]);
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ["adminPayments", page, status],
     queryFn: () => getPendingPayments(page, 15, status),
@@ -104,25 +126,6 @@ export default function AdminPaymentsPage() {
 
   if (selectedTx) {
     const isImage = selectedTx.receiptFileName?.match(/\.(jpeg|jpg|gif|png)$/i) != null || selectedTx.receiptUrl?.match(/\.(jpeg|jpg|gif|png)$/i) != null;
-    const token = typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : '';
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-    const activeDocId = viewingCpd ? (selectedTx as any).cpdDocumentUrl : selectedTx.receiptUrl;
-    const documentUrl = activeDocId ? `${baseUrl}/files/download/${activeDocId}?token=${token}` : null;
-
-    React.useEffect(() => {
-      if (documentUrl) {
-        setActiveDocType(null);
-        fetch(documentUrl, { method: "HEAD" })
-          .then(res => {
-            const type = res.headers.get("content-type");
-            setActiveDocType(type);
-          })
-          .catch(err => {
-            console.error("Failed to fetch doc type", err);
-          });
-      }
-    }, [documentUrl]);
-
     const isActuallyImage = activeDocType ? activeDocType.startsWith("image/") : isImage;
 
     return (

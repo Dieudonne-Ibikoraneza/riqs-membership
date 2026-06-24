@@ -372,20 +372,21 @@ function CertificateContent() {
   
   if ((profileData?.profile as any)?.membershipExpiresAt) {
     validUntilDate = new Date((profileData?.profile as any).membershipExpiresAt);
-    paymentYear = validUntilDate.getFullYear();
+    paymentYear = validUntilDate.getUTCFullYear();
   } else {
     // Fallback for legacy records or before admin sets expiry
     const paymentDate = profileData?.application?.approvedAt
       ? new Date(profileData.application.approvedAt)
       : new Date();
     validUntilDate = new Date(paymentDate);
-    validUntilDate.setFullYear(validUntilDate.getFullYear() + 1);
-    paymentYear = validUntilDate.getFullYear();
+    validUntilDate.setUTCFullYear(validUntilDate.getUTCFullYear() + 1);
+    paymentYear = validUntilDate.getUTCFullYear();
   }
   const formattedValidUntil = validUntilDate.toLocaleDateString("en-GB", {
     day: "numeric",
     month: "long",
-    year: "numeric"
+    year: "numeric",
+    timeZone: "UTC"
   });
 
   return (

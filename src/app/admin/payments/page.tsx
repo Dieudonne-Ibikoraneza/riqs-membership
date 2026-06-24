@@ -182,8 +182,8 @@ export default function AdminPaymentsPage() {
                     </CardTitle>
                   )}
                   {(selectedTx as any)?.cpdDocumentUrl && (
-                    <Tabs value={viewingCpd ? "cpd" : "receipt"} onValueChange={(v) => setViewingCpd(v === "cpd")}>
-                      <TabsList className="flex w-full h-auto overflow-x-auto justify-start bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-lg gap-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                    <Tabs value={viewingCpd ? "cpd" : "receipt"} onValueChange={(v) => setViewingCpd(v === "cpd")} className="w-full">
+                      <TabsList className="grid w-full grid-cols-2 bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-lg gap-1">
                         <TabsTrigger 
                           value="receipt" 
                           className="px-4 py-2 text-sm font-medium whitespace-nowrap data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-950 data-[state=active]:text-navy dark:data-[state=active]:text-gold data-[state=active]:shadow-sm rounded-md transition-all text-zinc-600 dark:text-zinc-400"
@@ -207,22 +207,33 @@ export default function AdminPaymentsPage() {
                   </Button>
                 )}
               </CardHeader>
-              <CardContent className="p-0 flex-1 flex flex-col overflow-hidden bg-zinc-50 dark:bg-zinc-950/50">
-                {documentUrl ? (
-                  isImage ? (
-                    <div className="w-full h-full p-4 relative flex items-center justify-center">
-                      <ImageViewer src={documentUrl} alt="Receipt" fileName={selectedTx.receiptFileName || "receipt.png"} />
-                    </div>
-                  ) : (
-                    <PDFViewer src={documentUrl} fileName={selectedTx.receiptFileName || "receipt.pdf"} />
-                  )
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-8 text-center">
-                    <FileText className="h-12 w-12 mb-4 opacity-50" />
-                    <p className="text-sm font-medium">No document uploaded</p>
-                    <p className="text-xs mt-1">This transaction does not have an attached receipt.</p>
-                  </div>
-                )}
+              <CardContent className="p-0 flex-1 flex flex-col overflow-hidden bg-zinc-50 dark:bg-zinc-950/50 relative">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={viewingCpd ? "cpd" : "receipt"}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute inset-0 w-full h-full flex flex-col"
+                  >
+                    {documentUrl ? (
+                      (viewingCpd ? false : isImage) ? (
+                        <div className="w-full h-full p-4 relative flex items-center justify-center">
+                          <ImageViewer src={documentUrl} alt="Receipt" fileName={selectedTx.receiptFileName || "receipt.png"} />
+                        </div>
+                      ) : (
+                        <PDFViewer src={documentUrl} fileName={viewingCpd ? "cpd_report.pdf" : (selectedTx.receiptFileName || "receipt.pdf")} />
+                      )
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-8 text-center">
+                        <FileText className="h-12 w-12 mb-4 opacity-50" />
+                        <p className="text-sm font-medium">No document uploaded</p>
+                        <p className="text-xs mt-1">This transaction does not have an attached {viewingCpd ? "CPD report" : "receipt"}.</p>
+                      </div>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
               </CardContent>
             </Card>
           </div>

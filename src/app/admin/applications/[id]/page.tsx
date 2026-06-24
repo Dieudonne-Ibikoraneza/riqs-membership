@@ -456,8 +456,7 @@ export default function Review({ params }: PageProps) {
               </Button>
             </Link>
           )}
-          {((app.status === "Pending" && (role === "Reviewer" || role === "Admin")) || 
-            (app.status === "Under Review" && role === "Admin" && app.assignedReviewerId !== userId)) && (
+          {app.status === "Pending" && (role === "Reviewer" || role === "Admin") && (
             <Button
               className="bg-navy hover:bg-navy/90 text-white border-none shadow-sm"
               onClick={() => handle("start_review")}

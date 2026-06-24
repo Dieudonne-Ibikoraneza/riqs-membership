@@ -89,7 +89,7 @@ export default function Overview() {
             <div className="flex items-center gap-2 text-lg font-semibold mt-0.5">
               <Calendar className="h-4 w-4 text-gold" />
               {(profileData?.profile as any)?.membershipExpiresAt ? (
-                new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date((profileData?.profile as any).membershipExpiresAt))
+                new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date((profileData?.profile as any).membershipExpiresAt))
               ) : (
                 <span className="text-sm">Not Set</span>
               )}

@@ -176,9 +176,11 @@ export default function AdminPaymentsPage() {
             <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col sticky top-2 h-[calc(100vh-5rem)]">
               <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800 py-3 px-4 shrink-0">
                 <div className="flex items-center gap-4">
-                  <CardTitle className="text-sm font-bold text-navy">
-                    {viewingCpd ? "CPD Document" : "Receipt Document"}
-                  </CardTitle>
+                  {!(selectedTx as any)?.cpdDocumentUrl && (
+                    <CardTitle className="text-sm font-bold text-navy">
+                      Receipt Document
+                    </CardTitle>
+                  )}
                   {(selectedTx as any)?.cpdDocumentUrl && (
                     <Tabs value={viewingCpd ? "cpd" : "receipt"} onValueChange={(v) => setViewingCpd(v === "cpd")}>
                       <TabsList className="flex w-full h-auto overflow-x-auto justify-start bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-lg gap-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">

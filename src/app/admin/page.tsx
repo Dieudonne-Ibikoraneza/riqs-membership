@@ -311,7 +311,7 @@ export default function AdminOverview() {
                       <div className="font-display text-3xl font-bold text-[#0b3363]">{approvalPct}%</div>
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                         {totalDecided === 0 
-                          ? "No applications yet" 
+                          ? (isReviewer ? "No forwards yet" : "No decisions yet")
                           : `${isReviewer ? "Forwarded" : "Approved"} out of ${totalDecided}`}
                       </div>
                     </div>

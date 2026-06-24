@@ -310,7 +310,9 @@ export default function AdminOverview() {
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                       <div className="font-display text-3xl font-bold text-[#0b3363]">{approvalPct}%</div>
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        {isReviewer ? "Forwarded" : "Approved"} of {totalDecided}
+                        {totalDecided === 0 
+                          ? "No applications yet" 
+                          : `${isReviewer ? "Forwarded" : "Approved"} out of ${totalDecided}`}
                       </div>
                     </div>
                   </>

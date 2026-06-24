@@ -166,9 +166,9 @@ export function PublicFooter() {
         <div>
           <div className="flex items-center">
             <img 
-              src="/riqs-logo.png" 
+              src="/riqs-logo.svg" 
               alt="RIQS Logo" 
-              className="h-12 w-auto object-contain bg-white rounded-md p-1.5 transition-transform duration-200 hover:scale-[1.03]" 
+              className="h-12 w-auto object-contain transition-transform duration-200 hover:scale-[1.03]" 
             />
           </div>
           <p className="mt-3 text-sm text-white/70 leading-relaxed">

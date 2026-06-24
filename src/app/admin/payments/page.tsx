@@ -76,11 +76,9 @@ export default function AdminPaymentsPage() {
     },
   });
 
-  const openVerifyDialog = (tx: AdminPaymentTransaction) => {
+  const handleRowClick = (tx: AdminPaymentTransaction) => {
     setSelectedTx(tx);
-    setVerifyAction("Cleared");
     setViewingCpd(false);
-    setIsDialogOpen(true);
   };
 
   const getStatusBadge = (s: string) => {
@@ -377,7 +375,7 @@ function Avatar({ name, url }: { name: string; url?: string }) {
                         "border-b border-zinc-100 dark:border-zinc-800/80 transition-colors hover:bg-gold/5 cursor-pointer",
                         i % 2 === 1 && "bg-zinc-50/20 dark:bg-zinc-950/10"
                       )}
-                      onClick={() => openVerifyDialog(tx)}
+                      onClick={() => handleRowClick(tx)}
                     >
                       <td className="px-5 py-4 text-xs font-semibold text-navy dark:text-gold">{tx.transactionReference}</td>
                       <td className="px-5 py-4">

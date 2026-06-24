@@ -456,7 +456,8 @@ export default function Review({ params }: PageProps) {
               </Button>
             </Link>
           )}
-          {app.status === "Pending" && (role === "Reviewer" || role === "Admin") && (
+          {((app.status === "Pending" && (role === "Reviewer" || role === "Admin")) || 
+            (app.status === "Under Review" && role === "Admin" && app.assignedReviewerId !== userId)) && (
             <Button
               className="bg-navy hover:bg-navy/90 text-white border-none shadow-sm"
               onClick={() => handle("start_review")}
@@ -640,8 +641,8 @@ export default function Review({ params }: PageProps) {
                 )}
                 {app.entityType === "Firm" && app.firmName && <Row k="Firm Name" v={app.firmName} />}
                 {app.entityType === "Firm" && app.firmAddress && <Row k="Firm Address" v={app.firmAddress} />}
-                {app.residencyAddress && <Row k="Residency Address" v={[app.residencyAddress.district, app.residencyAddress.sector, app.residencyAddress.cell, app.residencyAddress.village].filter(Boolean).join(", ")} />}
-                {app.workAddress && <Row k="Work Address" v={[app.workAddress.district, app.workAddress.sector, app.workAddress.cell, app.workAddress.village].filter(Boolean).join(", ")} />}
+                {app.residencyAddress && [app.residencyAddress.district, app.residencyAddress.sector, app.residencyAddress.cell, app.residencyAddress.village].filter(Boolean).join(", ").length > 0 && <Row k="Residency Address" v={[app.residencyAddress.district, app.residencyAddress.sector, app.residencyAddress.cell, app.residencyAddress.village].filter(Boolean).join(", ")} />}
+                {app.workAddress && [app.workAddress.district, app.workAddress.sector, app.workAddress.cell, app.workAddress.village].filter(Boolean).join(", ").length > 0 && <Row k="Work Address" v={[app.workAddress.district, app.workAddress.sector, app.workAddress.cell, app.workAddress.village].filter(Boolean).join(", ")} />}
                 <Row k="Practice location" v={app.practiceLocation} />
               </CardContent>
             </Card>

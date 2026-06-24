@@ -500,7 +500,7 @@ export default function SettingsPage() {
               <Card className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
                 <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
                   <div>
-                    <span className="text-xs bg-gold/10 text-gold font-bold px-2 py-0.5 rounded border border-gold/30 uppercase tracking-wider">{draft.category_code}</span>
+                    <span className="text-xs bg-gold/10 text-gold font-bold px-2 py-0.5 rounded border border-gold/30 tracking-wider">{draft.category_code}</span>
                     <CardTitle className="text-lg font-bold text-navy mt-1.5">{draft.category_name}</CardTitle>
                   </div>
                   <div className="flex gap-2">

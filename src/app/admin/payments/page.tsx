@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -179,20 +180,22 @@ export default function AdminPaymentsPage() {
                     {viewingCpd ? "CPD Document" : "Receipt Document"}
                   </CardTitle>
                   {(selectedTx as any)?.cpdDocumentUrl && (
-                    <div className="flex bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-md">
-                      <button 
-                        onClick={() => setViewingCpd(false)} 
-                        className={`px-3 py-1 text-xs font-medium rounded-sm ${!viewingCpd ? "bg-white shadow-sm text-navy" : "text-zinc-500 hover:text-zinc-700"}`}
-                      >
-                        Receipt
-                      </button>
-                      <button 
-                        onClick={() => setViewingCpd(true)} 
-                        className={`px-3 py-1 text-xs font-medium rounded-sm ${viewingCpd ? "bg-white shadow-sm text-navy" : "text-zinc-500 hover:text-zinc-700"}`}
-                      >
-                        CPD Report
-                      </button>
-                    </div>
+                    <Tabs value={viewingCpd ? "cpd" : "receipt"} onValueChange={(v) => setViewingCpd(v === "cpd")}>
+                      <TabsList className="flex w-full h-auto overflow-x-auto justify-start bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-lg gap-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                        <TabsTrigger 
+                          value="receipt" 
+                          className="px-4 py-2 text-sm font-medium whitespace-nowrap data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-950 data-[state=active]:text-navy dark:data-[state=active]:text-gold data-[state=active]:shadow-sm rounded-md transition-all text-zinc-600 dark:text-zinc-400"
+                        >
+                          Receipt
+                        </TabsTrigger>
+                        <TabsTrigger 
+                          value="cpd" 
+                          className="px-4 py-2 text-sm font-medium whitespace-nowrap data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-950 data-[state=active]:text-navy dark:data-[state=active]:text-gold data-[state=active]:shadow-sm rounded-md transition-all text-zinc-600 dark:text-zinc-400"
+                        >
+                          CPD Report
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
                   )}
                 </div>
                 {documentUrl && (

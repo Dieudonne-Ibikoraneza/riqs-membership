@@ -290,6 +290,12 @@ export default function Review({ params }: PageProps) {
     },
     onSuccess: (data: any, variables) => {
       if (variables.action === "Approve") {
+        // Update local state so buttons disappear immediately
+        setApp((prev: any) => ({
+          ...prev,
+          mentorshipAssignment: prev.mentorshipAssignment ? { ...prev.mentorshipAssignment, status: "Approved" } : prev.mentorshipAssignment
+        }));
+
         if (app?.mentorshipAssignment?.apcReadiness !== "Ready") {
           // Do nothing, awardAssociateMutation handles the success toast for Associate route
         } else {
@@ -319,7 +325,8 @@ export default function Review({ params }: PageProps) {
         ...prev,
         status: "Approved",
         membership_class: data.memberClass,
-        membership_id: data.membershipId
+        membership_id: data.membershipId,
+        mentorshipAssignment: prev.mentorshipAssignment ? { ...prev.mentorshipAssignment, status: "Approved" } : prev.mentorshipAssignment
       }));
     },
     onError: (err: any) => toast.error(err.response?.data?.error || "Failed to award Associate class")

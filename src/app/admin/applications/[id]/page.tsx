@@ -290,11 +290,15 @@ export default function Review({ params }: PageProps) {
     },
     onSuccess: (data: any, variables) => {
       if (variables.action === "Approve") {
-        toast.success("Mentorship upgrade approved! Redirecting to APC assessment…");
-        if (data?.apcAssessmentId) {
-          router.push(`/admin/apc/${data.apcAssessmentId}`);
+        if (app?.mentorshipAssignment?.apcReadiness !== "Ready") {
+          // Do nothing, awardAssociateMutation handles the success toast for Associate route
         } else {
-          router.push(`/admin/apc`);
+          toast.success("Mentorship upgrade approved! Redirecting to APC assessment…");
+          if (data?.apcAssessmentId) {
+            router.push(`/admin/apc/${data.apcAssessmentId}`);
+          } else {
+            router.push(`/admin/apc`);
+          }
         }
       } else {
         toast.success("Mentorship upgrade flagged for correction.");

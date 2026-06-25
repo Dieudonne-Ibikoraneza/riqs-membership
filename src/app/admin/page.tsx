@@ -106,14 +106,15 @@ export default function AdminOverview() {
   const approvedCount   = rateData?.approved ?? forwardedCount;
   const rejectedCount   = rateData?.rejected ?? 0;
   const totalDecided    = rateData?.total ?? 0;
-  // For reviewer: rate is forwarded/total; for others: approved/total
-  const ratePct         = totalDecided > 0
-    ? Math.round(((isReviewer ? forwardedCount : approvedCount) / totalDecided) * 100)
-    : 0;
-  const approvalPct     = ratePct;
-  const radial          = [{ name: isReviewer ? "Review rate" : "Approval rate", value: approvalPct, fill: GOLD }];
   // Total applications received (used in reviewer card)
   const totalReceived   = d?.totalReceived ?? totalDecided;
+  
+  // For reviewer: rate is forwarded/totalReceived; for others: approved/totalDecided
+  const ratePct         = isReviewer
+    ? (totalReceived > 0 ? Math.round((forwardedCount / totalReceived) * 100) : 0)
+    : (totalDecided > 0 ? Math.round((approvedCount / totalDecided) * 100) : 0);
+  const approvalPct     = ratePct;
+  const radial          = [{ name: isReviewer ? "Review rate" : "Approval rate", value: approvalPct, fill: GOLD }];
 
 
 
@@ -309,10 +310,10 @@ export default function AdminOverview() {
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                       <div className="font-display text-3xl font-bold text-[#0b3363]">{approvalPct}%</div>
-                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        {totalDecided === 0 
-                          ? (isReviewer ? "No forwards yet" : "No decisions yet")
-                          : `${isReviewer ? "Forwarded" : "Approved"} out of ${totalDecided}`}
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground text-center">
+                        {isReviewer 
+                          ? (totalReceived === 0 ? "No forwards yet" : `Forwarded out of ${totalReceived}`)
+                          : (totalDecided === 0 ? "No decisions yet" : `Approved out of ${totalDecided}`)}
                       </div>
                     </div>
                   </>

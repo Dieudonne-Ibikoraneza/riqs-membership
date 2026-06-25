@@ -75,7 +75,7 @@ export function AppShell({
     setIsFirm(firmStatus || false);
   }, [profileData]);
 
-  const membershipExpiresAt = profileData?.profile?.membershipExpiresAt;
+  const membershipExpiresAt = (profileData?.profile as any)?.membershipExpiresAt;
   let daysUntilExpiry: number | null = null;
   if (membershipExpiresAt) {
     const diff = new Date(membershipExpiresAt).getTime() - new Date().getTime();

@@ -137,7 +137,7 @@ export default function Review({ params }: PageProps) {
   const [zoom, setZoom] = useState(1);
   const [rot, setRot] = useState(0);
   const [dialog, setDialog] = useState<
-    null | "approve" | "reject" | "correction" | "forward"
+    null | "approve" | "reject" | "correction" | "forward" | "failPayment"
   >(null);
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -263,8 +263,8 @@ export default function Review({ params }: PageProps) {
     loadData();
   }, [id]);
   const verifyPaymentMutation = useMutation({
-    mutationFn: ({ txId, action }: { txId: string; action: "Cleared" | "Failed" | "Refunded" }) =>
-      verifyPayment(txId, action),
+    mutationFn: ({ txId, action, rejectionReason }: { txId: string; action: "Cleared" | "Failed" | "Refunded", rejectionReason?: string }) =>
+      verifyPayment(txId, action, rejectionReason),
     onSuccess: (_, variables) => {
       toast.success("Payment status updated successfully");
       // Update local state directly (data is not in useQuery cache)
@@ -360,9 +360,24 @@ export default function Review({ params }: PageProps) {
     );
   }
 
-  const handle = async (action: "approve" | "reject" | "correction" | "forward" | "start_review") => {
+  const handle = async (action: "approve" | "reject" | "correction" | "forward" | "start_review" | "failPayment") => {
     if (action !== "approve" && action !== "forward" && action !== "start_review" && !note.trim()) {
       return toast.error("Please add a note explaining the reason");
+    }
+
+    if (action === "failPayment") {
+      setIsSubmitting(true);
+      verifyPaymentMutation.mutate(
+        { txId: app.processingFeeTxId, action: "Failed", rejectionReason: note },
+        {
+          onSettled: () => {
+            setIsSubmitting(false);
+            setDialog(null);
+            setNote("");
+          }
+        }
+      );
+      return;
     }
 
     setIsSubmitting(true);
@@ -575,7 +590,10 @@ export default function Review({ params }: PageProps) {
                   <div className="flex items-center gap-2">
                     <Button 
                       size="sm" 
-                      onClick={() => verifyPaymentMutation.mutate({ txId: app.processingFeeTxId, action: "Failed" })}
+                      onClick={() => {
+                        setNote("");
+                        setDialog("failPayment");
+                      }}
                       disabled={verifyPaymentMutation.isPending}
                       variant="outline"
                       className="h-7 px-2.5 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30"
@@ -985,6 +1003,7 @@ export default function Review({ params }: PageProps) {
               {dialog === "reject" && "Confirm rejection"}
               {dialog === "correction" && "Request corrections"}
               {dialog === "forward" && "Forward to Approver"}
+              {dialog === "failPayment" && "Mark Payment as Failed"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm py-2">
@@ -997,6 +1016,8 @@ export default function Review({ params }: PageProps) {
                 "Specify the files or descriptions requiring update. The registration process will be suspended until complete."}
               {dialog === "forward" &&
                 "The application will be sent to the Approver queue for final decision. You may include an optional note."}
+              {dialog === "failPayment" &&
+                "A rejection reason is mandatory when failing or refunding a payment. This will be visible to the applicant."}
             </p>
             <Textarea
               rows={4}
@@ -1023,7 +1044,7 @@ export default function Review({ params }: PageProps) {
               className={
                 dialog === "approve"
                   ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                  : dialog === "reject" || dialog === "correction"
+                  : dialog === "reject" || dialog === "correction" || dialog === "failPayment"
                     ? "bg-red-600 hover:bg-red-700 text-white"
                     : "bg-navy hover:bg-navy/90 text-white"
               }
@@ -1037,6 +1058,7 @@ export default function Review({ params }: PageProps) {
               {dialog === "reject" && "Reject Applicant"}
               {dialog === "correction" && "Request Corrections"}
               {dialog === "forward" && "Forward Application"}
+              {dialog === "failPayment" && "Mark as Failed"}
             </Button>
           </DialogFooter>
         </DialogContent>

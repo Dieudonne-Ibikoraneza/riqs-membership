@@ -30,6 +30,8 @@ import {
   Settings,
   FileCode,
   BookOpen,
+  AlertTriangle,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -72,6 +74,19 @@ export function AppShell({
     
     setIsFirm(firmStatus || false);
   }, [profileData]);
+
+  const membershipExpiresAt = profileData?.profile?.membershipExpiresAt;
+  let daysUntilExpiry: number | null = null;
+  if (membershipExpiresAt) {
+    const diff = new Date(membershipExpiresAt).getTime() - new Date().getTime();
+    daysUntilExpiry = Math.ceil(diff / (1000 * 3600 * 24));
+  }
+
+  const showExpiryBanner = 
+    kind === "member" && 
+    pathname !== "/dashboard/payments" && 
+    daysUntilExpiry !== null && 
+    daysUntilExpiry <= 30;
 
   // Route protection and workspace boundary enforcement
   useEffect(() => {
@@ -395,11 +410,42 @@ export function AppShell({
         <main className="flex-1 overflow-y-auto pt-20">
           <motion.div
             key={pathname}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
             className="p-4 md:p-6"
           >
+            {showExpiryBanner && (
+              <div className="mb-6 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 p-4 shadow-sm relative overflow-hidden flex flex-col sm:flex-row items-center gap-4 sm:justify-between group transition-all hover:bg-amber-500/10">
+                <div className="absolute top-0 right-0 -mr-8 -mt-8 opacity-10 pointer-events-none transition-transform group-hover:scale-110 group-hover:rotate-12 duration-700">
+                  <Clock size={120} />
+                </div>
+                
+                <div className="flex items-start gap-4 z-10">
+                  <div className="bg-amber-500/20 text-amber-600 dark:text-amber-500 p-2.5 rounded-full shrink-0 shadow-sm shadow-amber-500/10">
+                    <AlertTriangle className="h-5 w-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-amber-800 dark:text-amber-500 mb-1 flex items-center gap-2">
+                      Action Required: Membership Expiring Soon!
+                      {daysUntilExpiry! <= 0 && <span className="bg-red-500 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">Expired</span>}
+                    </h4>
+                    <p className="text-sm text-amber-700/80 dark:text-amber-500/80 max-w-xl">
+                      {daysUntilExpiry! > 0 
+                        ? `Your RIQS membership is scheduled to expire in ${daysUntilExpiry} days. Please clear your annual dues to maintain your professional status and avoid service interruptions.`
+                        : `Your RIQS membership has expired. Please clear your annual dues immediately to restore your professional status.`}
+                    </p>
+                  </div>
+                </div>
+                
+                <Button 
+                  asChild
+                  className="shrink-0 z-10 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-md shadow-amber-500/20 font-medium sm:w-auto w-full transition-all hover:scale-105 active:scale-95 border-0"
+                >
+                  <Link href="/dashboard/payments">
+                    Renew Membership Now
+                  </Link>
+                </Button>
+              </div>
+            )}
             {children}
           </motion.div>
         </main>

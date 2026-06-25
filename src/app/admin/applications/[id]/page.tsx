@@ -578,7 +578,9 @@ export default function Review({ params }: PageProps) {
               <div className={`flex items-center justify-between gap-3 p-3.5 rounded-lg border ${
                 app.processingFeeCleared
                   ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50"
-                  : "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50"
+                  : app.processingFeeStatus === 'Failed'
+                    ? "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-900/50"
+                    : "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50"
               }`}>
                 <div className="text-sm">
                   <span className="font-semibold text-zinc-800 dark:text-zinc-200">Processing Fee: </span>
@@ -586,7 +588,7 @@ export default function Review({ params }: PageProps) {
                     {app.processingFeeStatus?.replace(/_/g, " ")}
                   </span>
                 </div>
-                {!app.processingFeeCleared && (
+                {(!app.processingFeeCleared && app.processingFeeStatus === 'Pending_Verification') && (
                   <div className="flex items-center gap-2">
                     <Button 
                       size="sm" 

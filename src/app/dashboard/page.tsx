@@ -22,6 +22,7 @@ import { applicantServices } from "@/services/applicant.services";
 import { logbookServices } from "@/services/logbook.services";
 import { queryKeys } from "@/services/queryKeys";
 import { motion } from "framer-motion";
+import { MembershipCard } from "@/components/MembershipCard";
 
 export default function Overview() {
   const { data: profileData, isLoading } = useQuery({
@@ -98,6 +99,15 @@ export default function Overview() {
             </div>
           )}
         </div>
+      </motion.div>
+
+      {/* Membership Card */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.1 }}
+      >
+        <MembershipCard profileData={profileData} />
       </motion.div>
 
       {/* Quick Stats Grid */}

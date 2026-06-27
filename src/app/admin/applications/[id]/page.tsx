@@ -7,6 +7,7 @@ import { getApplicationDetail, submitReviewerAction, submitApproverDecision, ver
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { applicantServices } from "@/services/applicant.services";
+import { publicServices } from "@/services/public.services";
 import { logbookServices, LogbookEntry } from "@/services/logbook.services";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import {
   ArrowLeft,
   Check,
@@ -39,6 +41,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "framer-motion";
@@ -142,9 +145,13 @@ export default function Review({ params }: PageProps) {
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [overrideCategoryId, setOverrideCategoryId] = useState<string>("keep_default");
 
-
-
+  const { data: categories = [] } = useQuery({
+    queryKey: ["publicCategories"],
+    queryFn: () => publicServices.getCategories({ includeAdminOnly: true }),
+    staleTime: 5 * 60 * 1000,
+  });
   const prevDoc = useRef(activeDoc);
   const [direction, setDirection] = useState(0);
 
@@ -383,7 +390,7 @@ export default function Review({ params }: PageProps) {
     setIsSubmitting(true);
     try {
       if (action === "approve" || action === "reject") {
-        await submitApproverDecision(app.id, action === "approve" ? "Approve" : "Reject", note);
+        await submitApproverDecision(app.id, action === "approve" ? "Approve" : "Reject", note, overrideCategoryId === "keep_default" ? undefined : overrideCategoryId);
       } else {
         const actionMap = {
           correction: "ReturnForCorrection",
@@ -588,21 +595,23 @@ export default function Review({ params }: PageProps) {
                     {app.processingFeeStatus?.replace(/_/g, " ")}
                   </span>
                 </div>
-                {(!app.processingFeeCleared && app.processingFeeStatus === 'Pending_Verification') && (
+                {!app.processingFeeCleared && (
                   <div className="flex items-center gap-2">
-                    <Button 
-                      size="sm" 
-                      onClick={() => {
-                        setNote("");
-                        setDialog("failPayment");
-                      }}
-                      disabled={verifyPaymentMutation.isPending}
-                      variant="outline"
-                      className="h-7 px-2.5 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30"
-                    >
-                      <X className="mr-1 h-3 w-3" />
-                      Failed
-                    </Button>
+                    {app.processingFeeStatus !== 'Failed' && (
+                      <Button 
+                        size="sm" 
+                        onClick={() => {
+                          setNote("");
+                          setDialog("failPayment");
+                        }}
+                        disabled={verifyPaymentMutation.isPending}
+                        variant="outline"
+                        className="h-7 px-2.5 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30"
+                      >
+                        <X className="mr-1 h-3 w-3" />
+                        Failed
+                      </Button>
+                    )}
                     <Button 
                       size="sm" 
                       onClick={() => verifyPaymentMutation.mutate({ txId: app.processingFeeTxId, action: "Cleared" })}
@@ -1009,7 +1018,7 @@ export default function Review({ params }: PageProps) {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm py-2">
-            <p className="text-muted-foreground leading-relaxed">
+            <DialogDescription className="text-muted-foreground leading-relaxed">
               {dialog === "approve" &&
                 "A new membership certificate, practicing license, and membership ID will be generated and dispatched automatically."}
               {dialog === "reject" &&
@@ -1020,7 +1029,7 @@ export default function Review({ params }: PageProps) {
                 "The application will be sent to the Approver queue for final decision. You may include an optional note."}
               {dialog === "failPayment" &&
                 "A rejection reason is mandatory when failing or refunding a payment. This will be visible to the applicant."}
-            </p>
+            </DialogDescription>
             <Textarea
               rows={4}
               value={note}
@@ -1031,6 +1040,24 @@ export default function Review({ params }: PageProps) {
                   : "Please provide a reason for the applicant..."
               }
             />
+            {dialog === "approve" && (
+              <div className="space-y-1.5 pt-2">
+                <Label className="text-xs text-muted-foreground">Category (Optional Override)</Label>
+                <Select value={overrideCategoryId} onValueChange={setOverrideCategoryId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={`Default: ${app?.category}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="keep_default">Default: {app?.category}</SelectItem>
+                    {categories.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.category_name} ({c.category_code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button

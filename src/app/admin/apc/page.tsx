@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -214,10 +214,10 @@ export default function ApcPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/50">
+                <thead className="bg-navy text-white">
+                  <tr>
                     {["Candidate", "Category", "Status", "Date", "Score", "Actions"].map((h) => (
-                      <th key={h} className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-zinc-500">
+                      <th key={h} className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-white">
                         {h}
                       </th>
                     ))}
@@ -233,8 +233,19 @@ export default function ApcPage() {
                       )}
                     >
                       <td className="px-5 py-4">
-                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">{apc.member?.fullName}</div>
-                        <div className="text-xs text-muted-foreground">{apc.member?.email}</div>
+                        {(() => {
+                          const photoDoc = apc.application?.uploadedDocuments?.find((d: any) => d.documentType === 'Passport_Photo' || d.documentType === 'PassportPhoto');
+                          const photoId = photoDoc?.id;
+                          return (
+                            <div className="flex items-center gap-3">
+                              <Avatar name={apc.member?.fullName || ""} url={apc.member?.profilePhotoUrl || photoId} />
+                              <div>
+                                <div className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">{apc.member?.fullName}</div>
+                                <div className="text-xs text-muted-foreground leading-snug">{apc.member?.email}</div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400 max-w-[180px] truncate">
                         {apc.application?.category?.categoryName}
@@ -411,6 +422,43 @@ export default function ApcPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function Avatar({ name, url }: { name: string; url?: string }) {
+  const [token, setToken] = useState("");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setToken(localStorage.getItem("riqs.auth.token") || "");
+    }
+  }, []);
+
+  const fullUrl = url && token 
+    ? url.includes('/')
+      ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/downloadByUrl?url=${encodeURIComponent(url)}&token=${token}`
+      : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/download/${url}?token=${token}`
+    : null;
+
+  if (fullUrl) {
+    return (
+      <img
+        src={fullUrl}
+        alt={name}
+        className="flex h-10 w-10 shrink-0 object-cover rounded-full shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+      />
+    );
+  }
+
+  const initials = name
+    .split(" ")
+    .map((s) => s[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-navy to-[#14467f] text-xs font-bold text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10">
+      {initials}
     </div>
   );
 }

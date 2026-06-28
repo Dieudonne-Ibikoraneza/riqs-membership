@@ -1,12 +1,28 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useEffect } from "react";
-import { getMembersRegistry, sendAdminEmail, type AdminMemberRegistryResponse } from "@/lib/api/admin";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { awardFellowStatus, revokeFellowStatus, getMembersRegistry, sendAdminEmail, awardHonoraryStatus, revokeHonoraryStatus, type AdminMemberRegistryResponse } from "@/lib/api/admin";
+import { axiosClient } from "@/lib/axiosClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -32,14 +48,17 @@ import {
   Mail,
   Minus,
   Send,
-  Maximize2
+  Maximize2,
+  MoreHorizontal,
+  Award
 } from "lucide-react";
+import { MonthYearPicker } from "@/components/ui/month-picker";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
-type SortKey = "name" | "id" | "expiry" | "status";
+type SortKey = "name" | "id" | "expiry" | "status" | "joined";
 
 function formatLabel(val: string | null | undefined): string {
   if (!val) return "—";
@@ -51,25 +70,47 @@ function formatLabel(val: string | null | undefined): string {
 }
 
 export default function AdminMembers() {
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [catFilter, setCatFilter] = useState("all");
   const [locFilter, setLocFilter] = useState("all");
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("joined");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
   const pageSize = 8;
   
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<AdminMemberRegistryResponse | null>(null);
+  const [categories, setCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const { data } = await axiosClient.get("/categories");
+        if (data && data.categories) {
+          setCategories(data.categories);
+        }
+      } catch (e) {
+        console.error("Failed to fetch categories", e);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   // Bulk Email State
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [fellowDialog, setFellowDialog] = useState<{ open: boolean, type: 'award' | 'revoke', member: any | null }>({ open: false, type: 'award', member: null });
   const [composeMinimized, setComposeMinimized] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [isSending, setIsSending] = useState(false);
+
+  // Honorable Mention State
+  const [honoraryDialog, setHonoraryDialog] = useState<{ open: boolean, type: 'award' | 'revoke', member: any | null }>({ open: false, type: 'award', member: null });
+
+
 
   const toggleSelection = (id: string) => {
     setSelectedIds((prev) =>
@@ -156,8 +197,8 @@ export default function AdminMembers() {
     setStatusFilter("all");
     setCatFilter("all");
     setLocFilter("all");
-    setSortKey("name");
-    setSortDir("asc");
+    setSortKey("joined");
+    setSortDir("desc");
     setPage(1);
   };
 
@@ -181,6 +222,7 @@ export default function AdminMembers() {
           </p>
         </div>
         <div className="flex gap-2">
+          
           <Link href="/members">
             <Button
               variant="outline"
@@ -238,6 +280,7 @@ export default function AdminMembers() {
                   <SelectContent>
                     <SelectItem value="all">All statuses</SelectItem>
                     <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Pending Payment">Pending Payment</SelectItem>
                     <SelectItem value="In Mentorship">In Mentorship</SelectItem>
                     <SelectItem value="Expired">Expired</SelectItem>
                   </SelectContent>
@@ -256,19 +299,9 @@ export default function AdminMembers() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All categories</SelectItem>
-                    {Object.entries({
-                      Graduate: "Graduate",
-                      Technologist: "Technologist",
-                      Professional: "Professional",
-                      Firm_Local_Small: "Rwandan Small Firm",
-                      Firm_Local_Medium: "Rwandan Medium Firm",
-                      Firm_Local_Large: "Rwandan Large Firm",
-                      Firm_Foreign_Small: "Non-Rwandan Small Firm",
-                      Firm_Foreign_Medium: "Non-Rwandan Medium Firm",
-                      Firm_Foreign_Large: "Non-Rwandan Large Firm",
-                    }).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.category_name}>
+                        {cat.category_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -309,8 +342,10 @@ export default function AdminMembers() {
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="name-asc">Name (A–Z)</SelectItem>
-                    <SelectItem value="name-desc">Name (Z–A)</SelectItem>
+                    <SelectItem value="joined-desc">Joined Date (Newest)</SelectItem>
+                    <SelectItem value="joined-asc">Joined Date (Oldest)</SelectItem>
+                    <SelectItem value="name-asc">Name (A-Z)</SelectItem>
+                    <SelectItem value="name-desc">Name (Z-A)</SelectItem>
                     <SelectItem value="id-asc">Member ID (Asc)</SelectItem>
                     <SelectItem value="id-desc">Member ID (Desc)</SelectItem>
                     <SelectItem value="expiry-asc">
@@ -422,19 +457,23 @@ export default function AdminMembers() {
                       {h}
                     </th>
                   ))}
+                  <th className="px-5 py-3.5 text-right text-xs font-bold uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {pageData.map((m, i) => (
                   <tr
                     key={m.id}
+                    onClick={() => router.push(`/admin/members/${m.id}`)}
                     className={cn(
-                      "border-b border-zinc-100 dark:border-zinc-800/80 transition-colors hover:bg-gold/5",
+                      "border-b border-zinc-100 dark:border-zinc-800/80 transition-colors hover:bg-gold/5 cursor-pointer",
                       i % 2 === 1 && "bg-zinc-50/20 dark:bg-zinc-950/10",
                       selectedIds.includes(m.id) && "bg-gold/10 dark:bg-gold/20"
                     )}
                   >
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center">
                         <Checkbox 
                           checked={selectedIds.includes(m.id)}
@@ -446,7 +485,7 @@ export default function AdminMembers() {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <Avatar name={m.fullName} url={m.photo} />
+                        <Avatar name={m.fullName} url={m.profilePhotoUrl || m.photo} />
                         <div>
                           <div className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
                             {m.fullName}
@@ -466,6 +505,8 @@ export default function AdminMembers() {
                         title={formatLabel(m.category)}
                       >
                         {formatLabel(m.category)}
+                        {m.isFellow && <span className="ml-2 text-[10px] bg-gold/20 text-gold px-1.5 py-0.5 rounded-full uppercase tracking-wider font-bold">Fellow</span>}
+                        {m.isHonorary && <span className="ml-2 text-[10px] bg-blue-500/20 text-blue-600 px-1.5 py-0.5 rounded-full uppercase tracking-wider font-bold">Honorary</span>}
                       </div>
                     </td>
                     <td className="px-5 py-4">
@@ -503,6 +544,80 @@ export default function AdminMembers() {
                         )}
                         {formatLabel(m.status)}
                       </Badge>
+                    </td>
+                    <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem
+                            onClick={() => router.push(`/admin/members/${m.id}`)}
+                            className="font-medium cursor-pointer"
+                          >
+                            <Users className="mr-2 h-4 w-4" />
+                            View Profile
+                          </DropdownMenuItem>
+                          {(m.membershipClass === "Professional" && !m.isFellow) && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setFellowDialog({ open: true, type: 'award', member: m });
+                              }}
+                              className="text-amber-600 dark:text-amber-500 font-medium cursor-pointer"
+                            >
+                              <Award className="mr-2 h-4 w-4" />
+                              Award Fellow Status
+                            </DropdownMenuItem>
+                          )}
+                          {m.isFellow && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setFellowDialog({ open: true, type: 'revoke', member: m });
+                              }}
+                              className="text-rose-600 dark:text-rose-500 font-medium cursor-pointer"
+                            >
+                              <Minus className="mr-2 h-4 w-4" />
+                              Revoke Fellow Status
+                            </DropdownMenuItem>
+                          )}
+                          
+                          {(m.membershipClass === "Professional" && !m.isHonorary) && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setHonoraryDialog({ open: true, type: 'award', member: m });
+                              }}
+                              className="text-blue-600 dark:text-blue-500 font-medium cursor-pointer"
+                            >
+                              <Award className="mr-2 h-4 w-4" />
+                              Award Honorary Status
+                            </DropdownMenuItem>
+                          )}
+                          {m.isHonorary && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setHonoraryDialog({ open: true, type: 'revoke', member: m });
+                              }}
+                              className="text-rose-600 dark:text-rose-500 font-medium cursor-pointer"
+                            >
+                              <Minus className="mr-2 h-4 w-4" />
+                              Revoke Honorary Status
+                            </DropdownMenuItem>
+                          )}
+
+                          <DropdownMenuItem 
+                            className="cursor-pointer"
+                            onClick={() => {
+                              setSelectedIds([m.id]);
+                              setComposeOpen(true);
+                            }}
+                          >
+                            <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
+                            Email Member
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 ))}
@@ -639,6 +754,94 @@ export default function AdminMembers() {
         )}
       </AnimatePresence>
 
+      {/* Honorary Status Action Dialog */}
+      <Dialog open={honoraryDialog.open} onOpenChange={(val) => setHonoraryDialog({ ...honoraryDialog, open: val })}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>
+              {honoraryDialog.type === 'award' ? 'Award Honorary Status' : 'Revoke Honorary Status'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-sm text-zinc-600 dark:text-zinc-400">
+            {honoraryDialog.type === 'award' ? (
+              <p>Are you sure you want to award the prestigious Honorary status to <strong className="text-zinc-900 dark:text-zinc-100">{honoraryDialog.member?.fullName}</strong>? This action upgrades their membership class and assigns them an 'HQS' identifier.</p>
+            ) : (
+              <p>Are you sure you want to revoke the Honorary status from <strong className="text-zinc-900 dark:text-zinc-100">{honoraryDialog.member?.fullName}</strong>? This will revert their membership class back to Professional.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHonoraryDialog({ ...honoraryDialog, open: false })}>Cancel</Button>
+            <Button 
+              className={honoraryDialog.type === 'award' ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-rose-600 hover:bg-rose-700 text-white'}
+              onClick={async () => {
+                if (!honoraryDialog.member) return;
+                try {
+                  if (honoraryDialog.type === 'award') {
+                    await awardHonoraryStatus(honoraryDialog.member.id);
+                    toast.success(`${honoraryDialog.member.fullName} has been awarded Honorary status.`);
+                  } else {
+                    await revokeHonoraryStatus(honoraryDialog.member.id);
+                    toast.success(`${honoraryDialog.member.fullName}'s Honorary status has been revoked.`);
+                  }
+                  setHonoraryDialog({ ...honoraryDialog, open: false });
+                  setPage(1);
+                  getMembersRegistry(1, pageSize, q, statusFilter, catFilter, locFilter, sortKey, sortDir)
+                    .then(setData);
+                } catch (err: any) {
+                  toast.error(err.response?.data?.message || `Failed to ${honoraryDialog.type} Honorary status.`);
+                }
+              }}
+            >
+              {honoraryDialog.type === 'award' ? 'Award Status' : 'Revoke Status'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fellow Status Action Dialog */}
+      <Dialog open={fellowDialog.open} onOpenChange={(val) => setFellowDialog({ ...fellowDialog, open: val })}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>
+              {fellowDialog.type === 'award' ? 'Award Fellow Status' : 'Revoke Fellow Status'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-sm text-zinc-600 dark:text-zinc-400">
+            {fellowDialog.type === 'award' ? (
+              <p>Are you sure you want to award the prestigious Fellow status to <strong className="text-zinc-900 dark:text-zinc-100">{fellowDialog.member?.fullName}</strong>? This action upgrades their membership class and assigns them an 'FQS' identifier.</p>
+            ) : (
+              <p>Are you sure you want to revoke the Fellow status from <strong className="text-zinc-900 dark:text-zinc-100">{fellowDialog.member?.fullName}</strong>? This will revert their membership class back to Professional.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFellowDialog({ ...fellowDialog, open: false })}>Cancel</Button>
+            <Button 
+              className={fellowDialog.type === 'award' ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-rose-600 hover:bg-rose-700 text-white'}
+              onClick={async () => {
+                if (!fellowDialog.member) return;
+                try {
+                  if (fellowDialog.type === 'award') {
+                    await awardFellowStatus(fellowDialog.member.id);
+                    toast.success(`${fellowDialog.member.fullName} has been awarded Fellow status.`);
+                  } else {
+                    await revokeFellowStatus(fellowDialog.member.id);
+                    toast.success(`${fellowDialog.member.fullName}'s Fellow status has been revoked.`);
+                  }
+                  setFellowDialog({ ...fellowDialog, open: false });
+                  setPage(1);
+                  getMembersRegistry(1, pageSize, q, statusFilter, catFilter, locFilter, sortKey, sortDir)
+                    .then(setData);
+                } catch (err: any) {
+                  toast.error(err.response?.data?.message || `Failed to ${fellowDialog.type} Fellow status.`);
+                }
+              }}
+            >
+              {fellowDialog.type === 'award' ? 'Award Status' : 'Revoke Status'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       </div>
     );
   }
@@ -651,7 +854,11 @@ function Avatar({ name, url }: { name: string; url?: string }) {
     }
   }, []);
 
-  const fullUrl = url && token ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/download/${url}?token=${token}` : null;
+  const fullUrl = url && token 
+    ? url.includes('/')
+      ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/downloadByUrl?url=${encodeURIComponent(url)}&token=${token}`
+      : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/download/${url}?token=${token}`
+    : null;
 
   if (fullUrl) {
     return (

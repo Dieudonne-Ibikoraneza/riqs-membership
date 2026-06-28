@@ -108,7 +108,9 @@ export default function AdminApps() {
           practiceLocation: a.location,
           submittedAt: new Date(a.submitted_at).toISOString().split('T')[0],
           status: a.status.replace("_", " "),
-          reviewer: a.reviewer || "Unassigned"
+          reviewer: a.reviewer || "Unassigned",
+          photoId: a.photoId,
+          profilePhotoUrl: a.profilePhotoUrl
         }));
         setApplications(mapped);
         setTotalPages(Math.max(1, Math.ceil(res.pagination.total / pageSize)));
@@ -538,7 +540,7 @@ export default function AdminApps() {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <Avatar name={a.applicantName} url={a.photoId} />
+                        <Avatar name={a.applicantName} url={a.profilePhotoUrl || a.photoId} />
                         <div>
                           <div className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug flex items-center gap-2">
                             {a.applicantName}
@@ -729,7 +731,11 @@ function Avatar({ name, url }: { name: string; url?: string }) {
     }
   }, []);
 
-  const fullUrl = url && token ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/download/${url}?token=${token}` : null;
+  const fullUrl = url && token 
+    ? url.includes('/')
+      ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/downloadByUrl?url=${encodeURIComponent(url)}&token=${token}`
+      : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/download/${url}?token=${token}`
+    : null;
 
   if (fullUrl) {
     return (

@@ -41,6 +41,7 @@ import {
   MapPin,
   Loader2,
   BadgeDollarSign,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -69,6 +70,10 @@ export default function SettingsPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<Category> | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newHonorDraft, setNewHonorDraft] = useState("");
+  const [newHonorDraftDesc, setNewHonorDraftDesc] = useState("");
+  const [newHonorCreate, setNewHonorCreate] = useState("");
+  const [newHonorCreateDesc, setNewHonorCreateDesc] = useState("");
   const [newCategory, setNewCategory] = useState<Omit<Category, "id">>({
     location: "Rwandan",
     entity_type: "Individual",
@@ -79,6 +84,7 @@ export default function SettingsPage() {
     first_year_fee: 0,
     annual_renewal_fee: 0,
     stamp_fee: 0,
+    supported_honors: [],
     required_documents: [],
     optional_documents: []
   });
@@ -137,6 +143,7 @@ export default function SettingsPage() {
         first_year_fee: 0,
         annual_renewal_fee: 0,
         stamp_fee: 0,
+        supported_honors: [],
         required_documents: [],
         optional_documents: []
       });
@@ -594,6 +601,76 @@ export default function SettingsPage() {
 
                   <hr className="border-zinc-100 dark:border-zinc-800" />
 
+                  <div>
+                    <h3 className="text-sm font-bold text-navy flex items-center gap-1 mb-3">Supported Honorable Mentions</h3>
+                    <div className="flex gap-2 mb-3">
+                      <Input 
+                        placeholder="e.g. Fellow" 
+                        className="h-8 text-xs w-[120px]" 
+                        value={newHonorDraft} 
+                        onChange={e => setNewHonorDraft(e.target.value)} 
+                      />
+                      <Input 
+                        placeholder="Description" 
+                        className="h-8 text-xs flex-1" 
+                        value={newHonorDraftDesc} 
+                        onChange={e => setNewHonorDraftDesc(e.target.value)} 
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && newHonorDraft.trim()) {
+                            e.preventDefault();
+                            const current = draft.supported_honors || [];
+                            if (!current.some((h: any) => h.name === newHonorDraft.trim())) {
+                                updateDraftField("supported_honors", [...current, { name: newHonorDraft.trim(), description: newHonorDraftDesc.trim() }]);
+                            }
+                            setNewHonorDraft("");
+                            setNewHonorDraftDesc("");
+                          }
+                        }}
+                      />
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="h-8 text-xs px-3"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (newHonorDraft.trim()) {
+                            const current = draft.supported_honors || [];
+                            if (!current.some((h: any) => h.name === newHonorDraft.trim())) {
+                                updateDraftField("supported_honors", [...current, { name: newHonorDraft.trim(), description: newHonorDraftDesc.trim() }]);
+                            }
+                            setNewHonorDraft("");
+                            setNewHonorDraftDesc("");
+                          }
+                        }}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                    {draft.supported_honors && draft.supported_honors.length > 0 && (
+                      <div className="flex flex-col gap-2">
+                        {draft.supported_honors.map((honor: any) => (
+                          <div key={honor.name} className="flex flex-col bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2">
+                            <div className="flex justify-between items-start">
+                              <span className="text-xs text-navy font-bold">{honor.name}</span>
+                              <button 
+                                onClick={() => {
+                                  const current = draft.supported_honors || [];
+                                  updateDraftField("supported_honors", current.filter((h: any) => h.name !== honor.name));
+                                }}
+                                className="text-zinc-400 hover:text-red-500 rounded-full p-0.5 ml-1 transition-colors"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            {honor.description && <span className="text-[10px] text-muted-foreground mt-0.5">{honor.description}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <hr className="border-zinc-100 dark:border-zinc-800" />
+
                   {/* Required Documents List */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -790,6 +867,74 @@ export default function SettingsPage() {
                 <Label className="text-[11px] font-bold text-navy">APC Stamp Fee</Label>
                 <Input type="number" className="mt-1" value={newCategory.stamp_fee} onChange={(e) => setNewCategory({...newCategory, stamp_fee: parseFloat(e.target.value) || 0})} />
               </div>
+            </div>
+
+            <div className="pt-2 border-t mt-2">
+              <h3 className="text-[11px] font-bold text-navy mb-2">Supported Honorable Mentions</h3>
+              <div className="flex gap-2 mb-2">
+                <Input 
+                  placeholder="e.g. Fellow" 
+                  className="h-7 text-[10px] w-[100px]" 
+                  value={newHonorCreate} 
+                  onChange={e => setNewHonorCreate(e.target.value)} 
+                />
+                <Input 
+                  placeholder="Description" 
+                  className="h-7 text-[10px] flex-1" 
+                  value={newHonorCreateDesc} 
+                  onChange={e => setNewHonorCreateDesc(e.target.value)} 
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newHonorCreate.trim()) {
+                      e.preventDefault();
+                      const current = newCategory.supported_honors || [];
+                      if (!current.some((h: any) => h.name === newHonorCreate.trim())) {
+                          setNewCategory({...newCategory, supported_honors: [...current, { name: newHonorCreate.trim(), description: newHonorCreateDesc.trim() }]});
+                      }
+                      setNewHonorCreate("");
+                      setNewHonorCreateDesc("");
+                    }
+                  }}
+                />
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-7 text-[10px] px-2"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (newHonorCreate.trim()) {
+                      const current = newCategory.supported_honors || [];
+                      if (!current.some((h: any) => h.name === newHonorCreate.trim())) {
+                          setNewCategory({...newCategory, supported_honors: [...current, { name: newHonorCreate.trim(), description: newHonorCreateDesc.trim() }]});
+                      }
+                      setNewHonorCreate("");
+                      setNewHonorCreateDesc("");
+                    }
+                  }}
+                >
+                  Add
+                </Button>
+              </div>
+              {newCategory.supported_honors && newCategory.supported_honors.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  {newCategory.supported_honors.map((honor: any) => (
+                    <div key={honor.name} className="flex flex-col bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded px-2 py-1">
+                      <div className="flex justify-between items-start">
+                        <span className="text-[10px] text-navy font-bold">{honor.name}</span>
+                        <button 
+                          onClick={() => {
+                            const current = newCategory.supported_honors || [];
+                            setNewCategory({...newCategory, supported_honors: current.filter((h: any) => h.name !== honor.name)});
+                          }}
+                          className="text-zinc-400 hover:text-red-500 rounded-full p-0.5 ml-0.5 transition-colors"
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                      {honor.description && <span className="text-[9px] text-muted-foreground mt-0.5">{honor.description}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter className="mt-4 pt-3 border-t">

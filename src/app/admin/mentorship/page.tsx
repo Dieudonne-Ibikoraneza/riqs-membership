@@ -41,7 +41,11 @@ function Avatar({ name, url }: { name: string; url?: string }) {
     }
   }, []);
 
-  const fullUrl = url && token ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/download/${url}?token=${token}` : null;
+  const fullUrl = url && token 
+    ? url.includes('/')
+      ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/downloadByUrl?url=${encodeURIComponent(url)}&token=${token}`
+      : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/download/${url}?token=${token}`
+    : null;
 
   if (fullUrl) {
     return (
@@ -209,7 +213,7 @@ export default function MentorshipQueuePage() {
                     >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <Avatar name={a.full_name} url={a.photoId} />
+                          <Avatar name={a.full_name} url={(a as any).profilePhotoUrl || a.photoId} />
                           <div>
                             <div className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
                               {a.full_name}

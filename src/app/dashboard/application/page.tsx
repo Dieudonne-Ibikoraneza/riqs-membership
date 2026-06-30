@@ -38,6 +38,7 @@ import {
   Pencil,
   Save,
   Info,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MonthYearPicker } from "@/components/ui/month-picker";
@@ -119,7 +120,7 @@ const STATUS_CONFIG: Record<string, {
   },
 };
 
-function StatusBanner({ status }: { status: string }) {
+function StatusBanner({ status, onRefresh, isRefreshing }: { status: string; onRefresh?: () => void; isRefreshing?: boolean }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG["Pending"];
   return (
     <motion.div
@@ -134,9 +135,23 @@ function StatusBanner({ status }: { status: string }) {
             Track the status of your submitted application below.
           </p>
         </div>
-        <Badge variant="outline" className={cn("font-bold text-sm px-3 py-1", cfg.badge)}>
-          {status.replace(/_/g, " ")}
-        </Badge>
+        <div className="flex items-center gap-2">
+          {onRefresh && status !== "Approved" && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onRefresh} 
+              disabled={isRefreshing}
+              className="gap-2 h-8 text-xs font-semibold"
+            >
+              <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin")} />
+              Refresh Status
+            </Button>
+          )}
+          <Badge variant="outline" className={cn("font-bold text-sm px-3 py-1", cfg.badge)}>
+            {status.replace(/_/g, " ")}
+          </Badge>
+        </div>
       </div>
       <Card className={cn("border-2", cfg.bg)}>
         <CardContent className="p-10 flex flex-col items-center text-center space-y-5">
@@ -176,7 +191,7 @@ export default function Application() {
   });
 
   // Fetch existing application data
-  const { data: profileData, isLoading: profileLoading } = useQuery({
+  const { data: profileData, isLoading: profileLoading, isFetching: profileFetching, refetch: refetchProfile } = useQuery({
     queryKey: queryKeys.applicant.profile(),
     queryFn: applicantServices.getProfile,
   });
@@ -377,7 +392,9 @@ export default function Application() {
       list.push("Mentorship Plan");
     }
     list.push("Other Documents");
-    list.push("Declarations");
+    if (!data.categoryName?.toLowerCase().includes("student")) {
+      list.push("Declarations");
+    }
     list.push("Review & Submit");
     return list;
   }, [data.entityType, data.categoryName]);
@@ -395,9 +412,10 @@ export default function Application() {
       (c: any) =>
         c.location === data.practiceLocation &&
         (c.entityType || c.entity_type) === data.entityType &&
-        !c.category_name?.toLowerCase().includes("associate")
+        !c.category_name?.toLowerCase().includes("associate") &&
+        (c.category_name?.toLowerCase().includes("student") ? data.categoryName?.toLowerCase().includes("student") : true)
     );
-  }, [categories, data.practiceLocation, data.entityType]);
+  }, [categories, data.practiceLocation, data.entityType, data.categoryName]);
 
   // Display list for Category step (fallback to hardcoded if backend empty)
   const categoriesList = useMemo(() => {
@@ -753,12 +771,15 @@ export default function Application() {
 
   const submit = () => {
     if (!appId) return toast.error("Application not found. Please complete all steps first.");
-    if (!data.agreedToTerms) return toast.error("Please agree to the terms and conditions.");
-    if (!data.noCriminalOffense) {
-      const msg = data.entityType === "Firm" 
-        ? "Please agree to the Beneficial Ownership & Compliance declaration."
-        : "Please agree to the criminal offense declaration.";
-      return toast.error(msg);
+    const isStudent = data.categoryName?.toLowerCase().includes("student");
+    if (!isStudent) {
+      if (!data.agreedToTerms) return toast.error("Please agree to the terms and conditions.");
+      if (!data.noCriminalOffense) {
+        const msg = data.entityType === "Firm" 
+          ? "Please agree to the Beneficial Ownership & Compliance declaration."
+          : "Please agree to the criminal offense declaration.";
+        return toast.error(msg);
+      }
     }
     submitMutation.mutate(appId);
   };
@@ -783,7 +804,7 @@ export default function Application() {
           k: base,   // typeCode — used for step-routing filter (Education vs Other Docs)
           uid,       // unique storage key — used as React key AND data.docs key
           l: doc.name,
-          r: doc.req
+          r: data.categoryName?.toLowerCase().includes("student") ? false : doc.req
         };
       });
     }
@@ -807,10 +828,11 @@ export default function Application() {
   if (appStatus && appStatus !== "Draft") {
     return (
       <div className="space-y-6">
-        <StatusBanner status={appStatus} />
+        <StatusBanner status={appStatus} onRefresh={refetchProfile} isRefreshing={profileFetching} />
         {appStatus === "Correction_Required" && (
           <div className="mt-8 pt-8 border-t border-zinc-200 dark:border-zinc-800">
-            <WizardContent competencies={competencies}
+              <WizardContent competencies={competencies}
+              profilePhotoUrl={(profileData?.profile as any)?.profilePhotoUrl || null}
               goToStep={setStep}
               step={step}
               STEPS={STEPS}
@@ -847,6 +869,7 @@ export default function Application() {
 
   return (
     <WizardContent competencies={competencies}
+      profilePhotoUrl={(profileData?.profile as any)?.profilePhotoUrl || null}
       goToStep={setStep}
       step={step}
       STEPS={STEPS}
@@ -883,7 +906,7 @@ function WizardContent({
   step, STEPS, pct, data, setData, categoriesList, documentChecklist,
   currentStepName, updateLocation, updateEntity, addMentor, removeMentor,
   appId, isSaving, addEduMutation, delEduMutation, addEmpMutation, delEmpMutation, mentorshipMutation, delMentorMutation,
-  submitMutation, submit, next, back, documents, goToStep, reviewerNotes, competencies
+  submitMutation, submit, next, back, documents, goToStep, reviewerNotes, competencies, profilePhotoUrl
 }: any) {
   const queryClient = useQueryClient();
   const [photoDragActive, setPhotoDragActive] = useState(false);
@@ -934,7 +957,10 @@ function WizardContent({
   };
 
   useEffect(() => {
-    if (documents?.length > 0) {
+    // If the photo was uploaded to the new profile field, use that.
+    if (profilePhotoUrl && !photoPreview) {
+      setPhotoPreview(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/downloadByUrl?url=${encodeURIComponent(profilePhotoUrl)}&token=${typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : ''}`);
+    } else if (documents?.length > 0) {
       documents.forEach((d: any) => {
         if (d.documentType === "photo" || d.documentType === "PassportPhoto") {
           if (!photoPreview) {
@@ -982,16 +1008,11 @@ function WizardContent({
 
   const uploadPhotoMutation = useMutation({
     mutationFn: async (file: File) => {
-      if (!appId) {
-        throw new Error("Please complete the first step to save the application draft before uploading a photo.");
-      }
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("applicationId", appId);
-      formData.append("documentType", "photo");
-      return applicantServices.uploadDocument(formData);
+      // Instead of an application document, we upload it as the member's profile photo
+      return applicantServices.uploadProfilePhoto(file);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
       toast.success("Passport photo uploaded successfully!");
     },
     onError: (err: any) => {
@@ -1231,7 +1252,7 @@ function WizardContent({
                 data.entityType === "Individual" ? (
                   <div className="grid gap-6 md:grid-cols-12">
                     {/* Left Side: Profile Fields */}
-                    <div className={documentChecklist.some((d: any) => d.k === "photo") ? "md:col-span-7 grid gap-4" : "md:col-span-12 grid gap-4"}>
+                    <div className="md:col-span-7 grid gap-4 sm:grid-cols-2">
                       <div className="space-y-1 md:col-span-2">
                         <Label htmlFor="app-name">Full Names <span className="text-red-500">*</span></Label>
                         <Input id="app-name" placeholder="e.g. John Doe" value={data.personal.fullName}
@@ -1282,16 +1303,12 @@ function WizardContent({
                       </div>
                     </div>
 
-                    {/* Right Side: Passport Photo conditionally rendered */}
-                    {(() => {
-                      const photoDoc = documentChecklist.find((d: any) => d.k === "photo");
-                      if (!photoDoc) return null;
-                      return (
-                      <div className="md:col-span-5 flex flex-col">
-                        <Label className="mb-1">
-                          {photoDoc.l}
-                          {photoDoc.r ? <span className="text-red-500 ml-1">*</span> : <span className="text-xs text-muted-foreground font-normal ml-1">(optional)</span>}
-                        </Label>
+                    {/* Right Side: Passport Photo always rendered */}
+                    <div className="md:col-span-5 flex flex-col">
+                      <Label className="mb-1">
+                        Passport Size Photo
+                        <span className="text-red-500 ml-1">*</span>
+                      </Label>
                         <input
                           type="file"
                           accept="image/jpeg, image/png"
@@ -1357,8 +1374,6 @@ function WizardContent({
                           )}
                         </div>
                       </div>
-                      );
-                    })()}
 
                     {/* Additional Details */}
                     <div className="md:col-span-12 grid gap-4 mt-2">
@@ -2173,8 +2188,7 @@ function WizardContent({
             if (currentStepName === "Personal Info") {
               const p = data.personal;
               // Check if photo is required and not yet uploaded
-              const photoDoc = documentChecklist.find((d: any) => d.k === "photo");
-              const photoMissing = photoDoc?.r && (!data.docs["photo"] || data.docs["photo"] === "loading_from_backend" || data.docs["photo"] === "uploading_from_client") && !photoPreview;
+              const photoMissing = data.entityType === "Individual" && !photoPreview;
               if (data.entityType === "Individual") {
                 const resAdd = p.residentAddress;
                 const residentMissing = data.practiceLocation === "Rwandan" && (!resAdd?.district || !resAdd?.sector || !resAdd?.cell || !resAdd?.village);

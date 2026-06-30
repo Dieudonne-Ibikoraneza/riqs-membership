@@ -166,10 +166,23 @@ function CertificateContent() {
   useEffect(() => {
     if (isLoading) return;
 
-    if (!isFullyActive || !profileData?.documents) {
+    if (!isFullyActive) {
       setPassportLoading(false);
       return;
     }
+
+    if ((profileData?.profile as any)?.profilePhotoUrl) {
+      setPassportUrl(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/downloadByUrl?url=${encodeURIComponent((profileData?.profile as any)?.profilePhotoUrl || '')}&token=${typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : ''}`);
+      setPassportLoading(false);
+      return;
+    }
+
+    if (!profileData?.documents) {
+      setPassportLoading(false);
+      return;
+    }
+
+    let active = true;
 
     let passportDoc = profileData.documents.find((d: any) =>
       d.documentType === "PassportPhoto" ||
@@ -179,8 +192,6 @@ function CertificateContent() {
       d.documentType === "passport_size_photo"
     );
     // Do NOT fall back to id/passport copy documents – only a genuine photo upload is shown
-
-    let active = true;
 
     if (passportDoc) {
       setPassportLoading(true);

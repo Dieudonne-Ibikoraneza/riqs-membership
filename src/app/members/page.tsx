@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { publicServices } from "@/services/public.services";
 import { queryKeys } from "@/services/queryKeys";
@@ -272,7 +272,7 @@ export default function MembersPage() {
                       <tr key={m.id} className={cn("border-b border-zinc-100 dark:border-zinc-800/80 transition-colors hover:bg-gold/5", i % 2 === 1 && "bg-zinc-50/20 dark:bg-zinc-950/10")}>
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            <Avatar name={m.full_name} />
+                            <Avatar name={m.full_name} url={m.profile_photo_url} />
                             <div>
                               <div className="font-semibold text-zinc-900 dark:text-zinc-100">{m.full_name}</div>
                               <div className="text-xs text-muted-foreground">{m.email}</div>
@@ -319,11 +319,36 @@ export default function MembersPage() {
   );
 }
 
-function Avatar({ name }: { name: string }) {
+function Avatar({ name, url, className }: { name: string; url?: string; className?: string }) {
+  const [token, setToken] = useState("");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setToken(localStorage.getItem("riqs.auth.token") || "");
+    }
+  }, []);
+
+  const fullUrl = url && token 
+    ? url.includes('/')
+      ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/downloadByUrl?url=${encodeURIComponent(url)}&token=${token}`
+      : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/download/${url}?token=${token}`
+    : null;
+
+  const baseClasses = className || "h-10 w-10 text-xs shadow-sm ring-1 ring-black/5 dark:ring-white/10";
+
+  if (fullUrl) {
+    return (
+      <img
+        src={fullUrl}
+        alt={name}
+        className={cn("flex shrink-0 object-cover rounded-full", baseClasses)}
+      />
+    );
+  }
+
   const safeName = name || "?";
   const initials = safeName.split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase();
   return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-navy to-[#14467f] text-xs font-bold text-white">
+    <div className={cn("flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-navy to-[#14467f] font-bold text-white", baseClasses)}>
       {initials}
     </div>
   );
@@ -332,6 +357,7 @@ function Avatar({ name }: { name: string }) {
 function formatMembershipClass(cls: string) {
   if (!cls) return "";
   const map: Record<string, string> = {
+    "Fellow": "Professional, Fellow",
     "Firm_Local_Small": "Rwandan Small Firm",
     "Firm_Local_Medium": "Rwandan Medium Firm",
     "Firm_Local_Large": "Rwandan Large Firm",
@@ -339,7 +365,7 @@ function formatMembershipClass(cls: string) {
     "Firm_Foreign_Medium": "Non-Rwandan Medium Firm",
     "Firm_Foreign_Large": "Non-Rwandan Large Firm",
   };
-  return map[cls] || cls;
+  return map[cls] || cls.replace(/_/g, " ");
 }
 
 function MemberCard({ m }: { m: any }) {
@@ -347,16 +373,18 @@ function MemberCard({ m }: { m: any }) {
     <Card className="group hover-lift overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 shadow-sm">
       <div className="relative h-20 brand-gradient">
         <div className="absolute -bottom-7 left-5">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-navy to-[#14467f] text-sm font-bold text-white ring-4 ring-white dark:ring-zinc-900">
-            {(m.full_name || "").split(" ").map((s: string) => s[0]).join("").slice(0, 2).toUpperCase()}
-          </div>
+          <Avatar 
+            name={m.full_name} 
+            url={m.profile_photo_url} 
+            className="h-14 w-14 text-sm ring-4 ring-white dark:ring-zinc-900" 
+          />
         </div>
         <Badge className="absolute right-4 top-4 bg-emerald-500/20 text-emerald-100 border-emerald-400/40 backdrop-blur font-semibold">
           <BadgeCheck className="mr-1 h-3 w-3 text-gold fill-gold" /> Approved
         </Badge>
       </div>
       <CardContent className="pt-10 pb-5 px-5">
-        <div className="text-[10px] uppercase tracking-wider gold-text font-bold">{m.membership_id || m.id}</div>
+        <div className="text-[10px] tracking-wider gold-text font-bold">{m.membership_id || m.id}</div>
         <div className="mt-1 text-base font-bold text-navy dark:text-white leading-tight">{m.full_name}</div>
         <div className="mt-1.5">
           <Badge variant="outline" className="border-navy/15 bg-navy/5 text-navy dark:border-zinc-800 dark:text-zinc-350 text-[10px] font-semibold">{formatMembershipClass(m.membership_class)}</Badge>

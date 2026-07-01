@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Lock, Plus, Pencil } from "lucide-react";
+import { Lock, Plus, Pencil, Camera, Loader2, UserRound } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -36,6 +36,25 @@ export default function Profile() {
   const [name, setName] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [draft, setDraft] = useState({ degree: "", institution: "", year: 2026 });
+  const [photoLoading, setPhotoLoading] = useState(false);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0]) return;
+    const file = e.target.files[0];
+    if (file.size > 5 * 1024 * 1024) {
+      return toast.error("Photo must be less than 5MB");
+    }
+    setPhotoLoading(true);
+    try {
+      await applicantServices.uploadProfilePhoto(file);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
+      toast.success("Profile photo updated successfully");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to upload photo");
+    } finally {
+      setPhotoLoading(false);
+    }
+  };
 
   const mutation = useMutation({
     mutationFn: applicantServices.updateProfile,
@@ -114,6 +133,30 @@ export default function Profile() {
         <h1 className="text-2xl font-bold text-navy">My Profile</h1>
         <p className="text-sm text-muted-foreground font-sans">Some fields are locked for compliance. Contact RIQS admin to request changes.</p>
       </div>
+
+      {!isFirm && (
+        <Card className="border-zinc-100 dark:border-zinc-800">
+          <CardContent className="p-6 flex items-center gap-6">
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-full overflow-hidden bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 flex items-center justify-center">
+                {member.profilePhotoUrl ? (
+                  <img src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/downloadByUrl?url=${encodeURIComponent(member.profilePhotoUrl)}&token=${typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : ''}`} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <UserRound className="h-10 w-10 text-zinc-400" />
+                )}
+              </div>
+              <label className="absolute inset-0 flex items-center justify-center bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                {photoLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
+                <input type="file" className="hidden" accept="image/jpeg, image/png, image/webp" onChange={handlePhotoUpload} disabled={photoLoading} />
+              </label>
+            </div>
+            <div>
+              <h3 className="font-semibold text-navy dark:text-zinc-100">Profile Photo</h3>
+              <p className="text-sm text-muted-foreground max-w-sm mt-1">This photo will appear on your digital certificate, membership card, and in the public registry. Recommended size: 400x400px (JPEG/PNG).</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Personal Info Card */}
       <Card className="border-zinc-100 dark:border-zinc-800">

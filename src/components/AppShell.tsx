@@ -32,6 +32,7 @@ import {
   BookOpen,
   AlertTriangle,
   Clock,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -120,6 +121,7 @@ export function AppShell({
     ...(canBeMentor ? [{ href: "/dashboard/mentees", label: "My Mentees", icon: GraduationCap }] : []),
     ...(isTeacher ? [{ href: "/teacher", label: "Teacher Workspace", icon: Users }] : []),
     { href: "/dashboard/documents", label: "Documents", icon: Folder },
+    { href: "/dashboard/support", label: "Support & Inquiries", icon: MessageSquare },
   ];
 
   const adminLinks = [
@@ -139,6 +141,7 @@ export function AppShell({
       : []),
     { href: "/admin/export", label: "Export Tool", icon: Folder },
     ...(role === "Admin" ? [{ href: "/admin/audit", label: "Audit Log", icon: ClipboardList }] : []),
+    { href: "/admin/support", label: "Support & Inquiries", icon: MessageSquare },
   ];
 
   const activeAppMatch = pathname.match(/^\/teacher\/application\/([^/]+)/);
@@ -372,7 +375,7 @@ export function AppShell({
 
       {/* Main column */}
       <div className="relative flex flex-1 flex-col overflow-hidden">
-        <header className="absolute top-0 left-0 right-0 z-30 flex h-20 items-center justify-between bg-white px-4 md:px-6">
+        <header className="absolute left-0 right-0 top-0 flex h-16 shrink-0 items-center justify-between border-b border-zinc-200 bg-white/80 px-4 backdrop-blur-md dark:border-zinc-800 dark:bg-black/50 z-[60]">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileOpen(true)}

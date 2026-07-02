@@ -18,7 +18,6 @@ export default function RegisterStudent() {
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
-    password: "",
     practiceLocation: "Rwandan"
   });
 
@@ -50,7 +49,7 @@ export default function RegisterStudent() {
         <CardHeader>
           <CardTitle className="text-2xl text-navy">Register New Student</CardTitle>
           <CardDescription>
-            Provision an account for a student and start their Graduate Application.
+            Provision an account for a student and start their Student Application. A password will be automatically generated and emailed to them.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -78,18 +77,7 @@ export default function RegisterStudent() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Initial Password</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                required 
-                value={formData.password}
-                onChange={e => setFormData({...formData, password: e.target.value})}
-                placeholder="Create a password for the student"
-              />
-              <p className="text-xs text-muted-foreground">The student can change this later.</p>
-            </div>
+            {/* Password field removed - backend generates and emails it */}
 
             <div className="space-y-2">
               <Label htmlFor="practiceLocation">Practice Location</Label>

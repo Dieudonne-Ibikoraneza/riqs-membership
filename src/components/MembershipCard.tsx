@@ -47,6 +47,17 @@ export function MembershipCard({ profileData }: { profileData?: any }) {
   if (profileData) {
     m.name = profileData?.profile?.fullName || defaults.name;
     m.membershipNo = profileData?.profile?.membershipId || "RIQS/M/00000";
+    
+    let rawClass = profileData?.profile?.membershipClass || profileData?.application?.category_name || "";
+    let formattedClass = rawClass.replace(/_/g, " ");
+    
+    // Add Fellow suffix if applicable
+    if (profileData?.profile?.isFellow) {
+      formattedClass = formattedClass ? `${formattedClass}, Fellow` : "Fellow";
+    }
+
+    m.designations = formattedClass || defaults.designations;
+    
     m.membershipGrade = profileData?.application?.category_name || profileData?.profile?.membershipClass || defaults.membershipGrade;
     m.practiceGrade = m.membershipGrade;
     m.practiceLicenceNo = `LPQS/${new Date().getFullYear()}/${profileData?.profile?.id?.slice(0, 4).toUpperCase() || "0001"}`;
@@ -56,17 +67,32 @@ export function MembershipCard({ profileData }: { profileData?: any }) {
     if ((profileData?.profile as any)?.membershipExpiresAt) {
       validUntilDate = new Date((profileData?.profile as any).membershipExpiresAt);
     }
-    m.issueDate = validUntilDate
-      ? new Date(validUntilDate.getUTCFullYear() - 1, 0, 1).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric", timeZone: "UTC" })
-      : "";
+
+    let approvedDate: Date | null = null;
+    if (profileData?.application?.approvedAt) {
+      approvedDate = new Date(profileData.application.approvedAt);
+    } else if (profileData?.application?.status === "Approved" && profileData?.application?.updatedAt) {
+      approvedDate = new Date(profileData.application.updatedAt);
+    }
+
+    m.issueDate = approvedDate
+      ? approvedDate.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })
+      : (validUntilDate ? new Date(validUntilDate.getFullYear() - 1, 0, 1).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }) : "");
+    
     m.expiryDate = validUntilDate
-      ? validUntilDate.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric", timeZone: "UTC" })
+      ? validUntilDate.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })
       : "";
   }
 
   const isFirm = profileData?.application?.entityType === "Firm" || m.membershipGrade.includes("Firm");
 
   useEffect(() => {
+    if (profileData?.profile?.profilePhotoUrl) {
+      setPassportUrl(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/downloadByUrl?url=${encodeURIComponent(profileData.profile.profilePhotoUrl)}&token=${typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : ''}`);
+      setPassportLoading(false);
+      return;
+    }
+
     if (!profileData?.documents) {
       setPassportLoading(false);
       return;
@@ -101,10 +127,15 @@ export function MembershipCard({ profileData }: { profileData?: any }) {
 
     return () => {
       active = false;
+      if (passportUrl && passportUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(passportUrl);
+      }
     };
   }, [profileData]);
 
-  if (isFirm) return null;
+  if (isFirm) {
+    return null; // Don't show ID card for firms for now, they get Certificates.
+  }
 
   m.photoUrl = passportUrl || undefined;
 
@@ -192,8 +223,6 @@ function CardFront({ m, isLoading }: { m: MemberData, isLoading: boolean }) {
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-        <path d="M0 790 H1586" stroke={GOLD} strokeWidth="4" />
-        <path d="M0 870 H1228" stroke="#285378" strokeOpacity=".62" strokeWidth="2" />
 
         {/* subtle diagonal texture on navy */}
         <path
@@ -265,21 +294,6 @@ function CardFront({ m, isLoading }: { m: MemberData, isLoading: boolean }) {
         )}
       </div>
 
-      {/* Membership no */}
-      <div className="absolute text-center" style={{ left: "7.35%", top: "73.5%", width: "22.8%", lineHeight: 1 }}>
-        <div style={{ fontWeight: 800, fontSize: "3cqw", letterSpacing: ".01em", whiteSpace: "nowrap" }}>
-          <span style={{ color: GOLD }}>RIQS</span><span style={{ color: "#fff" }}>{m.membershipNo.replace(/^RIQS/, "")}</span>
-        </div>
-        <div style={{ color: "rgba(255,255,255,.88)", fontWeight: 700, fontSize: "1.45cqw", letterSpacing: ".18em", marginTop: ".9cqw" }}>
-          MEMBERSHIP NUMBER
-        </div>
-      </div>
-
-      <Chip />
-
-      {/* Seal */}
-      <RoundSeal />
-
       {/* Name + fields */}
       <div className="absolute" style={{ left: "32%", top: "32.6%", right: "26%" }}>
         <div style={{ color: NAVY, fontWeight: 800, fontSize: "3.35cqw", lineHeight: 1.08, whiteSpace: "nowrap" }}>
@@ -293,7 +307,7 @@ function CardFront({ m, isLoading }: { m: MemberData, isLoading: boolean }) {
       <div className="absolute" style={{ left: "32%", top: "48.2%", right: "16.4%" }}>
         <Row label="MEMBERSHIP GRADE" value={m.membershipGrade} />
         <Row label="PRACTICE GRADE" value={m.practiceGrade} valueColor={GOLD} />
-        <Row label="PRACTICE LICENCE NO." value={m.practiceLicenceNo} />
+        <Row label="REGISTRATION NUMBER" value={m.membershipNo} />
         <Row label="REGISTRATION STATUS" value={m.status} valueColor="#16a34a" />
         <Row label="ISSUE DATE" value={m.issueDate} />
         <Row label="EXPIRY DATE" value={m.expiryDate} />

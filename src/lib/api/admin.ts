@@ -10,6 +10,8 @@ export interface QueueApplication {
   category_name: string;
   location: string;
   reviewer: string;
+  photoId?: string;
+  profilePhotoUrl?: string;
 }
 
 export interface AdminQueueResponse {
@@ -81,12 +83,14 @@ export async function submitReviewerAction(
 export async function submitApproverDecision(
   applicationId: string,
   action: "Approve" | "Reject",
-  notes?: string
+  notes?: string,
+  overrideCategoryId?: string
 ): Promise<any> {
   const { data } = await axiosClient.post(`/admin/approver-decision`, {
     applicationId,
     action,
     notes,
+    overrideCategoryId,
   });
   return data;
 }
@@ -331,3 +335,48 @@ export async function awardAssociate(applicationId: string): Promise<any> {
   const { data } = await axiosClient.post(`/progression/associate/award`, { applicationId });
   return data;
 }
+
+export async function awardFellowStatus(memberId: string): Promise<any> {
+  const { data } = await axiosClient.post(`/admin/members/${memberId}/award-fellow`);
+  return data;
+}
+
+export async function revokeFellowStatus(memberId: string): Promise<any> {
+  const { data } = await axiosClient.post(`/admin/members/${memberId}/revoke-fellow`);
+  return data;
+}
+
+export async function awardHonoraryStatus(memberId: string): Promise<any> {
+  const { data } = await axiosClient.post(`/admin/members/${memberId}/award-honorary`);
+  return data;
+}
+
+export async function revokeHonoraryStatus(memberId: string): Promise<any> {
+  const { data } = await axiosClient.post(`/admin/members/${memberId}/revoke-honorary`);
+  return data;
+}
+
+export async function createHonorableMentionMember(payload: {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  categoryCode: 'LQS' | 'HQS' | 'VQS';
+  nationalIdOrPassport?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  countryOfOrigin?: string;
+}): Promise<{ message: string; membershipId: string; temporaryPassword?: string }> {
+  const { data } = await axiosClient.post('/admin/members/honorable-mention', payload);
+  return data;
+}
+
+export async function getMemberById(id: string): Promise<any> {
+  const { data } = await axiosClient.get(`/admin/members/${id}`);
+  return data;
+}
+
+export async function changeMembershipCategory(id: string, newCategoryId: string): Promise<{ message: string; member: any }> {
+  const { data } = await axiosClient.post(`/admin/members/${id}/change-category`, { newCategoryId });
+  return data;
+}
+

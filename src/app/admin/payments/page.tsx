@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertCircle, CheckCircle2, Search, XCircle, RefreshCw, FileText, ArrowLeft } from "lucide-react";
+import { AlertCircle, CheckCircle2, Search, XCircle, RefreshCw, FileText, ArrowLeft, Star } from "lucide-react";
 import { format } from "date-fns";
 import { axiosClient } from "@/lib/axiosClient";
 import { cn } from "@/lib/utils";
@@ -387,6 +387,7 @@ function Avatar({ name, url }: { name: string; url?: string }) {
                 <tr>
                   <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider w-[180px]">Reference</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Member</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Category</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Type</th>
                   <th className="px-5 py-3.5 text-right text-xs font-bold uppercase tracking-wider">Amount</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Date</th>
@@ -396,7 +397,7 @@ function Avatar({ name, url }: { name: string; url?: string }) {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-5 py-10 h-32 text-center text-muted-foreground">
+                    <td colSpan={7} className="px-5 py-10 h-32 text-center text-muted-foreground">
                       <div className="flex flex-col items-center justify-center">
                         <RefreshCw className="mb-2 h-6 w-6 animate-spin" />
                         Loading queue...
@@ -405,13 +406,13 @@ function Avatar({ name, url }: { name: string; url?: string }) {
                   </tr>
                 ) : isError ? (
                   <tr>
-                    <td colSpan={6} className="px-5 py-10 h-32 text-center text-red-500">
+                    <td colSpan={7} className="px-5 py-10 h-32 text-center text-red-500">
                       Failed to load transactions.
                     </td>
                   </tr>
                 ) : data?.transactions.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-5 py-10 h-32 text-center text-muted-foreground">
+                    <td colSpan={7} className="px-5 py-10 h-32 text-center text-muted-foreground">
                       No transactions found for this status.
                     </td>
                   </tr>
@@ -432,6 +433,29 @@ function Avatar({ name, url }: { name: string; url?: string }) {
                           <div className="flex flex-col">
                             <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{tx.full_name || "Unknown"}</span>
                             <span className="text-xs text-muted-foreground">{tx.email || "No email"}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 max-w-[200px]">
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="truncate text-sm text-zinc-700 dark:text-zinc-300 font-medium w-full" title={tx.category}>
+                            {tx.category}
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {(() => {
+                              const honorsSet = new Set<string>(tx.honors || []);
+                              
+                              return Array.from(honorsSet).map((honor: string) => (
+                                <Badge 
+                                  key={honor} 
+                                  variant="outline" 
+                                  className="text-[10px] px-2 py-0.5 shadow-sm bg-amber-100 text-amber-800 border-amber-300 shadow-amber-500/20 uppercase tracking-wider font-bold"
+                                >
+                                  <Star className="h-2.5 w-2.5 mr-1 fill-amber-600 text-amber-600" />
+                                  {honor}
+                                </Badge>
+                              ));
+                            })()}
                           </div>
                         </div>
                       </td>

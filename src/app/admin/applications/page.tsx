@@ -36,7 +36,8 @@ import {
   X,
   Send,
   Minimize2,
-  Maximize2
+  Maximize2,
+  Star
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -557,11 +558,29 @@ export default function AdminApps() {
                       </div>
                     </td>
                     <td className="px-5 py-4 max-w-[200px]">
-                      <div 
-                        className="truncate text-zinc-700 dark:text-zinc-300 font-medium"
-                        title={a.category}
-                      >
-                        {a.category}
+                      <div className="flex flex-col items-start gap-1">
+                        <div 
+                          className="truncate text-zinc-700 dark:text-zinc-300 font-medium w-full"
+                          title={a.category}
+                        >
+                          {a.category}
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {(() => {
+                            const honorsSet = new Set<string>(a.honors || []);
+                            
+                            return Array.from(honorsSet).map((honor: string) => (
+                              <Badge 
+                                key={honor} 
+                                variant="outline" 
+                                className="text-[10px] px-2 py-0.5 shadow-sm bg-amber-100 text-amber-800 border-amber-300 shadow-amber-500/20 uppercase tracking-wider font-bold"
+                              >
+                                <Star className="h-2.5 w-2.5 mr-1 fill-amber-600 text-amber-600" />
+                                {honor}
+                              </Badge>
+                            ));
+                          })()}
+                        </div>
                       </div>
                     </td>
                     <td className="px-5 py-4">

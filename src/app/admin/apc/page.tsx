@@ -16,6 +16,7 @@ import {
   Loader2,
   Check,
   ArrowRight,
+  Star,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -247,8 +248,28 @@ export default function ApcPage() {
                           );
                         })()}
                       </td>
-                      <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400 max-w-[180px] truncate">
-                        {apc.application?.category?.categoryName}
+                      <td className="px-5 py-4 max-w-[180px]">
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="truncate w-full text-xs text-zinc-600 dark:text-zinc-400 font-medium" title={apc.application?.category?.categoryName}>
+                            {apc.application?.category?.categoryName}
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {(() => {
+                              const honorsSet = new Set<string>(apc.honors || []);
+                              
+                              return Array.from(honorsSet).map((honor: string) => (
+                                <Badge 
+                                  key={honor} 
+                                  variant="outline" 
+                                  className="text-[10px] px-2 py-0.5 shadow-sm bg-amber-100 text-amber-800 border-amber-300 shadow-amber-500/20 uppercase tracking-wider font-bold"
+                                >
+                                  <Star className="h-2.5 w-2.5 mr-1 fill-amber-600 text-amber-600" />
+                                  {honor}
+                                </Badge>
+                              ));
+                            })()}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-5 py-4">
                         <StatusBadge status={apc.status} />

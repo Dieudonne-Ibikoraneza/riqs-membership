@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { awardFellowStatus, revokeFellowStatus, getMembersRegistry, sendAdminEmail, awardHonoraryStatus, revokeHonoraryStatus, type AdminMemberRegistryResponse } from "@/lib/api/admin";
+import { awardFellowStatus, revokeFellowStatus, getMembersRegistry, sendAdminEmail, awardHonoraryStatus, revokeHonoraryStatus, updateMemberHonors, type AdminMemberRegistryResponse } from "@/lib/api/admin";
 import { axiosClient } from "@/lib/axiosClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +50,9 @@ import {
   Send,
   Maximize2,
   MoreHorizontal,
-  Award
+  Award,
+  Medal,
+  Star,
 } from "lucide-react";
 import { MonthYearPicker } from "@/components/ui/month-picker";
 import { cn } from "@/lib/utils";
@@ -109,6 +111,11 @@ export default function AdminMembers() {
 
   // Honorable Mention State
   const [honoraryDialog, setHonoraryDialog] = useState<{ open: boolean, type: 'award' | 'revoke', member: any | null }>({ open: false, type: 'award', member: null });
+
+  // Assign Honor Badges dialog
+  const [honorsDialog, setHonorsDialog] = useState<{ open: boolean; member: any | null }>({ open: false, member: null });
+  const [selectedHonors, setSelectedHonors] = useState<string[]>([]);
+  const [isUpdatingHonors, setIsUpdatingHonors] = useState(false);
 
 
 
@@ -501,12 +508,26 @@ export default function AdminMembers() {
                     </td>
                     <td className="px-5 py-4 max-w-[200px]">
                       <div 
-                        className="truncate text-zinc-700 dark:text-zinc-300 font-medium"
+                        className="flex flex-col items-start gap-1.5 text-zinc-700 dark:text-zinc-300 font-medium"
                         title={formatLabel(m.category)}
                       >
-                        {formatLabel(m.category)}
-                        {m.isFellow && <span className="ml-2 text-[10px] bg-gold/20 text-gold px-1.5 py-0.5 rounded-full uppercase tracking-wider font-bold">Fellow</span>}
-                        {m.isHonorary && <span className="ml-2 text-[10px] bg-blue-500/20 text-blue-600 px-1.5 py-0.5 rounded-full uppercase tracking-wider font-bold">Honorary</span>}
+                        <span className="truncate w-full">{formatLabel(m.category)}</span>
+                        <div className="flex flex-wrap gap-1">
+                          {(() => {
+                            const honorsSet = new Set<string>(m.honors || []);
+                            
+                            return Array.from(honorsSet).map((honor: string) => (
+                              <Badge 
+                                key={honor} 
+                                variant="outline" 
+                                className="text-[10px] px-2 py-0.5 shadow-sm bg-amber-100 text-amber-800 border-amber-300 shadow-amber-500/20 uppercase tracking-wider font-bold"
+                              >
+                                <Star className="h-2.5 w-2.5 mr-1 fill-amber-600 text-amber-600" />
+                                {honor}
+                              </Badge>
+                            ));
+                          })()}
+                        </div>
                       </div>
                     </td>
                     <td className="px-5 py-4">
@@ -560,52 +581,17 @@ export default function AdminMembers() {
                             <Users className="mr-2 h-4 w-4" />
                             View Profile
                           </DropdownMenuItem>
-                          {(m.membershipClass === "Professional" && !m.isFellow) && (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setFellowDialog({ open: true, type: 'award', member: m });
-                              }}
-                              className="text-amber-600 dark:text-amber-500 font-medium cursor-pointer"
-                            >
-                              <Award className="mr-2 h-4 w-4" />
-                              Award Fellow Status
-                            </DropdownMenuItem>
-                          )}
-                          {m.isFellow && (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setFellowDialog({ open: true, type: 'revoke', member: m });
-                              }}
-                              className="text-rose-600 dark:text-rose-500 font-medium cursor-pointer"
-                            >
-                              <Minus className="mr-2 h-4 w-4" />
-                              Revoke Fellow Status
-                            </DropdownMenuItem>
-                          )}
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setHonorsDialog({ open: true, member: m });
+                              setSelectedHonors(Array.isArray(m.honors) ? m.honors : []);
+                            }}
+                            className="text-indigo-600 dark:text-indigo-400 font-medium cursor-pointer"
+                          >
+                            <Medal className="mr-2 h-4 w-4" />
+                            Assign Honor Badges
+                          </DropdownMenuItem>
                           
-                          {(m.membershipClass === "Professional" && !m.isHonorary) && (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setHonoraryDialog({ open: true, type: 'award', member: m });
-                              }}
-                              className="text-blue-600 dark:text-blue-500 font-medium cursor-pointer"
-                            >
-                              <Award className="mr-2 h-4 w-4" />
-                              Award Honorary Status
-                            </DropdownMenuItem>
-                          )}
-                          {m.isHonorary && (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setHonoraryDialog({ open: true, type: 'revoke', member: m });
-                              }}
-                              className="text-rose-600 dark:text-rose-500 font-medium cursor-pointer"
-                            >
-                              <Minus className="mr-2 h-4 w-4" />
-                              Revoke Honorary Status
-                            </DropdownMenuItem>
-                          )}
-
                           <DropdownMenuItem 
                             className="cursor-pointer"
                             onClick={() => {
@@ -837,6 +823,109 @@ export default function AdminMembers() {
               }}
             >
               {fellowDialog.type === 'award' ? 'Award Status' : 'Revoke Status'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Honor Badges Dialog */}
+      <Dialog open={honorsDialog.open} onOpenChange={(val) => { if (!val) setHonorsDialog({ open: false, member: null }); }}>
+        <DialogContent className="sm:max-w-[420px] bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-navy">
+              <Medal className="h-5 w-5 text-gold" />
+              Assign Honor Badges
+            </DialogTitle>
+          </DialogHeader>
+
+          {(() => {
+            const member = honorsDialog.member;
+            if (!member) return null;
+            // Find this member's category to get supported_honors
+            const catObj = categories.find(
+              (c: any) => c.id === member.categoryId || c.category_name === member.category
+            );
+            const supportedHonors: { name: string; description?: string }[] =
+              catObj?.supported_honors || [];
+
+            if (supportedHonors.length === 0) {
+              return (
+                <div className="py-6 text-center space-y-2">
+                  <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto" />
+                  <p className="text-sm font-semibold text-navy">No honors configured</p>
+                  <p className="text-xs text-muted-foreground">
+                    The category <span className="font-semibold">{member.category}</span> has no supported honorable mentions.
+                    You can add them in <span className="font-semibold">System Settings → Categories</span>.
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <>
+                <p className="text-sm text-muted-foreground -mt-1 mb-1">
+                  Select the honors to assign to <span className="font-semibold text-navy dark:text-white">{member.fullName}</span>.
+                  Unchecking an honor will remove it.
+                </p>
+                <div className="space-y-2 my-2">
+                  {supportedHonors.map((h) => (
+                    <label
+                      key={h.name}
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        selectedHonors.includes(h.name)
+                          ? 'border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-950/30'
+                          : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                      }`}
+                    >
+                      <Checkbox
+                        checked={selectedHonors.includes(h.name)}
+                        onCheckedChange={(checked) => {
+                          setSelectedHonors(prev =>
+                            checked
+                              ? [...prev, h.name]
+                              : prev.filter(x => x !== h.name)
+                          );
+                        }}
+                        className="mt-0.5 focus-visible:ring-gold"
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-navy dark:text-white">{h.name}</p>
+                        {h.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{h.description}</p>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
+
+          <DialogFooter className="mt-2">
+            <Button variant="outline" className="text-xs" onClick={() => setHonorsDialog({ open: false, member: null })}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-navy hover:bg-navy/90 text-white text-xs font-bold"
+              disabled={isUpdatingHonors}
+              onClick={async () => {
+                if (!honorsDialog.member) return;
+                setIsUpdatingHonors(true);
+                try {
+                  await updateMemberHonors(honorsDialog.member.id, selectedHonors);
+                  toast.success(`Honor badges updated for ${honorsDialog.member.fullName}.`);
+                  setHonorsDialog({ open: false, member: null });
+                  getMembersRegistry(page, pageSize, q, statusFilter, catFilter, locFilter, sortKey, sortDir)
+                    .then(setData);
+                } catch (err: any) {
+                  toast.error(err.response?.data?.message || 'Failed to update honors.');
+                } finally {
+                  setIsUpdatingHonors(false);
+                }
+              }}
+            >
+              {isUpdatingHonors ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Medal className="h-3.5 w-3.5 mr-1.5" />}
+              Save Honors
             </Button>
           </DialogFooter>
         </DialogContent>

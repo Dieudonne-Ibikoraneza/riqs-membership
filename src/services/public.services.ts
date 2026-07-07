@@ -23,6 +23,9 @@ export interface PublicMember {
   membership_class: string;
   phone_number: string;
   email: string;
+  isFellow?: boolean;
+  isHonorary?: boolean;
+  honors?: string[];
 }
 
 export interface PublicMembersResponse {
@@ -39,10 +42,25 @@ export const publicServices = {
   getCategories: async (params?: {
     location?: string;
     entityType?: string;
+    includeAdminOnly?: boolean;
   }): Promise<Category[]> => {
-    const response = await axiosClient.get('/categories', { params });
-    // Assuming backend returns { categories: Category[] }
-    return response.data.categories;
+    // We only pass location and entityType to the backend
+    const apiParams = {
+      location: params?.location,
+      entityType: params?.entityType
+    };
+    const response = await axiosClient.get('/categories', { params: apiParams });
+    const allCategories = response.data.categories;
+    
+    // By default, filter out Admin-only special categories from public-facing forms
+    if (params?.includeAdminOnly) {
+      return allCategories;
+    }
+    
+    const adminOnlyCategories = ["Visiting Member"];
+    return allCategories.filter(
+      (cat: Category) => !adminOnlyCategories.includes(cat.category_name)
+    );
   },
 
   getPublicMembers: async (params?: {

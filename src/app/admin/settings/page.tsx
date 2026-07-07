@@ -42,6 +42,7 @@ import {
   Loader2,
   BadgeDollarSign,
   X,
+  ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -70,6 +71,7 @@ export default function SettingsPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<Category> | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [honorToDelete, setHonorToDelete] = useState<{name: string, isDraft: boolean} | null>(null);
   const [newHonorDraft, setNewHonorDraft] = useState("");
   const [newHonorDraftDesc, setNewHonorDraftDesc] = useState("");
   const [newHonorCreate, setNewHonorCreate] = useState("");
@@ -188,6 +190,26 @@ export default function SettingsPage() {
     if (activeId) {
       deleteMutation.mutate(activeId);
     }
+  };
+
+  const handleConfirmDeleteHonor = () => {
+    if (!honorToDelete) return;
+    if (honorToDelete.isDraft) {
+      // Removing from the existing category draft
+      const updated = (draft?.supported_honors || []).filter(
+        (h: any) => h.name !== honorToDelete.name
+      );
+      updateDraftField("supported_honors", updated);
+    } else {
+      // Removing from the new-category creation form
+      setNewCategory(prev => ({
+        ...prev,
+        supported_honors: (prev.supported_honors || []).filter(
+          (h: any) => h.name !== honorToDelete.name
+        ),
+      }));
+    }
+    setHonorToDelete(null);
   };
 
   const updateDraftField = (field: keyof Category, value: any) => {
@@ -653,10 +675,7 @@ export default function SettingsPage() {
                             <div className="flex justify-between items-start">
                               <span className="text-xs text-navy font-bold">{honor.name}</span>
                               <button 
-                                onClick={() => {
-                                  const current = draft.supported_honors || [];
-                                  updateDraftField("supported_honors", current.filter((h: any) => h.name !== honor.name));
-                                }}
+                                onClick={() => setHonorToDelete({ name: honor.name, isDraft: true })}
                                 className="text-zinc-400 hover:text-red-500 rounded-full p-0.5 ml-1 transition-colors"
                               >
                                 <X className="w-3.5 h-3.5" />
@@ -921,10 +940,7 @@ export default function SettingsPage() {
                       <div className="flex justify-between items-start">
                         <span className="text-[10px] text-navy font-bold">{honor.name}</span>
                         <button 
-                          onClick={() => {
-                            const current = newCategory.supported_honors || [];
-                            setNewCategory({...newCategory, supported_honors: current.filter((h: any) => h.name !== honor.name)});
-                          }}
+                          onClick={() => setHonorToDelete({ name: honor.name, isDraft: false })}
                           className="text-zinc-400 hover:text-red-500 rounded-full p-0.5 ml-0.5 transition-colors"
                         >
                           <X className="w-2.5 h-2.5" />
@@ -951,6 +967,46 @@ export default function SettingsPage() {
               className="bg-navy text-white hover:bg-navy/90 text-xs font-bold"
             >
               {createMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Plus className="h-3.5 w-3.5 mr-1" />} Create Category
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* HONOR DELETE CONFIRMATION DIALOG */}
+      <Dialog open={!!honorToDelete} onOpenChange={(open) => { if (!open) setHonorToDelete(null); }}>
+        <DialogContent className="max-w-md bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 shadow-xl rounded-lg">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-navy flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-destructive" />
+              Remove Honorable Mention
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              You are about to remove <span className="font-semibold text-navy dark:text-white">&quot;{honorToDelete?.name}&quot;</span> from the supported honorable mentions for this category.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Important info callout */}
+          <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4 flex gap-3 items-start">
+            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-xs font-bold text-red-800 dark:text-red-300">Important — Member Impact</p>
+              <p className="text-xs text-red-700 dark:text-red-400 leading-relaxed">
+                Any members currently assigned the <span className="font-semibold">&quot;{honorToDelete?.name}&quot;</span> honorable mention under this category will have it <span className="font-semibold">automatically removed</span> from their profile once you save. This action affects existing member records and cannot be undone after saving.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button variant="outline" className="text-xs font-semibold" onClick={() => setHonorToDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="text-xs font-bold"
+              onClick={handleConfirmDeleteHonor}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+              Yes, Remove It
             </Button>
           </DialogFooter>
         </DialogContent>

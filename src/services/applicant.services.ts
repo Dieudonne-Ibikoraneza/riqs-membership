@@ -13,6 +13,7 @@ export interface ApplicantProfileResponse {
     workAddress: string | null;
     membershipClass: string | null;
     membershipId?: string | null;
+    profilePhotoUrl?: string | null;
   };
   application: {
     id: string;
@@ -74,6 +75,17 @@ export const applicantServices = {
 
   updateProfile: async (data: Partial<ApplicantProfileResponse['profile']>): Promise<any> => {
     const response = await axiosClient.put('/members/profile', data);
+    return response.data;
+  },
+
+  uploadProfilePhoto: async (file: File): Promise<{ message: string; profilePhotoUrl: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await axiosClient.post('/members/profile/photo', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   },
 

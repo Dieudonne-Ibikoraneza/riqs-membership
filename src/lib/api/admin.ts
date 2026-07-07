@@ -380,3 +380,8 @@ export async function changeMembershipCategory(id: string, newCategoryId: string
   return data;
 }
 
+
+export async function updateMemberHonors(id: string, honors: string[]): Promise<{ message: string; member: any }> {
+  const { data } = await axiosClient.post(`/admin/members/${id}/honors`, { honors });
+  return data;
+}

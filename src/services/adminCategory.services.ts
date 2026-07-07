@@ -20,6 +20,7 @@ export interface Category {
   first_year_fee: number;
   annual_renewal_fee: number;
   stamp_fee: number;
+  supported_honors: { name: string, description?: string }[];
   required_documents: CategoryDocument[];
   optional_documents: CategoryDocument[];
 }

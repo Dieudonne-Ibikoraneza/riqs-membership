@@ -33,6 +33,7 @@ import {
   AlertTriangle,
   Clock,
   MessageSquare,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -139,7 +140,8 @@ export function AppShell({
           { href: "/admin/templates", label: "Email Templates", icon: FileCode },
         ]
       : []),
-    { href: "/admin/export", label: "Export Tool", icon: Folder },
+    { href: "/admin/reports", label: "Reports", icon: BarChart3 },
+    ...(role === "Admin" ? [{ href: "/admin/export", label: "Export Tool", icon: Folder }] : []),
     ...(role === "Admin" ? [{ href: "/admin/audit", label: "Audit Log", icon: ClipboardList }] : []),
     { href: "/admin/support", label: "Support & Inquiries", icon: MessageSquare },
   ];

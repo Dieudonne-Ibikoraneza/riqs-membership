@@ -52,7 +52,7 @@ function getScallopedPath(points: number, innerR: number, outerR: number, cx = 1
   return pathData;
 }
 
-function Seal({ year }: { year: number }) {
+function Seal({ year, isLifetime, isVisiting }: { year: number, isLifetime?: boolean, isVisiting?: boolean }) {
   const points = 28;
   const innerR = 80;
   const outerR = 88;
@@ -99,9 +99,25 @@ function Seal({ year }: { year: number }) {
       {/* Ribbon Seal Text Elements matching official layout */}
       <text x="100" y="58" textAnchor="middle" fill="#ffffff" fontSize="16" fontWeight="800" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" letterSpacing="0.5">RIQS&apos;</text>
       <text x="100" y="75" textAnchor="middle" fill={GOLD} fontSize="9.5" fontWeight="700" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">Certified</text>
-      <text x="100" y="90" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">registered Professional</text>
-      <text x="100" y="104" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">QS for the year</text>
-      <text x="100" y="142" textAnchor="middle" fill={GOLD} fontSize="28" fontWeight="800" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" letterSpacing="0.5">{year}</text>
+      {isLifetime ? (
+        <>
+          <text x="100" y="94" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">registered Lifetime</text>
+          <text x="100" y="108" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">Member</text>
+          <text x="100" y="142" textAnchor="middle" fill={GOLD} fontSize="28" fontWeight="800" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" letterSpacing="0.5">∞</text>
+        </>
+      ) : isVisiting ? (
+        <>
+          <text x="100" y="94" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">registered Visiting</text>
+          <text x="100" y="108" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">Member</text>
+          <text x="100" y="142" textAnchor="middle" fill={GOLD} fontSize="28" fontWeight="800" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" letterSpacing="0.5">✓</text>
+        </>
+      ) : (
+        <>
+          <text x="100" y="90" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">registered Professional</text>
+          <text x="100" y="104" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">QS for the year</text>
+          <text x="100" y="142" textAnchor="middle" fill={GOLD} fontSize="28" fontWeight="800" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" letterSpacing="0.5">{year}</text>
+        </>
+      )}
     </svg>
   );
 }
@@ -149,7 +165,10 @@ function CertificateContent() {
     queryFn: applicantServices.getProfile,
   });
 
-  const appStatus = profileData?.application?.status || "None";
+  const membershipClass = (profileData?.profile as any)?.membershipClass || "";
+  const isAdminCreatedMember = membershipClass.includes("Visiting") || membershipClass.includes("Honorary") || membershipClass.includes("Life");
+
+  const appStatus = profileData?.application?.status || (isAdminCreatedMember ? "Approved" : "None");
   const isApproved = appStatus === "Approved";
 
   // Check if Processing_Fee (application fee) is cleared
@@ -158,7 +177,7 @@ function CertificateContent() {
   );
   
   // Default to true for backward compatibility if no tx is found
-  const isProcessingFeeCleared = processingFeeTx ? processingFeeTx.status === "Cleared" : true;
+  const isProcessingFeeCleared = isAdminCreatedMember ? true : (processingFeeTx ? processingFeeTx.status === "Cleared" : true);
 
   const isFullyActive = isApproved && isProcessingFeeCleared;
 
@@ -375,7 +394,7 @@ function CertificateContent() {
   // 3. LICENSED CERTIFICATE VIEW (AppStatus === Approved)
   const fullName = profileData?.profile?.fullName || "Member Name";
   const regNo = profileData?.profile?.membershipId || `RIQS/2026/PrQs/${profileData?.profile?.id?.slice(0, 4).toUpperCase() || "0001"}`;
-  const categoryName = profileData?.application?.category_name || "Professional Quantity Surveyor";
+  const categoryName = profileData?.application?.category_name || (profileData?.profile?.membershipClass || "Professional Quantity Surveyor").replace(/_/g, " ");
 
   // Use actual expiration date from the backend profile
   let validUntilDate: Date;
@@ -398,6 +417,26 @@ function CertificateContent() {
     month: "long",
     year: "numeric",
     timeZone: "UTC"
+  });
+
+  let certTitle = "Annual Practicing License";
+  if (membershipClass.includes("Visiting")) certTitle = "Temporary Practicing License";
+  else if (membershipClass.includes("Honorary")) certTitle = "Honorary Membership Certificate";
+  else if (membershipClass.includes("Life")) certTitle = "Life Membership Certificate";
+  
+  const isLifetime = membershipClass.includes("Life") || membershipClass.includes("Honorary");
+  const isVisiting = membershipClass.includes("Visiting");
+
+  const honorsList: string[] = [];
+  if ((profileData?.profile as any)?.isFellow || membershipClass === "Fellow") {
+    honorsList.push("Fellow");
+  }
+  if ((profileData?.profile as any)?.isHonorary) {
+    if (!honorsList.includes("Honorary Member")) honorsList.push("Honorary Member");
+  }
+  const extraHonors = (profileData?.profile as any)?.honors || [];
+  extraHonors.forEach((h: string) => {
+    if (!honorsList.includes(h)) honorsList.push(h);
   });
 
   return (
@@ -448,7 +487,7 @@ function CertificateContent() {
 
       <div className="flex flex-wrap items-end justify-between gap-3 no-print">
         <div>
-          <h1 className="text-2xl font-bold text-navy dark:text-zinc-150">Annual Practicing License</h1>
+          <h1 className="text-2xl font-bold text-navy dark:text-zinc-150">{certTitle}</h1>
           <p className="text-sm text-muted-foreground font-sans">Your official, digitally signed RIQS practicing license certificate.</p>
         </div>
         <div className="flex gap-2">
@@ -514,7 +553,7 @@ function CertificateContent() {
 
               {/* Seal top-right (inside frame, away from ribbon decoration) */}
               <div className="absolute right-[5.5%] top-[12%] h-[21%] w-[12.5%] z-10">
-                <Seal year={paymentYear} />
+                <Seal year={paymentYear} isLifetime={isLifetime} isVisiting={isVisiting} />
               </div>
 
               {/* Main content - perfectly static container coordinates with pb-[7%] to avoid bottom border overlap */}
@@ -525,7 +564,7 @@ function CertificateContent() {
                   className="mt-[0.5%] text-[54px] leading-none font-normal"
                   style={{ fontFamily: "var(--font-great-vibes), 'Great Vibes', cursive", color: NAVY }}
                 >
-                  Annual Practicing License
+                  {certTitle}
                 </div>
 
                 <div 
@@ -542,18 +581,32 @@ function CertificateContent() {
                   {fullName}
                 </div>
 
-                <p className="mt-[0.8%] max-w-[96%] text-[17px] italic leading-[1.45]">
-                  Is a registered and licensed <strong className="not-italic font-bold">{categoryName}</strong> in the year {paymentYear} with practicing License
-                  No: <strong className="not-italic font-bold">{regNo}</strong> pursuant to the Law No: <strong className="not-italic font-bold">023/2025 of 01/09/2025</strong> Governing the profession of Quantity Surveying in Rwanda.
-                </p>
+                {isAdminCreatedMember ? (
+                  <p className="mt-[0.8%] max-w-[96%] text-[17px] italic leading-[1.45]">
+                    Has been duly admitted as a <strong className="not-italic font-bold">{categoryName}</strong> of the Rwanda Institute of Quantity Surveyors with Registration
+                    No: <strong className="not-italic font-bold">{regNo}</strong> pursuant to the Law No: <strong className="not-italic font-bold">023/2025 of 01/09/2025</strong> Governing the profession of Quantity Surveying in Rwanda.
+                  </p>
+                ) : (
+                  <p className="mt-[0.8%] max-w-[96%] text-[17px] italic leading-[1.45]">
+                    Is a registered and licensed <strong className="not-italic font-bold">{categoryName}</strong> in the year {paymentYear} with practicing License
+                    No: <strong className="not-italic font-bold">{regNo}</strong> pursuant to the Law No: <strong className="not-italic font-bold">023/2025 of 01/09/2025</strong> Governing the profession of Quantity Surveying in Rwanda.
+                  </p>
+                )}
 
                 <p className="mt-[0.3%] max-w-[90%] text-[17px] italic leading-[1.45]">
                   In witness where of the common seal has been here to affixed at a meeting of the Governing Council held to admit this member.
                 </p>
 
-                <p className="mt-[0.3%] text-[19px] font-bold italic">
-                  This certificate is valid until {formattedValidUntil}.
-                </p>
+                {isLifetime ? (
+                  <p className="mt-[0.3%] text-[19px] font-bold italic">
+                    This certificate is valid for Life.
+                  </p>
+                ) : isVisiting ? null : (
+                  <p className="mt-[0.3%] text-[19px] font-bold italic">
+                    This certificate is valid until {formattedValidUntil}.
+                  </p>
+                )}
+
 
                 <div className="mt-auto h-[12.5%] w-[18%]">
                   <RegSeal regNo={regNo} />
@@ -589,6 +642,33 @@ function CertificateContent() {
                     </div>
                   </div>
                 </div>
+
+                {/* Honorable Mentions - perfectly spaced below signatures */}
+                {honorsList.length > 0 && (
+                  <div className="mt-[2.5%] flex flex-col items-center gap-1.5 w-full border-t border-[#0b3363]/20 pt-[1.5%] pb-[1%]">
+                    <p
+                      className="text-[11px] italic text-navy/60"
+                      style={{ fontFamily: "var(--font-cormorant-garamond), 'Cormorant Garamond', serif" }}
+                    >
+                      In recognition of distinguished service, this member has been awarded:
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {honorsList.map((honor, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-0.5 border border-gold/70 text-gold/90 rounded-full text-[10px] font-semibold"
+                          style={{
+                            fontFamily: "var(--font-plus-jakarta-sans), sans-serif",
+                            backgroundColor: "rgba(241, 165, 0, 0.06)",
+                            letterSpacing: "0.4px"
+                          }}
+                        >
+                          {honor.toUpperCase()}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

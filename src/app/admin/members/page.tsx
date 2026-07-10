@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { awardFellowStatus, revokeFellowStatus, getMembersRegistry, sendAdminEmail, awardHonoraryStatus, revokeHonoraryStatus, updateMemberHonors, type AdminMemberRegistryResponse } from "@/lib/api/admin";
+import { awardFellowStatus, revokeFellowStatus, getMembersRegistry, sendAdminEmail, awardHonoraryStatus, revokeHonoraryStatus, updateMemberHonors, createHonorableMentionMember, type AdminMemberRegistryResponse } from "@/lib/api/admin";
 import { axiosClient } from "@/lib/axiosClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -117,6 +117,55 @@ export default function AdminMembers() {
   const [selectedHonors, setSelectedHonors] = useState<string[]>([]);
   const [isUpdatingHonors, setIsUpdatingHonors] = useState(false);
 
+  // Add Member State
+  const [addMemberDialogOpen, setAddMemberDialogOpen] = useState(false);
+  const [isAddingMember, setIsAddingMember] = useState(false);
+  const [newMemberPassword, setNewMemberPassword] = useState<{ open: boolean; password: string; email: string }>({ open: false, password: "", email: "" });
+  const [addMemberForm, setAddMemberForm] = useState({
+    fullName: "",
+    email: "",
+    phoneNumber: "",
+    categoryCode: "VQS" as "LQS" | "HQS" | "VQS",
+    nationalIdOrPassport: "",
+    dateOfBirth: "",
+    gender: "",
+    countryOfOrigin: ""
+  });
+
+  const handleCreateMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addMemberForm.fullName || !addMemberForm.email || !addMemberForm.phoneNumber) {
+      toast.error("Please fill in all required fields (Name, Email, Phone)");
+      return;
+    }
+    
+    setIsAddingMember(true);
+    try {
+      const res = await createHonorableMentionMember(addMemberForm);
+      toast.success(res.message || "Member created successfully");
+      if (res.temporaryPassword) {
+        setNewMemberPassword({ open: true, password: res.temporaryPassword, email: addMemberForm.email });
+      }
+      setAddMemberDialogOpen(false);
+      setAddMemberForm({
+        fullName: "",
+        email: "",
+        phoneNumber: "",
+        categoryCode: "VQS",
+        nationalIdOrPassport: "",
+        dateOfBirth: "",
+        gender: "",
+        countryOfOrigin: ""
+      });
+      setPage(1); 
+      const response = await getMembersRegistry(1, pageSize, q, statusFilter, catFilter, locFilter, sortKey, sortDir);
+      setData(response);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to create member");
+    } finally {
+      setIsAddingMember(false);
+    }
+  };
 
 
   const toggleSelection = (id: string) => {
@@ -229,7 +278,13 @@ export default function AdminMembers() {
           </p>
         </div>
         <div className="flex gap-2">
-          
+          <Button
+            onClick={() => setAddMemberDialogOpen(true)}
+            className="bg-gold text-[#1a1a1a] hover:bg-gold/90 transition-all font-semibold"
+          >
+            <Users className="mr-2 h-4 w-4" />
+            Add Member
+          </Button>
           <Link href="/members">
             <Button
               variant="outline"
@@ -926,6 +981,167 @@ export default function AdminMembers() {
             >
               {isUpdatingHonors ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Medal className="h-3.5 w-3.5 mr-1.5" />}
               Save Honors
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Member Dialog */}
+      <Dialog open={addMemberDialogOpen} onOpenChange={setAddMemberDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
+          <form onSubmit={handleCreateMember}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-navy">
+                <Users className="h-5 w-5 text-gold" />
+                Add Honorable Mention Member
+              </DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="fullName">Full Name <span className="text-red-500">*</span></Label>
+                <Input
+                  id="fullName"
+                  value={addMemberForm.fullName}
+                  onChange={(e) => setAddMemberForm({ ...addMemberForm, fullName: e.target.value })}
+                  placeholder="e.g. John Doe"
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={addMemberForm.email}
+                  onChange={(e) => setAddMemberForm({ ...addMemberForm, email: e.target.value })}
+                  placeholder="john.doe@example.com"
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="phoneNumber">Phone Number <span className="text-red-500">*</span></Label>
+                <Input
+                  id="phoneNumber"
+                  value={addMemberForm.phoneNumber}
+                  onChange={(e) => setAddMemberForm({ ...addMemberForm, phoneNumber: e.target.value })}
+                  placeholder="+250 788 123 456"
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="categoryCode">Member Category <span className="text-red-500">*</span></Label>
+                <Select
+                  value={addMemberForm.categoryCode}
+                  onValueChange={(val) => setAddMemberForm({ ...addMemberForm, categoryCode: val as any })}
+                >
+                  <SelectTrigger id="categoryCode">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="VQS">Visiting Quantity Surveyor</SelectItem>
+                    <SelectItem value="LQS">Life Quantity Surveyor</SelectItem>
+                    <SelectItem value="HQS">Honorary Quantity Surveyor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="nationalIdOrPassport">National ID / Passport</Label>
+                  <Input
+                    id="nationalIdOrPassport"
+                    value={addMemberForm.nationalIdOrPassport}
+                    onChange={(e) => setAddMemberForm({ ...addMemberForm, nationalIdOrPassport: e.target.value })}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                  <Input
+                    id="dateOfBirth"
+                    type="date"
+                    value={addMemberForm.dateOfBirth}
+                    onChange={(e) => setAddMemberForm({ ...addMemberForm, dateOfBirth: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="gender">Gender</Label>
+                  <Select
+                    value={addMemberForm.gender}
+                    onValueChange={(val) => setAddMemberForm({ ...addMemberForm, gender: val })}
+                  >
+                    <SelectTrigger id="gender">
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="countryOfOrigin">Country of Origin</Label>
+                  <Input
+                    id="countryOfOrigin"
+                    value={addMemberForm.countryOfOrigin}
+                    onChange={(e) => setAddMemberForm({ ...addMemberForm, countryOfOrigin: e.target.value })}
+                    placeholder="e.g. Rwanda"
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAddMemberDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isAddingMember} className="bg-navy hover:bg-navy/90 text-white">
+                {isAddingMember ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Create Member
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Member Password Dialog */}
+      <Dialog open={newMemberPassword.open} onOpenChange={(open) => { if (!open) setNewMemberPassword({ open: false, password: "", email: "" }); }}>
+        <DialogContent className="sm:max-w-[450px] bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-navy">
+              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              Member Created Successfully!
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-400 p-3 rounded-md text-sm border border-emerald-200 dark:border-emerald-800/50">
+              <p>The member has been created. An email with their temporary password is being sent to <strong>{newMemberPassword.email}</strong>.</p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-navy font-semibold">Temporary Password</Label>
+              <div className="flex items-center gap-2">
+                <Input readOnly value={newMemberPassword.password} className="font-mono text-lg font-bold tracking-wider text-center" />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="shrink-0 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  onClick={() => {
+                    navigator.clipboard.writeText(newMemberPassword.password);
+                    toast.success("Password copied to clipboard!");
+                  }}
+                >
+                  Copy
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Please copy this password and share it with the user securely in case the email is delayed or goes to spam.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setNewMemberPassword({ open: false, password: "", email: "" })} className="bg-navy text-white hover:bg-navy/90">
+              Done
             </Button>
           </DialogFooter>
         </DialogContent>

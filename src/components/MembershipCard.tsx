@@ -58,7 +58,8 @@ export function MembershipCard({ profileData }: { profileData?: any }) {
 
     m.designations = formattedClass || defaults.designations;
     
-    m.membershipGrade = profileData?.application?.category_name || profileData?.profile?.membershipClass || defaults.membershipGrade;
+    const rawGrade = profileData?.application?.category_name || profileData?.profile?.membershipClass || defaults.membershipGrade;
+    m.membershipGrade = rawGrade.replace(/_/g, " ");
     m.practiceGrade = m.membershipGrade;
     m.practiceLicenceNo = `LPQS/${new Date().getFullYear()}/${profileData?.profile?.id?.slice(0, 4).toUpperCase() || "0001"}`;
     m.status = profileData?.application?.status === "Approved" ? "ACTIVE" : "PENDING";

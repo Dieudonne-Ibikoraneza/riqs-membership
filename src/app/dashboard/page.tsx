@@ -32,6 +32,7 @@ export default function Overview() {
 
   const isFirm = profileData?.application?.entityType === "Firm" || profileData?.profile?.membershipClass?.includes("Firm");
   const membershipCategory = profileData?.application?.category_name || profileData?.profile?.membershipClass || "None";
+  const displayCategory = membershipCategory.replace(/_/g, " ");
   const name = profileData?.profile?.fullName || "Member";
   const memberId = profileData?.profile?.membershipId || null;
   const rawStatus = profileData?.application?.status || "Pending";
@@ -39,6 +40,9 @@ export default function Overview() {
   const isGraduate = membershipCategory.includes("Graduate");
   const isAssociate = membershipCategory.includes("Associate");
   const isMentor = (profileData?.profile as any)?.systemRole === "Mentor" || membershipCategory.includes("Professional") || membershipCategory.includes("Fellow");
+  
+  const isRestrictedMember = (profileData?.profile as any)?.systemRole === "Student" || membershipCategory.includes("Student") || membershipCategory.includes("Visiting") || membershipCategory.includes("Honorary") || membershipCategory.includes("Life");
+  const doesNotPay = membershipCategory.includes("Visiting") || membershipCategory.includes("Honorary") || membershipCategory.includes("Life");
 
   const { data: logbookProgress } = useQuery({
     queryKey: ["logbook-progress", profileData?.application?.id],
@@ -85,7 +89,7 @@ export default function Overview() {
               </Badge>
             </div>
           </div>
-          {!["Admin", "Reviewer", "Approver"].includes((profileData?.profile as any)?.systemRole) && (
+          {!["Admin", "Reviewer", "Approver"].includes((profileData?.profile as any)?.systemRole) && !doesNotPay && (
             <div className="rounded-lg bg-white/10 px-4 py-3 backdrop-blur border border-white/10">
               <div className="text-xs text-white/70">Membership expires</div>
               <div className="flex items-center gap-2 text-lg font-semibold mt-0.5">
@@ -102,13 +106,15 @@ export default function Overview() {
       </motion.div>
 
       {/* Membership Card */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.1 }}
-      >
-        <MembershipCard profileData={profileData} />
-      </motion.div>
+      {!(isRestrictedMember || isGraduate) && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1 }}
+        >
+          <MembershipCard profileData={profileData} />
+        </motion.div>
+      )}
 
       {/* Quick Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger">
@@ -116,7 +122,7 @@ export default function Overview() {
           {
             i: Award,
             label: "Membership Category",
-            v: membershipCategory,
+            v: displayCategory,
             c: "text-navy",
           },
           {
@@ -125,7 +131,7 @@ export default function Overview() {
             v: appStatus,
             c: "text-emerald-600",
           },
-          ...(isFirm ? [] : [{
+          ...(isFirm || (isRestrictedMember && !isGraduate) ? [] : [{
             i: isGraduate ? GraduationCap : Users,
             label: isGraduate ? "Logbook Progress" : "Active Mentees",
             v: isGraduate ? `${((logbookProgress?.entriesCount || 0) / 2) * 100}%` : activeMenteesCount.toString(),
@@ -256,7 +262,7 @@ export default function Overview() {
           <CardContent className="space-y-3 flex-1 flex flex-col">
             {[
               { to: "/dashboard/certificate", l: "Download Certificate", d: "Get your official cert", i: BadgeCheck, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-950/30" },
-              { to: "/dashboard/payments", l: "Pay Annual Renewal", d: "Clear your 2025 dues", i: Wallet, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950/30" },
+              ...(!doesNotPay ? [{ to: "/dashboard/payments", l: "Pay Annual Renewal", d: "Clear your 2025 dues", i: Wallet, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950/30" }] : []),
               { to: "/dashboard/profile", l: "Update Profile", d: "Edit personal details", i: FileText, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950/30" },
               { to: "/dashboard/documents", l: "Manage Documents", d: "Upload files & IDs", i: FileText, color: "text-purple-500", bg: "bg-purple-50 dark:bg-purple-950/30" },
             ].map((a) => (

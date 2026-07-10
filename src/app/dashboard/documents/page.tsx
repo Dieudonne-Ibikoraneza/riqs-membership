@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
 import { publicServices } from "@/services/public.services";
+import { useAuth } from "@/lib/auth";
 import PDFViewer from "@/components/ui/pdf-viewer";
 import ImageViewer from "@/components/ui/image-viewer";
 
@@ -181,6 +182,7 @@ function DocumentCard({ doc, docTypeMap }: { doc: any; docTypeMap: Record<string
 }
 
 export default function Documents() {
+  const { isStudent } = useAuth();
   const { data: profileData, isLoading } = useQuery({
     queryKey: queryKeys.applicant.profile(),
     queryFn: applicantServices.getProfile,
@@ -226,6 +228,9 @@ export default function Documents() {
 
   const documents = profileData?.documents || [];
 
+  const membershipClass = (profileData?.profile as any)?.membershipClass || "";
+  const isRestrictedMember = isStudent || membershipClass.includes("Student") || membershipClass.includes("Visiting");
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div>
@@ -241,8 +246,16 @@ export default function Documents() {
         </div>
       ) : documents.length === 0 ? (
         <Card className="border-dashed border-2 bg-transparent">
-          <CardContent className="flex flex-col items-center justify-center h-40 text-muted-foreground">
-            <p>No documents found.</p>
+          <CardContent className="flex flex-col items-center justify-center h-40 text-muted-foreground text-center px-4">
+            {isRestrictedMember ? (
+              <div className="flex flex-col items-center gap-2 max-w-md">
+                <AlertCircle className="h-6 w-6 text-muted-foreground/60 mb-2" />
+                <p>No documents are attached to your profile.</p>
+                <p className="text-sm">If you require specific documents or believe this is an error, please contact the administrator for assistance.</p>
+              </div>
+            ) : (
+              <p>No documents found.</p>
+            )}
           </CardContent>
         </Card>
       ) : (

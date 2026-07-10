@@ -105,21 +105,37 @@ export function AppShell({
         router.replace("/admin");
       }
     }
-  }, [role, kind, isTeacher, isStudent, isMentor, router]);
+
+    if (kind === "member") {
+      const memClass = (profileData?.profile as any)?.membershipClass || "";
+      const restricted = isStudent || memClass.includes("Student") || memClass.includes("Visiting") || memClass.includes("Honorary") || memClass.includes("Life");
+      const noPay = memClass.includes("Visiting") || memClass.includes("Honorary") || memClass.includes("Life");
+      if (restricted && (pathname.startsWith("/dashboard/application") || pathname.startsWith("/dashboard/mentorship") || pathname.startsWith("/dashboard/mentees"))) {
+        router.replace("/dashboard");
+      }
+      if (noPay && pathname.startsWith("/dashboard/payments")) {
+        router.replace("/dashboard");
+      }
+    }
+  }, [role, kind, isTeacher, isStudent, isMentor, router, pathname, profileData]);
 
   const actualIsMentor = isMentor || (profileData?.profile as any)?.systemRole === "Mentor";
   const isProfessional = profileData?.profile?.membershipClass?.includes("Professional");
   const needsMentorship = !isFirm && !isProfessional;
   const canBeMentor = actualIsMentor;
 
+  const membershipClass = (profileData?.profile as any)?.membershipClass || "";
+  const isRestrictedMember = isStudent || membershipClass.includes("Student") || membershipClass.includes("Visiting") || membershipClass.includes("Honorary") || membershipClass.includes("Life");
+  const doesNotPay = membershipClass.includes("Visiting") || membershipClass.includes("Honorary") || membershipClass.includes("Life");
+
   const memberLinks = [
     { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
     { href: "/dashboard/profile", label: "My Profile", icon: User2 },
-    { href: "/dashboard/application", label: "Application", icon: FileText },
+    ...(!isRestrictedMember ? [{ href: "/dashboard/application", label: "Application", icon: FileText }] : []),
     { href: "/dashboard/certificate", label: "Certificate", icon: Award },
-    { href: "/dashboard/payments", label: "Payments", icon: Wallet },
-    ...(needsMentorship ? [{ href: "/dashboard/mentorship", label: "Mentorship", icon: FileText }] : []),
-    ...(canBeMentor ? [{ href: "/dashboard/mentees", label: "My Mentees", icon: GraduationCap }] : []),
+    ...(!doesNotPay ? [{ href: "/dashboard/payments", label: "Payments", icon: Wallet }] : []),
+    ...(needsMentorship && !isRestrictedMember ? [{ href: "/dashboard/mentorship", label: "Mentorship", icon: FileText }] : []),
+    ...(canBeMentor && !isRestrictedMember ? [{ href: "/dashboard/mentees", label: "My Mentees", icon: GraduationCap }] : []),
     ...(isTeacher ? [{ href: "/teacher", label: "Teacher Workspace", icon: Users }] : []),
     { href: "/dashboard/documents", label: "Documents", icon: Folder },
     { href: "/dashboard/support", label: "Support & Inquiries", icon: MessageSquare },

@@ -905,14 +905,23 @@ export default function AdminMembers() {
 
             if (supportedHonors.length === 0) {
               return (
-                <div className="py-6 text-center space-y-2">
-                  <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto" />
-                  <p className="text-sm font-semibold text-navy">No honors configured</p>
-                  <p className="text-xs text-muted-foreground">
-                    The category <span className="font-semibold">{member.category}</span> has no supported honorable mentions.
-                    You can add them in <span className="font-semibold">System Settings → Categories</span>.
-                  </p>
-                </div>
+                <>
+                  <div className="py-6 text-center space-y-3">
+                    <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto" />
+                    <p className="text-sm font-semibold text-navy">No honors configured</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed px-4">
+                      The category <span className="font-bold text-navy">{member.category?.replace(/_/g, " ")}</span> has no supported honorable mentions.
+                    </p>
+                  </div>
+                  <DialogFooter className="mt-2 border-t pt-4">
+                    <Button variant="outline" className="text-xs w-full sm:w-auto" onClick={() => setHonorsDialog({ open: false, member: null })}>
+                      Cancel
+                    </Button>
+                    <Button asChild className="bg-navy hover:bg-navy/90 text-white text-xs font-bold w-full sm:w-auto">
+                      <Link href={`/admin/settings?category_id=${catObj?.id || member.categoryId}`}>Manage Honors in Settings</Link>
+                    </Button>
+                  </DialogFooter>
+                </>
               );
             }
 
@@ -952,37 +961,36 @@ export default function AdminMembers() {
                     </label>
                   ))}
                 </div>
+                <DialogFooter className="mt-4 border-t pt-4">
+                  <Button variant="outline" className="text-xs" onClick={() => setHonorsDialog({ open: false, member: null })}>
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-navy hover:bg-navy/90 text-white text-xs font-bold"
+                    disabled={isUpdatingHonors}
+                    onClick={async () => {
+                      if (!honorsDialog.member) return;
+                      setIsUpdatingHonors(true);
+                      try {
+                        await updateMemberHonors(honorsDialog.member.id, selectedHonors);
+                        toast.success(`Honor badges updated for ${honorsDialog.member.fullName}.`);
+                        setHonorsDialog({ open: false, member: null });
+                        getMembersRegistry(page, pageSize, q, statusFilter, catFilter, locFilter, sortKey, sortDir)
+                          .then(setData);
+                      } catch (err: any) {
+                        toast.error(err.response?.data?.message || 'Failed to update honors.');
+                      } finally {
+                        setIsUpdatingHonors(false);
+                      }
+                    }}
+                  >
+                    {isUpdatingHonors ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Medal className="h-3.5 w-3.5 mr-1.5" />}
+                    Save Honors
+                  </Button>
+                </DialogFooter>
               </>
             );
           })()}
-
-          <DialogFooter className="mt-2">
-            <Button variant="outline" className="text-xs" onClick={() => setHonorsDialog({ open: false, member: null })}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-navy hover:bg-navy/90 text-white text-xs font-bold"
-              disabled={isUpdatingHonors}
-              onClick={async () => {
-                if (!honorsDialog.member) return;
-                setIsUpdatingHonors(true);
-                try {
-                  await updateMemberHonors(honorsDialog.member.id, selectedHonors);
-                  toast.success(`Honor badges updated for ${honorsDialog.member.fullName}.`);
-                  setHonorsDialog({ open: false, member: null });
-                  getMembersRegistry(page, pageSize, q, statusFilter, catFilter, locFilter, sortKey, sortDir)
-                    .then(setData);
-                } catch (err: any) {
-                  toast.error(err.response?.data?.message || 'Failed to update honors.');
-                } finally {
-                  setIsUpdatingHonors(false);
-                }
-              }}
-            >
-              {isUpdatingHonors ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Medal className="h-3.5 w-3.5 mr-1.5" />}
-              Save Honors
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminCategoryServices, type Category } from "@/services/adminCategory.services";
@@ -49,6 +49,7 @@ import { toast } from "sonner";
 export default function SettingsPage() {
   const { role } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -69,6 +70,7 @@ export default function SettingsPage() {
   });
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("categories");
   const [draft, setDraft] = useState<Partial<Category> | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [honorToDelete, setHonorToDelete] = useState<{name: string, isDraft: boolean} | null>(null);
@@ -91,7 +93,7 @@ export default function SettingsPage() {
     optional_documents: []
   });
 
-  // Set the first category as active once loaded
+  // Set default active category on first load
   useEffect(() => {
     if (categories.length > 0 && !activeId) {
       const first = categories[0];
@@ -99,6 +101,24 @@ export default function SettingsPage() {
       setDraft(first);
     }
   }, [categories, activeId]);
+
+  // Apply category_id from URL params whenever categories are available
+  useEffect(() => {
+    if (categories.length === 0) return;
+    const preselectedId = searchParams.get("category_id");
+    if (!preselectedId) return;
+    const found = categories.find((c: any) => c.id === preselectedId);
+    if (found) {
+      setActiveId(found.id);
+      setDraft(found);
+      setActiveTab("categories"); // Ensure categories tab is active
+      // Scroll the sidebar button into view after a short delay
+      setTimeout(() => {
+        const el = document.getElementById(`cat-btn-${found.id}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 200);
+    }
+  }, [categories, searchParams]);
 
   // Sync draft when active category changes
   useEffect(() => {
@@ -310,7 +330,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="categories" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-muted p-1">
           <TabsTrigger value="categories">Categories & Documents</TabsTrigger>
           <TabsTrigger value="practice">Practice Locations</TabsTrigger>
@@ -462,7 +482,7 @@ export default function SettingsPage() {
                         <div className="px-2 py-1 font-bold text-navy bg-zinc-100/50 rounded dark:bg-zinc-800/30 mb-1">Rwandan Individuals</div>
                         <div className="space-y-0.5">
                           {rwandanIndividuals.map(c => (
-                            <button key={c.id} onClick={() => setActiveId(c.id)}
+                            <button key={c.id} id={`cat-btn-${c.id}`} onClick={() => setActiveId(c.id)}
                               className={`w-full text-left px-3 py-1.5 rounded transition-colors ${activeId === c.id ? "bg-navy text-white font-semibold" : "hover:bg-muted text-muted-foreground"}`}>
                               {c.category_name}
                             </button>
@@ -477,7 +497,7 @@ export default function SettingsPage() {
                         <div className="px-2 py-1 font-bold text-navy bg-zinc-100/50 rounded dark:bg-zinc-800/30 mb-1">Rwandan Firms</div>
                         <div className="space-y-0.5">
                           {rwandanFirms.map(c => (
-                            <button key={c.id} onClick={() => setActiveId(c.id)}
+                            <button key={c.id} id={`cat-btn-${c.id}`} onClick={() => setActiveId(c.id)}
                               className={`w-full text-left px-3 py-1.5 rounded transition-colors ${activeId === c.id ? "bg-navy text-white font-semibold" : "hover:bg-muted text-muted-foreground"}`}>
                               {c.category_name}
                             </button>
@@ -492,7 +512,7 @@ export default function SettingsPage() {
                         <div className="px-2 py-1 font-bold text-navy bg-zinc-100/50 rounded dark:bg-zinc-800/30 mb-1">Non-Rwandan Individuals</div>
                         <div className="space-y-0.5">
                           {nonRwandanIndividuals.map(c => (
-                            <button key={c.id} onClick={() => setActiveId(c.id)}
+                            <button key={c.id} id={`cat-btn-${c.id}`} onClick={() => setActiveId(c.id)}
                               className={`w-full text-left px-3 py-1.5 rounded transition-colors ${activeId === c.id ? "bg-navy text-white font-semibold" : "hover:bg-muted text-muted-foreground"}`}>
                               {c.category_name}
                             </button>
@@ -507,7 +527,7 @@ export default function SettingsPage() {
                         <div className="px-2 py-1 font-bold text-navy bg-zinc-100/50 rounded dark:bg-zinc-800/30 mb-1">Non-Rwandan Firms</div>
                         <div className="space-y-0.5">
                           {nonRwandanFirms.map(c => (
-                            <button key={c.id} onClick={() => setActiveId(c.id)}
+                            <button key={c.id} id={`cat-btn-${c.id}`} onClick={() => setActiveId(c.id)}
                               className={`w-full text-left px-3 py-1.5 rounded transition-colors ${activeId === c.id ? "bg-navy text-white font-semibold" : "hover:bg-muted text-muted-foreground"}`}>
                               {c.category_name}
                             </button>

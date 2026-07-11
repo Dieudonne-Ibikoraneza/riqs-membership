@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +21,7 @@ import {
   CreditCard, FileText, Shield, Clock, AlertTriangle, CheckCircle2, MessageSquare,
   Ticket, TrendingUp, Award, ExternalLink, BadgeCheck, MoreVertical,
   Building2, Globe, IdCard, Activity, ChevronRight, Download, Send,
-  Maximize2, Minus, X, Loader2
+  Maximize2, Minus, X, Loader2, Medal
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -277,7 +278,7 @@ export default function AdminMemberProfilePage() {
               </Button>
             )}
             <Button variant="outline" className="gap-2 hidden sm:flex" onClick={handleOpenHonors}>
-              <Award className="h-4 w-4" /> Manage Honors
+              <Medal className="h-4 w-4" /> Manage Honors
             </Button>
             <Button className="bg-navy hover:bg-blue-800 text-white gap-2" onClick={() => setDialog("change-class")}>
               <TrendingUp className="h-4 w-4" /> Change Membership
@@ -739,52 +740,90 @@ export default function AdminMemberProfilePage() {
       {/* Dialogs */}
 
       <Dialog open={dialog === "manage-honors"} onOpenChange={(o) => !o && setDialog(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-[420px] bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
           <DialogHeader>
-            <DialogTitle>Manage Honorable Mentions</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 text-navy">
+              <Medal className="h-5 w-5 text-gold" />
+              Assign Honor Badges
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <DialogDescription className="text-slate-600 text-sm">
-              Select the honorable mentions to award to <strong>{member?.fullName}</strong>.
-            </DialogDescription>
-            
-            <div className="space-y-3">
-              {((category?.supportedHonors as any[]) || []).map((honor: any) => {
-                const honorName = typeof honor === 'string' ? honor : honor.name;
-                return (
-                  <div key={honorName} className="flex items-center space-x-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <Checkbox 
-                      id={`honor-${honorName}`}
-                      checked={selectedHonors.includes(honorName)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedHonors([...selectedHonors, honorName]);
-                        } else {
-                          setSelectedHonors(selectedHonors.filter(h => h !== honorName));
-                        }
-                      }}
-                    />
-                    <label
-                      htmlFor={`honor-${honorName}`}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      {honorName}
-                    </label>
-                  </div>
-                );
-              })}
-              {((category?.supportedHonors as any[]) || []).length === 0 && (
-                <p className="text-sm text-slate-500 italic">This category does not support any honorable mentions.</p>
-              )}
-            </div>
 
-            <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
-              <Button className="bg-navy hover:bg-blue-900 text-white" onClick={handleSaveHonors} disabled={actionLoading}>
-                {actionLoading ? "Saving..." : "Save Honors"}
-              </Button>
-            </div>
-          </div>
+          {(() => {
+            const supportedHonors: { name: string; description?: string }[] =
+              ((category?.supportedHonors as any[]) || []).map((honor: any) => 
+                typeof honor === 'string' ? { name: honor } : honor
+              );
+
+            if (supportedHonors.length === 0) {
+              return (
+                <>
+                  <div className="py-6 text-center space-y-3">
+                    <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto" />
+                    <p className="text-sm font-semibold text-navy">No honors configured</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed px-4">
+                      The category <span className="font-bold text-navy">{category?.categoryName?.replace(/_/g, " ") || member?.membershipClass?.replace(/_/g, " ")}</span> has no supported honorable mentions.
+                    </p>
+                  </div>
+                  <DialogFooter className="mt-2 border-t pt-4">
+                    <Button variant="outline" className="text-xs w-full sm:w-auto" onClick={() => setDialog(null)}>
+                      Cancel
+                    </Button>
+                    <Button asChild className="bg-navy hover:bg-navy/90 text-white text-xs font-bold w-full sm:w-auto">
+                      <Link href={`/admin/settings?category_id=${category?.id || member?.categoryId}`}>Manage Honors in Settings</Link>
+                    </Button>
+                  </DialogFooter>
+                </>
+              );
+            }
+
+            return (
+              <>
+                <p className="text-sm text-muted-foreground -mt-1 mb-1">
+                  Select the honors to assign to <span className="font-semibold text-navy dark:text-white">{member?.fullName}</span>.
+                  Unchecking an honor will remove it.
+                </p>
+                <div className="space-y-2 my-2">
+                  {supportedHonors.map((h) => (
+                    <label
+                      key={h.name}
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        selectedHonors.includes(h.name)
+                          ? 'border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-950/30'
+                          : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                      }`}
+                    >
+                      <Checkbox
+                        checked={selectedHonors.includes(h.name)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedHonors([...selectedHonors, h.name]);
+                          } else {
+                            setSelectedHonors(selectedHonors.filter(x => x !== h.name));
+                          }
+                        }}
+                        className="mt-0.5 focus-visible:ring-gold"
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-navy dark:text-white">{h.name}</p>
+                        {h.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{h.description}</p>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <DialogFooter className="mt-4 border-t pt-4">
+                  <Button variant="outline" className="text-xs" onClick={() => setDialog(null)}>
+                    Cancel
+                  </Button>
+                  <Button className="bg-navy hover:bg-navy/90 text-white text-xs font-bold" onClick={handleSaveHonors} disabled={actionLoading}>
+                    {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Medal className="h-3.5 w-3.5 mr-1.5" />}
+                    Save Honors
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

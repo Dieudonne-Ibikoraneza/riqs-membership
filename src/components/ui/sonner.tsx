@@ -9,11 +9,12 @@ const Toaster = ({ ...props }: ToasterProps) => {
       position="top-right"
       expand={false}
       offset={20}
+      closeButton
       toastOptions={{
         duration: 4500,
         classNames: {
           toast:
-            "group toast relative overflow-hidden border-0 bg-[#0b3363] text-white shadow-navy font-sans text-sm tracking-wide data-[type=success]:bg-[#0b3363] data-[type=error]:bg-[#3a0f0f] data-[type=warning]:bg-[#4a3a0a] data-[type=info]:bg-[#0b3363] data-[type=loading]:bg-[#0b3363]",
+            "group toast relative overflow-visible border-0 bg-[#0b3363] pl-8 text-white shadow-navy font-sans text-sm tracking-wide data-[type=success]:bg-[#0b3363] data-[type=error]:bg-[#3a0f0f] data-[type=warning]:bg-[#4a3a0a] data-[type=info]:bg-[#0b3363] data-[type=loading]:bg-[#0b3363]",
           title:
             "group-[.toast]:font-display group-[.toast]:text-[13px] group-[.toast]:font-semibold group-[.toast]:tracking-tight group-[.toast]:text-white/95",
           description:
@@ -23,7 +24,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           cancelButton:
             "group-[.toast]:bg-white/10 group-[.toast]:text-white/80 group-[.toast]:font-medium group-[.toast]:text-xs group-[.toast]:h-8 group-[.toast]:px-3 hover:group-[.toast]:bg-white/20",
           closeButton:
-            "group-[.toast]:absolute group-[.toast]:top-2 group-[.toast]:right-2 group-[.toast]:bg-transparent group-[.toast]:text-white/40 group-[.toast]:border-0 group-[.toast]:hover:text-white",
+            "group-[.toast]:absolute group-[.toast]:top-2 group-[.toast]:left-2 group-[.toast]:bg-transparent group-[.toast]:text-white/40 group-[.toast]:border-0 group-[.toast]:hover:text-white",
           icon:
             "group-[.toast]:text-gold group-[.toast]:h-5 group-[.toast]:w-5 group-[.toast]:mt-0.5",
           loader:

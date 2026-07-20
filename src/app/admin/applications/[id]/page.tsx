@@ -34,6 +34,7 @@ import {
   Loader2,
   MoveHorizontal,
   ArrowRight,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -44,6 +45,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
 
 function formatMonthYear(val?: string) {
@@ -140,7 +142,7 @@ export default function Review({ params }: PageProps) {
   const [zoom, setZoom] = useState(1);
   const [rot, setRot] = useState(0);
   const [dialog, setDialog] = useState<
-    null | "approve" | "reject" | "correction" | "forward" | "failPayment"
+    null | "approve" | "reject" | "correction" | "forward" | "submit_review_note" | "failPayment"
   >(null);
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -258,7 +260,8 @@ export default function Review({ params }: PageProps) {
           }),
           apcAssessments: apcRes.assessments || [],
           statusHistory: res.statusHistory || [],
-          logbookEntries: res.logbookEntries || []
+          logbookEntries: res.logbookEntries || [],
+          applicationReviews: res.applicationReviews || []
         };
         setApp(mappedApp);
       } catch (err) {
@@ -367,8 +370,8 @@ export default function Review({ params }: PageProps) {
     );
   }
 
-  const handle = async (action: "approve" | "reject" | "correction" | "forward" | "start_review" | "failPayment") => {
-    if (action !== "approve" && action !== "forward" && action !== "start_review" && !note.trim()) {
+  const handle = async (action: "approve" | "reject" | "correction" | "forward" | "submit_review_note" | "failPayment") => {
+    if (action !== "approve" && action !== "submit_review_note" && !note.trim()) {
       return toast.error("Please add a note explaining the reason");
     }
 
@@ -391,11 +394,13 @@ export default function Review({ params }: PageProps) {
     try {
       if (action === "approve" || action === "reject") {
         await submitApproverDecision(app.id, action === "approve" ? "Approve" : "Reject", note, overrideCategoryId === "keep_default" ? undefined : overrideCategoryId);
+      } else if (action === "correction" && (role === "Approver" || role === "Admin") && app.status === "Pending Approval") {
+        await submitApproverDecision(app.id, "ReturnForCorrection", note);
       } else {
         const actionMap = {
           correction: "ReturnForCorrection",
           forward: "ForwardToApprover",
-          start_review: "StartReview"
+          submit_review_note: "SubmitReviewNote"
         } as const;
         await submitReviewerAction(app.id, actionMap[action as keyof typeof actionMap], note);
       }
@@ -407,15 +412,18 @@ export default function Review({ params }: PageProps) {
             ? "Application successfully rejected"
             : action === "forward"
               ? "Application forwarded to Approver"
-              : action === "start_review"
-                ? "You have taken over this review"
+              : action === "submit_review_note"
+                ? "Review note submitted successfully"
                 : "Correction request successfully sent to applicant";
 
       toast.success(msg);
       
-      if (action === "start_review") {
-        setApp((prev: any) => ({ ...prev, status: "Under Review" }));
+      if (action === "submit_review_note") {
+        setDialog(null);
+        setNote("");
         setIsSubmitting(false);
+        // Refresh page to see the note
+        setTimeout(() => window.location.reload(), 650);
         return;
       }
       
@@ -489,18 +497,56 @@ export default function Review({ params }: PageProps) {
               </Button>
             </Link>
           )}
-          {app.status === "Pending" && (role === "Reviewer" || role === "Admin") && (
+          {(app.status === "Pending" || app.status === "Under Review") && role === "Reviewer" && (
             <Button
-              className="bg-navy hover:bg-navy/90 text-white border-none shadow-sm"
-              onClick={() => handle("start_review")}
+              variant="outline"
+              className="border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-950/20 shadow-sm"
+              onClick={() => setDialog("submit_review_note")}
               disabled={isSubmitting}
             >
-              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-              Take Over Review
+              <FileText className="mr-2 h-4 w-4" />
+              Add Review Note
             </Button>
           )}
 
-          {app.status === "Under Review" && (role === "Admin" || (role === "Reviewer" && app.assignedReviewerId === userId)) && (
+          {(app.status === "Pending" || app.status === "Under Review") && (role?.toLowerCase() === "head_reviewer" || role === "Admin") && (
+            <Button
+              variant="outline"
+              className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-900/50 dark:text-orange-400 dark:hover:bg-orange-950/20"
+              onClick={() => setDialog("correction")}
+            >
+              <AlertTriangle className="mr-2 h-4 w-4" />
+              Flag correction
+            </Button>
+          )}
+
+          {app.status === "Under Review" && (role === "Admin" || role?.toLowerCase() === "head_reviewer") && (
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className={(app.applicationReviews?.length || 0) < 2 ? "cursor-not-allowed inline-block" : ""}>
+                    <Button
+                      className="bg-navy hover:bg-navy/90 text-white border-none"
+                      onClick={() => setDialog("forward")}
+                      disabled={isSubmitting || (app.applicationReviews?.length || 0) < 2}
+                      style={(app.applicationReviews?.length || 0) < 2 ? { pointerEvents: "none" } : undefined}
+                    >
+                      <Check className="mr-2 h-4 w-4" />
+                      Forward to Approver
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {(app.applicationReviews?.length || 0) < 2 && (
+                  <TooltipContent className="z-[70] flex items-center gap-2 bg-amber-500 text-white border-none shadow-md">
+                    <Info className="h-4 w-4" />
+                    <p className="font-medium">Min of 2 reviews are required!</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
+          {app.status === "Pending Approval" && (role === "Approver" || role === "Admin") && (
             <>
               <Button
                 variant="outline"
@@ -508,20 +554,8 @@ export default function Review({ params }: PageProps) {
                 onClick={() => setDialog("correction")}
               >
                 <AlertTriangle className="mr-2 h-4 w-4" />
-                Flag correction
+                Return for Correction
               </Button>
-              <Button
-                className="bg-navy hover:bg-navy/90 text-white border-none"
-                onClick={() => setDialog("forward")}
-              >
-                <Check className="mr-2 h-4 w-4" />
-                Forward to Approver
-              </Button>
-            </>
-          )}
-
-          {app.status === "Pending Approval" && (role === "Approver" || role === "Admin") && (
-            <>
               <Button
                 variant="outline"
                 className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20"
@@ -627,7 +661,9 @@ export default function Review({ params }: PageProps) {
             </motion.div>
           )}
 
-          {/* Reviewer Notes */}
+
+
+          {/* Status History Note */}
           {(() => {
             const latestNote = app.statusHistory?.find((h: any) => h.reviewerNotes && !["Approved by Approver.", "Rejected by Approver."].includes(h.reviewerNotes));
             if (!latestNote) return null;
@@ -641,7 +677,7 @@ export default function Review({ params }: PageProps) {
                   <CardHeader className="py-3 px-4 border-b border-amber-200/50 dark:border-amber-900/50">
                     <CardTitle className="text-sm font-bold text-amber-900 dark:text-amber-500 flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                      Latest Reviewer Notes
+                      Status Note
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 text-sm text-amber-800 dark:text-amber-400/90 whitespace-pre-wrap leading-relaxed">
@@ -886,8 +922,36 @@ export default function Review({ params }: PageProps) {
         </div>
 
         {/* Right column: Document viewer */}
-        <div className="lg:col-span-3">
-          <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col sticky top-2 h-[calc(100vh-5rem)]">
+        <div className="lg:col-span-3 flex flex-col gap-4">
+          {app.applicationReviews && app.applicationReviews.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="border-zinc-100 dark:border-zinc-800">
+                <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
+                  <CardTitle className="text-sm font-bold text-navy flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Review Notes ({app.applicationReviews.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 flex flex-col gap-3 max-h-[30vh] overflow-y-auto">
+                  {app.applicationReviews.map((r: any, i: number) => (
+                    <div key={i} className="rounded-md bg-zinc-50 dark:bg-zinc-900/50 p-3 border border-zinc-100 dark:border-zinc-800 text-sm">
+                      <div className="flex justify-between items-center mb-1.5 border-b border-zinc-100 dark:border-zinc-800/60 pb-1.5">
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">{r.reviewer?.fullName || "Reviewer"}</span>
+                        <span className="text-xs text-muted-foreground">{r.updatedAt ? new Date(r.updatedAt).toLocaleDateString() : ""}</span>
+                      </div>
+                      <div className="text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">{r.notes}</div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col h-[calc(100vh-5rem)]">
             <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800 py-3 px-4 shrink-0">
               <CardTitle className="text-sm font-bold text-navy">
                 Documents Workbench
@@ -1015,6 +1079,7 @@ export default function Review({ params }: PageProps) {
               {dialog === "correction" && "Request corrections"}
               {dialog === "forward" && "Forward to Approver"}
               {dialog === "failPayment" && "Mark Payment as Failed"}
+              {dialog === "submit_review_note" && "Submit Review Note"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm py-2">
@@ -1029,6 +1094,8 @@ export default function Review({ params }: PageProps) {
                 "The application will be sent to the Approver queue for final decision. You may include an optional note."}
               {dialog === "failPayment" &&
                 "A rejection reason is mandatory when failing or refunding a payment. This will be visible to the applicant."}
+              {dialog === "submit_review_note" &&
+                "Add your initial review comments. This will not change the status of the application."}
             </DialogDescription>
             <Textarea
               rows={4}
@@ -1036,7 +1103,9 @@ export default function Review({ params }: PageProps) {
               onChange={(e) => setNote(e.target.value)}
               placeholder={
                 (dialog === "approve" || dialog === "forward")
-                  ? "Add an optional note (e.g. well qualified candidate)"
+                  ? "Add an optional note..."
+                  : dialog === "submit_review_note"
+                    ? "Enter your review notes..."
                   : "Please provide a reason for the applicant..."
               }
             />
@@ -1087,6 +1156,7 @@ export default function Review({ params }: PageProps) {
               {dialog === "reject" && "Reject Applicant"}
               {dialog === "correction" && "Request Corrections"}
               {dialog === "forward" && "Forward Application"}
+              {dialog === "submit_review_note" && "Submit Note"}
               {dialog === "failPayment" && "Mark as Failed"}
             </Button>
           </DialogFooter>

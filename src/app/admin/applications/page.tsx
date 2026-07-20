@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useMemo, useState, useEffect } from "react";
-import { getApplicationsQueue, takeOverApplication, sendAdminEmail } from "@/lib/api/admin";
+import { getApplicationsQueue, sendAdminEmail } from "@/lib/api/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -71,15 +71,14 @@ export default function AdminApps() {
   const [loc, setLoc] = useState<string>("all");
   const [cat, setCat] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("submitted");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [sel, setSel] = useState<Record<string, boolean>>({});
   const [page, setPage] = useState(1);
   const pageSize = 8;
   const [applications, setApplications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
-  const [takingOverId, setTakingOverId] = useState<string | null>(null);
-  const [view, setView] = useState<"queue" | "assigned" | "all">("queue");
+  const [view, setView] = useState<"queue" | "all">("queue");
   
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeMinimized, setComposeMinimized] = useState(false);
@@ -161,18 +160,7 @@ export default function AdminApps() {
       router.push(`/admin/mentorship/${a.id}`);
       return;
     }
-    if (a.status !== "Pending") {
-      router.push(`/admin/applications/${a.id}`);
-      return;
-    }
-    try {
-      setTakingOverId(a.id);
-      await takeOverApplication(a.id);
-      router.push(`/admin/applications/${a.id}`);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || "Failed to take over application.");
-      setTakingOverId(null);
-    }
+    router.push(`/admin/applications/${a.id}`);
   };
 
   const filtered = useMemo(
@@ -253,7 +241,7 @@ export default function AdminApps() {
     setLoc("all");
     setCat("all");
     setSortKey("submitted");
-    setSortDir("asc");
+    setSortDir("desc");
     setPage(1);
   };
 
@@ -263,22 +251,18 @@ export default function AdminApps() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-navy tracking-tight">
-            {isMentorshipRoute ? 'Mentorship Queue' : view === 'queue' ? 'Application Queue' : view === 'assigned' ? 'My Assigned Applications' : 'All Applications'}
+            {isMentorshipRoute ? 'Mentorship Queue' : view === 'queue' ? 'Application Queue' : 'All Applications'}
           </h1>
           <p className="text-sm text-muted-foreground font-sans mt-1">
             {isMentorshipRoute ? 'Review, assign mentors, and track APC readiness for candidates.' :
-             view === 'queue' ? 'Review, verify, and take over incoming practice applications.' : 
-             view === 'assigned' ? 'Applications currently assigned to you for review or correction.' : 
+             view === 'queue' ? 'Review and verify incoming practice applications.' :
              'Complete global view of all applications in the registry.'}
           </p>
         </div>
         {role !== "Admin" && (
           <Tabs value={view} onValueChange={(v) => { setView(v as any); setPage(1); }} className="w-full sm:w-auto">
-            <TabsList className={cn("grid w-full bg-zinc-100 dark:bg-zinc-800", role?.toLowerCase() === "approver" ? "grid-cols-2" : "grid-cols-3")}>
+            <TabsList className={cn("grid w-full bg-zinc-100 dark:bg-zinc-800", "grid-cols-2")}>
               <TabsTrigger value="queue">Queue</TabsTrigger>
-              {role?.toLowerCase() !== "approver" && (
-                <TabsTrigger value="assigned">My Assigned</TabsTrigger>
-              )}
               <TabsTrigger value="all">All</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -603,13 +587,10 @@ export default function AdminApps() {
                     <td className="px-5 py-4 text-right">
                       <button
                         onClick={() => handleReviewClick(a)}
-                        disabled={takingOverId === a.id}
-                        className="inline-flex items-center text-xs font-semibold text-navy dark:text-gold hover:underline group disabled:opacity-50"
+                        className="inline-flex items-center text-xs font-semibold text-navy dark:text-gold hover:underline group"
                       >
-                        {takingOverId === a.id ? "Loading..." : "Review"}
-                        {takingOverId !== a.id && (
-                          <ArrowRight className="ml-1 h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-                        )}
+                        Review
+                        <ArrowRight className="ml-1 h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
                       </button>
                     </td>
                   </tr>

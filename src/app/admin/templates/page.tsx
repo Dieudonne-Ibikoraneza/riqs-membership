@@ -27,7 +27,7 @@ export default function TemplatesPage() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (role && !["Admin", "Reviewer", "Approver"].includes(role)) {
+    if (role && !["Admin", "Reviewer", "Head_Reviewer", "Approver"].includes(role)) {
       router.push("/admin");
     }
   }, [role, router]);
@@ -81,7 +81,7 @@ export default function TemplatesPage() {
     },
   });
 
-  if (role && !["Admin", "Reviewer", "Approver"].includes(role)) return null;
+  if (role && !["Admin", "Reviewer", "Head_Reviewer", "Approver"].includes(role)) return null;
 
   const updateDraft = (patch: Partial<EmailTemplate>) => {
     if (!localDraft) return;

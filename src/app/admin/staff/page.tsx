@@ -3,10 +3,23 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Shield, Plus, Loader2, Copy, Check, Trash2, AlertCircle } from "lucide-react";
-import { getStaffRegistry, createStaffAccount, lockStaffAccount, unlockStaffAccount } from "@/lib/api/admin";
+import {
+  Shield, Plus, Loader2, Copy, Check, AlertCircle,
+  MoreVertical, Star, Lock, Unlock, Crown
+} from "lucide-react";
+import {
+  getStaffRegistry, createStaffAccount, lockStaffAccount,
+  unlockStaffAccount, promoteToHeadReviewer
+} from "@/lib/api/admin";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function Avatar({ name }: { name: string }) {
   const initials = name
@@ -31,17 +44,28 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+
+function RoleBadge({ role }: { role: string }) {
+  const cls =
+    role === "Admin"
+      ? "border-red-200 bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
+      : role === "Approver"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+      : role === "Head_Reviewer"
+      ? "border-yellow-200 bg-yellow-50 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-400"
+      : "border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400";
+
+  return (
+    <Badge variant="outline" className={cn("font-semibold flex items-center gap-1", cls)}>
+      {role === "Head_Reviewer" && <Crown className="h-3 w-3" />}
+      {role === "Head_Reviewer" ? "Head Reviewer" : role}
+    </Badge>
+  );
+}
 
 export default function StaffManagementPage() {
   const queryClient = useQueryClient();
@@ -58,12 +82,15 @@ export default function StaffManagementPage() {
   const [staffToLock, setStaffToLock] = useState<{ id: string; name: string } | null>(null);
   const [lockDuration, setLockDuration] = useState<number>(30);
 
+  const [promoteTarget, setPromoteTarget] = useState<{ id: string; name: string } | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ["adminStaffList"],
     queryFn: getStaffRegistry,
   });
 
   const staffList = data?.staff || [];
+  const existingHead = staffList.find((s: any) => s.systemRole === "Head_Reviewer");
 
   const createMutation = useMutation({
     mutationFn: createStaffAccount,
@@ -101,11 +128,18 @@ export default function StaffManagementPage() {
     }
   });
 
-  const handleConfirmLock = () => {
-    if (staffToLock) {
-      lockMutation.mutate({ id: staffToLock.id, duration: lockDuration });
+  const promoteMutation = useMutation({
+    mutationFn: (id: string) => promoteToHeadReviewer(id),
+    onSuccess: (res) => {
+      toast.success(res.message || "Head Reviewer updated!");
+      setPromoteTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["adminStaffList"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || "Failed to promote Head Reviewer");
+      setPromoteTarget(null);
     }
-  };
+  });
 
   const handleCreate = () => {
     if (!formData.fullName || !formData.email || !formData.systemRole) {
@@ -139,7 +173,7 @@ export default function StaffManagementPage() {
             Manage internal administrative accounts (Reviewers, Approvers, Teachers, Admins).
           </p>
         </div>
-        <Button 
+        <Button
           className="bg-navy text-white hover:bg-navy/90"
           onClick={() => setIsAddDialogOpen(true)}
         >
@@ -148,12 +182,29 @@ export default function StaffManagementPage() {
         </Button>
       </div>
 
+      {/* Head Reviewer Banner */}
+      {existingHead ? (
+        <div className="flex items-center gap-3 rounded-lg border border-yellow-200 bg-yellow-50/60 dark:bg-yellow-950/20 dark:border-yellow-900/50 px-4 py-3">
+          <Crown className="h-5 w-5 text-yellow-600 dark:text-yellow-400 shrink-0" />
+          <div className="text-sm">
+            <span className="font-semibold text-yellow-800 dark:text-yellow-300">Head Reviewer: </span>
+            <span className="text-yellow-700 dark:text-yellow-400">{existingHead.fullName}</span>
+            <span className="text-yellow-600 dark:text-yellow-500 ml-2">({existingHead.email})</span>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50/60 dark:bg-red-950/20 dark:border-red-900/50 px-4 py-3">
+          <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
+          <div className="text-sm text-red-700 dark:text-red-400">
+            <span className="font-semibold">No Head Reviewer assigned.</span> Applications cannot be forwarded to the Approver until a Head Reviewer is set.
+          </div>
+        </div>
+      )}
+
       <Card className="border-zinc-100 dark:border-zinc-800 shadow-sm">
         <CardHeader className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800 pb-4">
           <CardTitle className="text-lg font-semibold text-navy">Registered Staff Members</CardTitle>
-          <CardDescription>
-            Accounts with privileged internal access.
-          </CardDescription>
+          <CardDescription>Accounts with privileged internal access.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
@@ -174,7 +225,7 @@ export default function StaffManagementPage() {
                     <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Email Address</th>
                     <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">System Role</th>
                     <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-right">Date Created</th>
-                    <th className="px-5 py-3.5 text-center text-xs font-bold uppercase tracking-wider w-16">Action</th>
+                    <th className="px-5 py-3.5 text-center text-xs font-bold uppercase tracking-wider w-16">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -189,10 +240,8 @@ export default function StaffManagementPage() {
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <Avatar name={staff.fullName} />
-                          <div>
-                            <div className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
-                              {staff.fullName}
-                            </div>
+                          <div className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+                            {staff.fullName}
                           </div>
                         </div>
                       </td>
@@ -200,18 +249,8 @@ export default function StaffManagementPage() {
                         {staff.email}
                       </td>
                       <td className="px-5 py-4">
-                        <div className="flex gap-2">
-                          <Badge 
-                            variant="outline" 
-                            className={cn(
-                              "font-semibold",
-                              staff.systemRole === "Admin" ? "border-red-200 bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400" :
-                              staff.systemRole === "Approver" ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400" :
-                              "border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
-                            )}
-                          >
-                            {staff.systemRole}
-                          </Badge>
+                        <div className="flex gap-2 items-center">
+                          <RoleBadge role={staff.systemRole} />
                           {staff.isLocked && (
                             <div className="flex items-center gap-1">
                               <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400">
@@ -233,27 +272,52 @@ export default function StaffManagementPage() {
                         {new Date(staff.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-5 py-4 text-center">
-                        {staff.isLocked ? (
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="text-emerald-600 hover:text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-                            onClick={() => unlockMutation.mutate(staff.id)}
-                            disabled={unlockMutation.isPending}
-                          >
-                            Unlock
-                          </Button>
-                        ) : (
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="text-orange-600 hover:text-orange-700 border-orange-200 hover:bg-orange-50"
-                            onClick={() => setStaffToLock({ id: staff.id, name: staff.fullName })}
-                            disabled={lockMutation.isPending}
-                          >
-                            Lock
-                          </Button>
-                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            {/* Make Head Reviewer — only for Reviewer role */}
+                            {staff.systemRole === "Reviewer" && (
+                              <>
+                                <DropdownMenuItem
+                                  className="gap-2 text-yellow-700 dark:text-yellow-400 focus:text-yellow-700 focus:bg-yellow-50 dark:focus:bg-yellow-950/30 cursor-pointer"
+                                  onClick={() => setPromoteTarget({ id: staff.id, name: staff.fullName })}
+                                >
+                                  <Crown className="h-4 w-4" />
+                                  Make Head Reviewer
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                              </>
+                            )}
+
+                            {/* Lock / Unlock */}
+                            {staff.isLocked ? (
+                              <DropdownMenuItem
+                                className="gap-2 text-emerald-700 dark:text-emerald-400 focus:text-emerald-700 focus:bg-emerald-50 dark:focus:bg-emerald-950/30 cursor-pointer"
+                                onClick={() => unlockMutation.mutate(staff.id)}
+                                disabled={unlockMutation.isPending}
+                              >
+                                <Unlock className="h-4 w-4" />
+                                Unlock Account
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                className="gap-2 text-orange-700 dark:text-orange-400 focus:text-orange-700 focus:bg-orange-50 dark:focus:bg-orange-950/30 cursor-pointer"
+                                onClick={() => setStaffToLock({ id: staff.id, name: staff.fullName })}
+                              >
+                                <Lock className="h-4 w-4" />
+                                Lock Account
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))}
@@ -265,8 +329,8 @@ export default function StaffManagementPage() {
       </Card>
 
       {/* Add Staff Dialog */}
-      <Dialog 
-        open={isAddDialogOpen || !!createdPassword} 
+      <Dialog
+        open={isAddDialogOpen || !!createdPassword}
         onOpenChange={(o) => {
           if (!o && !createdPassword) setIsAddDialogOpen(false);
         }}
@@ -277,12 +341,12 @@ export default function StaffManagementPage() {
               {createdPassword ? "Account Created!" : "Add New Staff Member"}
             </DialogTitle>
           </DialogHeader>
-          
+
           {!createdPassword ? (
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
                 <Label>Full Name</Label>
-                <Input 
+                <Input
                   placeholder="e.g. John Doe"
                   value={formData.fullName}
                   onChange={e => setFormData({...formData, fullName: e.target.value})}
@@ -290,7 +354,7 @@ export default function StaffManagementPage() {
               </div>
               <div className="space-y-2">
                 <Label>Email Address</Label>
-                <Input 
+                <Input
                   type="email"
                   placeholder="e.g. reviewer@riqs.rw"
                   value={formData.email}
@@ -317,24 +381,17 @@ export default function StaffManagementPage() {
                 <Check className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
               </div>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Staff member <strong>{formData.fullName}</strong> was successfully created. 
+                Staff member <strong>{formData.fullName}</strong> was successfully created.
                 Please securely copy and share the temporary password below.
               </p>
-              
               <div className="flex items-center gap-2 p-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md">
                 <code className="flex-1 text-lg font-mono font-bold tracking-wider text-navy dark:text-gold text-center">
                   {createdPassword}
                 </code>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={copyToClipboard}
-                  className="shrink-0"
-                >
+                <Button variant="outline" size="icon" onClick={copyToClipboard} className="shrink-0">
                   {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
-              
               <p className="text-xs text-red-500 font-medium">
                 Warning: This password will not be shown again.
               </p>
@@ -368,13 +425,13 @@ export default function StaffManagementPage() {
           </DialogHeader>
           <div className="py-4 space-y-4">
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Are you sure you want to lock the staff member{" "}
+              Are you sure you want to lock{" "}
               <strong className="text-navy dark:text-zinc-200">{staffToLock?.name}</strong>?
               They will not be able to log in.
             </p>
             <div className="space-y-2">
               <Label>Lock Duration (Days)</Label>
-              <Input 
+              <Input
                 type="number"
                 min="1"
                 value={lockDuration}
@@ -389,13 +446,77 @@ export default function StaffManagementPage() {
             <Button variant="outline" onClick={() => setStaffToLock(null)} disabled={lockMutation.isPending}>
               Cancel
             </Button>
-            <Button 
-              variant="default" 
+            <Button
               className="bg-orange-600 hover:bg-orange-700 text-white"
-              onClick={handleConfirmLock} 
+              onClick={() => staffToLock && lockMutation.mutate({ id: staffToLock.id, duration: lockDuration })}
               disabled={lockMutation.isPending}
             >
-              {lockMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Lock Account"}
+              {lockMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
+              Lock Account
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Promote to Head Reviewer Dialog */}
+      <Dialog open={!!promoteTarget} onOpenChange={(open) => !open && setPromoteTarget(null)}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Crown className="h-5 w-5 text-yellow-600" />
+              Appoint Head Reviewer
+            </DialogTitle>
+            <DialogDescription className="pt-1 leading-relaxed">
+              {existingHead ? (
+                <>
+                  <span className="font-semibold text-orange-600 dark:text-orange-400">
+                    {existingHead.fullName}
+                  </span>{" "}
+                  is currently the Head Reviewer. Appointing{" "}
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                    {promoteTarget?.name}
+                  </span>{" "}
+                  will <span className="font-semibold text-red-600">revoke</span> their Head Reviewer role and downgrade them back to a regular Reviewer.
+                </>
+              ) : (
+                <>
+                  You are about to appoint{" "}
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                    {promoteTarget?.name}
+                  </span>{" "}
+                  as the Head Reviewer. They will be the only one able to forward applications to the Approver.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {existingHead && (
+            <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900/50 p-3 text-sm space-y-1">
+              <div className="flex items-center gap-2 font-semibold text-orange-800 dark:text-orange-300">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                Role Change Warning
+              </div>
+              <ul className="text-orange-700 dark:text-orange-400 space-y-0.5 pl-6 list-disc text-xs">
+                <li><strong>{existingHead.fullName}</strong> → reverted to Reviewer</li>
+                <li><strong>{promoteTarget?.name}</strong> → promoted to Head Reviewer</li>
+              </ul>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPromoteTarget(null)} disabled={promoteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-yellow-600 hover:bg-yellow-700 text-white"
+              onClick={() => promoteTarget && promoteMutation.mutate(promoteTarget.id)}
+              disabled={promoteMutation.isPending}
+            >
+              {promoteMutation.isPending
+                ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                : <Crown className="mr-2 h-4 w-4" />
+              }
+              Confirm Appointment
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { takeOverApplication } from "@/lib/api/admin";
 import {
   CheckCircle2, ArrowRight, Activity,
   ClipboardList, AlertTriangle, Clock, Users, Loader2
@@ -96,7 +95,7 @@ export default function AdminOverview() {
 
   // Pick the right role slice
   const isAdmin    = role === "Admin" || !!stats?.admin;
-  const isReviewer = role === "Reviewer" || !!stats?.reviewer;
+  const isReviewer = role === "Reviewer" || role?.toLowerCase() === "head_reviewer" || !!stats?.reviewer;
   const isApprover = role === "Approver" || !!stats?.approver;
   const d = stats?.admin || stats?.reviewer || stats?.approver || null;
 
@@ -164,17 +163,6 @@ export default function AdminOverview() {
     : isReviewer
     ? "Review assigned applications, take over pending cases, and track your approval history."
     : "Review applications that have cleared the reviewer stage and make final approval decisions.";
-
-  const handleTakeOver = async (e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    try {
-      await takeOverApplication(id);
-      router.push(`/admin/applications/${id}`);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || "Failed to take over application.");
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -449,9 +437,9 @@ export default function AdminOverview() {
                         size="sm"
                         variant="ghost"
                         className="h-7 text-xs font-semibold text-[#0b3363] hover:bg-[#0b3363]/10"
-                        onClick={(e) => handleTakeOver(e, a.id)}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/admin/applications/${a.id}`); }}
                       >
-                        Take Over
+                        Review
                       </Button>
                     )}
                   </div>

@@ -349,8 +349,8 @@ export default function Review({ params }: PageProps) {
     );
   }
 
-  const handle = async (action: "approve" | "reject" | "correction" | "forward" | "start_review") => {
-    if (action !== "approve" && action !== "forward" && action !== "start_review" && !note.trim()) {
+  const handle = async (action: "approve" | "reject" | "correction" | "forward") => {
+    if (action !== "approve" && action !== "forward" && !note.trim()) {
       return toast.error("Please add a note explaining the reason");
     }
 
@@ -361,8 +361,7 @@ export default function Review({ params }: PageProps) {
       } else {
         const actionMap = {
           correction: "ReturnForCorrection",
-          forward: "ForwardToApprover",
-          start_review: "StartReview"
+          forward: "ForwardToApprover"
         } as const;
         await submitReviewerAction(app.id, actionMap[action as keyof typeof actionMap], note);
       }
@@ -374,17 +373,9 @@ export default function Review({ params }: PageProps) {
             ? "Application successfully rejected"
             : action === "forward"
               ? "Application forwarded to Approver"
-              : action === "start_review"
-                ? "You have taken over this review"
-                : "Correction request successfully sent to applicant";
+              : "Correction request successfully sent to applicant";
 
       toast.success(msg);
-      
-      if (action === "start_review") {
-        setApp((prev: any) => ({ ...prev, status: "Under Review" }));
-        setIsSubmitting(false);
-        return;
-      }
       
       if (action === "forward") {
         setApp((prev: any) => ({ ...prev, status: "Pending Approval" }));

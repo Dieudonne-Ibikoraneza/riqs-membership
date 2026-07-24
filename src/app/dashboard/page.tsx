@@ -89,7 +89,7 @@ export default function Overview() {
               </Badge>
             </div>
           </div>
-          {!["Admin", "Reviewer", "Approver"].includes((profileData?.profile as any)?.systemRole) && !doesNotPay && (
+          {!["Admin", "Reviewer", "Head_Reviewer", "Approver"].includes((profileData?.profile as any)?.systemRole) && !doesNotPay && (
             <div className="rounded-lg bg-white/10 px-4 py-3 backdrop-blur border border-white/10">
               <div className="text-xs text-white/70">Membership expires</div>
               <div className="flex items-center gap-2 text-lg font-semibold mt-0.5">

@@ -94,14 +94,14 @@ export function AppShell({
   useEffect(() => {
     if (!role) return; // Wait until auth is hydrated
 
-    if (kind === "admin" && !["Admin", "Reviewer", "Approver"].includes(role)) {
+    if (kind === "admin" && !["Admin", "Reviewer", "Head_Reviewer", "Approver"].includes(role)) {
       router.replace(isTeacher ? "/teacher" : "/dashboard");
     } else if (kind === "teacher" && !isTeacher) {
-      router.replace(["Admin", "Reviewer", "Approver"].includes(role) ? "/admin" : "/dashboard");
+      router.replace(["Admin", "Reviewer", "Head_Reviewer", "Approver"].includes(role) ? "/admin" : "/dashboard");
     } else if (kind === "member" && !isStudent && !isMentor) {
       if (isTeacher) {
         router.replace("/teacher");
-      } else if (["Admin", "Reviewer", "Approver"].includes(role)) {
+      } else if (["Admin", "Reviewer", "Head_Reviewer", "Approver"].includes(role)) {
         router.replace("/admin");
       }
     }
@@ -393,7 +393,7 @@ export function AppShell({
 
       {/* Main column */}
       <div className="relative flex flex-1 flex-col overflow-hidden">
-        <header className="absolute left-0 right-0 top-0 flex h-16 shrink-0 items-center justify-between border-b border-zinc-200 bg-white/80 px-4 backdrop-blur-md dark:border-zinc-800 dark:bg-black/50 z-[60]">
+        <header className="absolute left-0 right-0 top-0 flex h-20 shrink-0 items-center justify-between border-b border-zinc-200 bg-white/80 px-4 backdrop-blur-md dark:border-zinc-800 dark:bg-black/50 z-[60]">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileOpen(true)}
@@ -404,7 +404,7 @@ export function AppShell({
             </button>
             <div className="text-sm">
               <div className="font-semibold text-navy text-lg">
-                {kind === "admin" ? `${role === "Admin" ? "Administrator" : role} Workspace` : kind === "teacher" ? "Teacher Workspace" : "Member Portal"}
+                {kind === "admin" ? `${role === "Admin" ? "Administrator" : role?.replace('_', ' ')} Workspace` : kind === "teacher" ? "Teacher Workspace" : "Member Portal"}
               </div>
             </div>
           </div>
@@ -413,7 +413,7 @@ export function AppShell({
               <div className="text-sm font-semibold">{name}</div>
               <div className="text-[11px] text-muted-foreground">
                 {kind === "admin"
-                  ? role === "Admin" ? "System Administrator" : role || "Staff"
+                  ? role === "Admin" ? "System Administrator" : role?.replace('_', ' ') || "Staff"
                   : kind === "teacher" ? "Teacher Workspace"
                   : isTeacher ? "Teacher" : isMentor ? "Mentor" : isStudent ? "Student" : "Active Member"}
               </div>

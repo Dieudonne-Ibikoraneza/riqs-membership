@@ -46,14 +46,6 @@ export async function getApplicationDetail(id: string): Promise<any> {
   return data;
 }
 
-export async function takeOverApplication(applicationId: string): Promise<any> {
-  const { data } = await axiosClient.post(`/admin/reviewer-action`, {
-    applicationId,
-    action: "StartReview",
-  });
-  return data;
-}
-
 export async function submitReviewDecision(
   applicationId: string,
   action: "Approve" | "Flag" | "Reject",
@@ -69,7 +61,7 @@ export async function submitReviewDecision(
 
 export async function submitReviewerAction(
   applicationId: string,
-  action: "ReturnForCorrection" | "ForwardToApprover" | "StartReview",
+  action: "ReturnForCorrection" | "ForwardToApprover" | "SubmitReviewNote",
   notes?: string
 ): Promise<any> {
   const { data } = await axiosClient.post(`/admin/reviewer-action`, {
@@ -82,7 +74,7 @@ export async function submitReviewerAction(
 
 export async function submitApproverDecision(
   applicationId: string,
-  action: "Approve" | "Reject",
+  action: "Approve" | "Reject" | "ReturnForCorrection",
   notes?: string,
   overrideCategoryId?: string
 ): Promise<any> {
@@ -266,6 +258,11 @@ export async function lockStaffAccount(id: string, durationDays: number) {
 
 export async function unlockStaffAccount(id: string) {
   const { data } = await axiosClient.patch(`/admin/staff/${id}/unlock`);
+  return data;
+}
+
+export async function promoteToHeadReviewer(id: string) {
+  const { data } = await axiosClient.patch(`/admin/staff/${id}/promote-head-reviewer`);
   return data;
 }
 

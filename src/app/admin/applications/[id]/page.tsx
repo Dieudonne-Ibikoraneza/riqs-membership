@@ -148,6 +148,7 @@ export default function Review({ params }: PageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [overrideCategoryId, setOverrideCategoryId] = useState<string>("keep_default");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["publicCategories"],
@@ -271,7 +272,7 @@ export default function Review({ params }: PageProps) {
       }
     }
     loadData();
-  }, [id]);
+  }, [id, refreshKey]);
   const verifyPaymentMutation = useMutation({
     mutationFn: ({ txId, action, rejectionReason }: { txId: string; action: "Cleared" | "Failed" | "Refunded", rejectionReason?: string }) =>
       verifyPayment(txId, action, rejectionReason),
@@ -422,8 +423,8 @@ export default function Review({ params }: PageProps) {
         setDialog(null);
         setNote("");
         setIsSubmitting(false);
-        // Refresh page to see the note
-        setTimeout(() => window.location.reload(), 650);
+        // Re-fetch the application data without navigating away from this page.
+        setRefreshKey((key) => key + 1);
         return;
       }
       
@@ -502,7 +503,7 @@ export default function Review({ params }: PageProps) {
               variant="outline"
               className="border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-950/20 shadow-sm"
               onClick={() => setDialog("submit_review_note")}
-              disabled={isSubmitting}
+              disabled={isSubmitting || !userId || app.applicationReviews?.some((review: { reviewerId?: string }) => review.reviewerId === userId)}
             >
               <FileText className="mr-2 h-4 w-4" />
               Add Review Note

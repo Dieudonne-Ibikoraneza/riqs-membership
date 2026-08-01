@@ -54,6 +54,7 @@ import { logbookServices } from "@/services/logbook.services";
 import { DocumentTabsViewer } from "@/components/ui/document-tabs-viewer";
 import PDFViewer from "@/components/ui/pdf-viewer";
 import ImageViewer from "@/components/ui/image-viewer";
+import { axiosClient } from "@/lib/axiosClient";
 
 // ─── Status Banner ──────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, {
@@ -361,7 +362,36 @@ export default function Application() {
       competenceSummary: savedLocal?.competenceSummary || (application as any)?.competenceSummary || {},
       agreedToTerms: savedLocal?.agreedToTerms ?? ((application as any)?.agreedToDeclarations || false),
       noCriminalOffense: savedLocal?.noCriminalOffense ?? ((application as any)?.agreedToDeclarations || false),
+      docs: (() => {
+        // Start with any already-fetched blob URLs from local state
+        const loadedDocs: any = {};
+        // Mark each backend document with a loading placeholder — blob URLs will be fetched below
+        if (profileData?.documents?.length) {
+          profileData.documents.forEach((d: any) => {
+            loadedDocs[d.documentType] = "loading...";
+          });
+        }
+        return loadedDocs;
+      })(),
     }));
+
+    // After state is set, fetch actual blob URLs for each document via authenticated endpoint
+    if (profileData?.documents?.length) {
+      profileData.documents.forEach(async (d: any) => {
+        try {
+          const response = await axiosClient.get(`/files/download/${d.id}`, { responseType: "blob" });
+          const blob = response.data as Blob;
+          const ext = d.fileName?.toLowerCase();
+          const isImg = ext?.endsWith(".png") || ext?.endsWith(".jpg") || ext?.endsWith(".jpeg") || ext?.endsWith(".gif");
+          const blobUrl = URL.createObjectURL(blob) + (isImg ? "#image" : "#pdf");
+          setData((prev: any) => ({ ...prev, docs: { ...prev.docs, [d.documentType]: blobUrl } }));
+        } catch {
+          // If fetching fails, remove the loading placeholder
+          setData((prev: any) => { const d2 = { ...prev.docs }; delete d2[d.documentType]; return { ...prev, docs: d2 }; });
+        }
+      });
+    }
+
     
     setStep(savedStep);
     setHasLoaded(true);

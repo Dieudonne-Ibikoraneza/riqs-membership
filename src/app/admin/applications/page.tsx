@@ -89,12 +89,6 @@ export default function AdminApps() {
   const router = useRouter();
 
   useEffect(() => {
-    if (role === "Admin") {
-      setView("all");
-    }
-  }, [role]);
-
-  useEffect(() => {
     async function loadData() {
       setIsLoading(true);
       try {
@@ -251,22 +245,26 @@ export default function AdminApps() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-navy tracking-tight">
-            {isMentorshipRoute ? 'Mentorship Queue' : view === 'queue' ? 'Application Queue' : 'All Applications'}
+            {isMentorshipRoute ? 'Mentorship Queue' :
+             role === 'Admin' ? (view === 'queue' ? 'Incoming Applications' : 'All Applications') :
+             role?.toLowerCase() === 'head_reviewer' || role === 'Reviewer' ? (view === 'queue' ? 'Review Queue' : 'All Applications') :
+             role === 'Approver' ? (view === 'queue' ? 'Approval Queue' : 'All Applications') :
+             view === 'queue' ? 'Application Queue' : 'All Applications'}
           </h1>
           <p className="text-sm text-muted-foreground font-sans mt-1">
             {isMentorshipRoute ? 'Review, assign mentors, and track APC readiness for candidates.' :
-             view === 'queue' ? 'Review and verify incoming practice applications.' :
-             'Complete global view of all applications in the registry.'}
+             role === 'Admin' ? (view === 'queue' ? 'Review newly submitted applications and forward complete ones to the Review Team.' : 'Complete global view of all applications in the registry.') :
+             role?.toLowerCase() === 'head_reviewer' || role === 'Reviewer' ? (view === 'queue' ? 'Applications forwarded by Admin for technical review and assessment.' : 'Complete view of all reviewed applications.') :
+             role === 'Approver' ? (view === 'queue' ? 'Applications forwarded by the Review Team awaiting your final decision.' : 'Complete view of all decisions made.') :
+             'Review and verify incoming practice applications.'}
           </p>
         </div>
-        {role !== "Admin" && (
-          <Tabs value={view} onValueChange={(v) => { setView(v as any); setPage(1); }} className="w-full sm:w-auto">
-            <TabsList className={cn("grid w-full bg-zinc-100 dark:bg-zinc-800", "grid-cols-2")}>
-              <TabsTrigger value="queue">Queue</TabsTrigger>
-              <TabsTrigger value="all">All</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        )}
+        <Tabs value={view} onValueChange={(v) => { setView(v as any); setPage(1); }} className="w-full sm:w-auto">
+          <TabsList className={cn("grid w-full bg-zinc-100 dark:bg-zinc-800", "grid-cols-2")}>
+            <TabsTrigger value="queue">{role === 'Admin' ? 'Pending Review' : role === 'Approver' ? 'Pending Approval' : 'Under Review'}</TabsTrigger>
+            <TabsTrigger value="all">All Records</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       <Card className="border border-zinc-150 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm">

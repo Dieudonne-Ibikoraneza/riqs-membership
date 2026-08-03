@@ -61,7 +61,7 @@ export async function submitReviewDecision(
 
 export async function submitReviewerAction(
   applicationId: string,
-  action: "ReturnForCorrection" | "ForwardToApprover" | "SubmitReviewNote",
+  action: "ReturnForCorrection" | "ForwardToApprover" | "SubmitReviewNote" | "ForwardToReviewers",
   notes?: string
 ): Promise<any> {
   const { data } = await axiosClient.post(`/admin/reviewer-action`, {

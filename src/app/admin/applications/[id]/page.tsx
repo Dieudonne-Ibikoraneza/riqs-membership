@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import PDFViewer from "@/components/ui/pdf-viewer";
+import ImageViewer from "@/components/ui/image-viewer";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -142,7 +143,7 @@ export default function Review({ params }: PageProps) {
   const [zoom, setZoom] = useState(1);
   const [rot, setRot] = useState(0);
   const [dialog, setDialog] = useState<
-    null | "approve" | "reject" | "correction" | "forward" | "submit_review_note" | "failPayment"
+    null | "approve" | "reject" | "correction" | "forward" | "submit_review_note" | "failPayment" | "forward_to_reviewers"
   >(null);
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -254,6 +255,7 @@ export default function Review({ params }: PageProps) {
               name: d.documentName || d.documentType,
               documentType: d.documentType,
               documentName: d.documentName,
+              fileName: d.fileName,
               type: d.documentType.split('_').pop() || "DOC",
               url: `${baseUrl}/files/download/${d.id}?token=${token}`,
               originalFileUrl: d.fileUrl
@@ -371,8 +373,8 @@ export default function Review({ params }: PageProps) {
     );
   }
 
-  const handle = async (action: "approve" | "reject" | "correction" | "forward" | "submit_review_note" | "failPayment") => {
-    if (action !== "approve" && action !== "submit_review_note" && !note.trim()) {
+  const handle = async (action: "approve" | "reject" | "correction" | "forward" | "submit_review_note" | "failPayment" | "forward_to_reviewers") => {
+    if (action !== "approve" && action !== "submit_review_note" && action !== "forward_to_reviewers" && !note.trim()) {
       return toast.error("Please add a note explaining the reason");
     }
 
@@ -401,6 +403,7 @@ export default function Review({ params }: PageProps) {
         const actionMap = {
           correction: "ReturnForCorrection",
           forward: "ForwardToApprover",
+          forward_to_reviewers: "ForwardToReviewers",
           submit_review_note: "SubmitReviewNote"
         } as const;
         await submitReviewerAction(app.id, actionMap[action as keyof typeof actionMap], note);
@@ -413,13 +416,15 @@ export default function Review({ params }: PageProps) {
             ? "Application successfully rejected"
             : action === "forward"
               ? "Application forwarded to Approver"
-              : action === "submit_review_note"
-                ? "Review note submitted successfully"
-                : "Correction request successfully sent to applicant";
+              : action === "forward_to_reviewers"
+                ? "Application forwarded to Review Team"
+                : action === "submit_review_note"
+                  ? "Review note submitted successfully"
+                  : "Correction request successfully sent to applicant";
 
       toast.success(msg);
       
-      if (action === "submit_review_note") {
+      if (action === "submit_review_note" || action === "forward_to_reviewers") {
         setDialog(null);
         setNote("");
         setIsSubmitting(false);
@@ -498,53 +503,74 @@ export default function Review({ params }: PageProps) {
               </Button>
             </Link>
           )}
-          {(app.status === "Pending" || app.status === "Under Review") && role === "Reviewer" && (
+          {app.status === "Pending" && role === "Admin" && (
+            <>
+              <Button
+                variant="outline"
+                className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-900/50 dark:text-orange-400 dark:hover:bg-orange-950/20"
+                onClick={() => setDialog("correction")}
+              >
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                Flag correction
+              </Button>
+              <Button
+                className="bg-navy hover:bg-navy/90 text-white border-none"
+                onClick={() => setDialog("forward_to_reviewers")}
+                disabled={isSubmitting}
+              >
+                <Check className="mr-2 h-4 w-4" />
+                Forward to Reviewers
+              </Button>
+            </>
+          )}
+
+          {app.status === "Under Review" && (role === "Reviewer" || role?.toLowerCase() === "head_reviewer") && !app.applicationReviews?.some((review: { reviewerId?: string }) => review.reviewerId === userId) && (
             <Button
               variant="outline"
               className="border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-950/20 shadow-sm"
               onClick={() => setDialog("submit_review_note")}
-              disabled={isSubmitting || !userId || app.applicationReviews?.some((review: { reviewerId?: string }) => review.reviewerId === userId)}
+              disabled={isSubmitting || !userId}
             >
               <FileText className="mr-2 h-4 w-4" />
               Add Review Note
             </Button>
           )}
 
-          {(app.status === "Pending" || app.status === "Under Review") && (role?.toLowerCase() === "head_reviewer" || role === "Admin") && (
-            <Button
-              variant="outline"
-              className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-900/50 dark:text-orange-400 dark:hover:bg-orange-950/20"
-              onClick={() => setDialog("correction")}
-            >
-              <AlertTriangle className="mr-2 h-4 w-4" />
-              Flag correction
-            </Button>
-          )}
+          {app.status === "Under Review" && role?.toLowerCase() === "head_reviewer" && (
+            <>
+              <Button
+                variant="outline"
+                className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-900/50 dark:text-orange-400 dark:hover:bg-orange-950/20"
+                onClick={() => setDialog("correction")}
+              >
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                Flag correction
+              </Button>
 
-          {app.status === "Under Review" && (role === "Admin" || role?.toLowerCase() === "head_reviewer") && (
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className={(app.applicationReviews?.length || 0) < 2 ? "cursor-not-allowed inline-block" : ""}>
-                    <Button
-                      className="bg-navy hover:bg-navy/90 text-white border-none"
-                      onClick={() => setDialog("forward")}
-                      disabled={isSubmitting || (app.applicationReviews?.length || 0) < 2}
-                      style={(app.applicationReviews?.length || 0) < 2 ? { pointerEvents: "none" } : undefined}
-                    >
-                      <Check className="mr-2 h-4 w-4" />
-                      Forward to Approver
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                {(app.applicationReviews?.length || 0) < 2 && (
-                  <TooltipContent className="z-[70] flex items-center gap-2 bg-amber-500 text-white border-none shadow-md">
-                    <Info className="h-4 w-4" />
-                    <p className="font-medium">Min of 2 reviews are required!</p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </TooltipProvider>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={(app.applicationReviews?.length || 0) < 3 ? "cursor-not-allowed inline-block" : ""}>
+                      <Button
+                        className="bg-navy hover:bg-navy/90 text-white border-none"
+                        onClick={() => setDialog("forward")}
+                        disabled={isSubmitting || (app.applicationReviews?.length || 0) < 3}
+                        style={(app.applicationReviews?.length || 0) < 3 ? { pointerEvents: "none" } : undefined}
+                      >
+                        <Check className="mr-2 h-4 w-4" />
+                        Forward to Approver
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {(app.applicationReviews?.length || 0) < 3 && (
+                    <TooltipContent className="z-[70] flex items-center gap-2 bg-amber-500 text-white border-none shadow-md">
+                      <Info className="h-4 w-4" />
+                      <p className="font-medium">Min of 3 reviews are required!</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+            </>
           )}
 
           {app.status === "Pending Approval" && (role === "Approver" || role === "Admin") && (
@@ -664,28 +690,72 @@ export default function Review({ params }: PageProps) {
 
 
 
-          {/* Status History Note */}
+          {/* Status History Notes — show all notes with contextual labels */}
           {(() => {
-            const latestNote = app.statusHistory?.find((h: any) => h.reviewerNotes && !["Approved by Approver.", "Rejected by Approver."].includes(h.reviewerNotes));
-            if (!latestNote) return null;
+            const notesToShow = (app.statusHistory ?? []).filter((h: any) =>
+              h.reviewerNotes && !["Approved by Approver.", "Rejected by Approver."].includes(h.reviewerNotes)
+            );
+            if (notesToShow.length === 0) return null;
+
+            const getNoteStyle = (newStatus: string) => {
+              if (newStatus === "Under_Review") return {
+                card: "border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20",
+                header: "border-blue-200/50 dark:border-blue-900/50",
+                title: "text-blue-900 dark:text-blue-400",
+                dot: "bg-blue-500",
+                body: "text-blue-800 dark:text-blue-400/90",
+                label: "Admin Forwarding Note"
+              };
+              if (newStatus === "Pending_Approval") return {
+                card: "border-violet-200 dark:border-violet-900/50 bg-violet-50/50 dark:bg-violet-950/20",
+                header: "border-violet-200/50 dark:border-violet-900/50",
+                title: "text-violet-900 dark:text-violet-400",
+                dot: "bg-violet-500",
+                body: "text-violet-800 dark:text-violet-400/90",
+                label: "Head Reviewer Forwarding Note"
+              };
+              // Correction_Required and anything else
+              return {
+                card: "border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20",
+                header: "border-amber-200/50 dark:border-amber-900/50",
+                title: "text-amber-900 dark:text-amber-500",
+                dot: "bg-amber-500",
+                body: "text-amber-800 dark:text-amber-400/90",
+                label: "Correction Required Note"
+              };
+            };
+
             return (
-              <motion.div
-                initial={{ opacity: 0, x: -15 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <Card className="border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20">
-                  <CardHeader className="py-3 px-4 border-b border-amber-200/50 dark:border-amber-900/50">
-                    <CardTitle className="text-sm font-bold text-amber-900 dark:text-amber-500 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                      Status Note
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 text-sm text-amber-800 dark:text-amber-400/90 whitespace-pre-wrap leading-relaxed">
-                    {latestNote.reviewerNotes}
-                  </CardContent>
-                </Card>
-              </motion.div>
+              <div className="flex flex-col gap-2">
+                {notesToShow.map((h: any, idx: number) => {
+                  const s = getNoteStyle(h.newStatus);
+                  return (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, x: -15 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 + idx * 0.05 }}
+                    >
+                      <Card className={s.card}>
+                        <CardHeader className={`py-3 px-4 border-b ${s.header}`}>
+                          <CardTitle className={`text-sm font-bold flex items-center gap-2 ${s.title}`}>
+                            <span className={`w-2 h-2 rounded-full ${s.dot}`}></span>
+                            {s.label}
+                            {h.createdAt && (
+                              <span className="ml-auto text-xs font-normal opacity-60">
+                                {new Date(h.createdAt).toLocaleDateString()}
+                              </span>
+                            )}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className={`p-4 text-sm whitespace-pre-wrap leading-relaxed ${s.body}`}>
+                          {h.reviewerNotes}
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
             );
           })()}
 
@@ -1015,45 +1085,13 @@ export default function Review({ params }: PageProps) {
                              if (!url) {
                                return <div className="text-zinc-500">Document URL missing</div>;
                              }
-                             const checkUrl = doc.originalFileUrl || url;
-                             const isImage = checkUrl?.toLowerCase().match(/\.(jpeg|jpg|gif|png)$/i) || checkUrl?.startsWith("data:image");
+                             // Use the actual filename (stored in doc.fileName or from the storage path) to detect type
+                             const fileNameForCheck = doc.fileName || doc.originalFileUrl || "";
+                             const isImage = fileNameForCheck.toLowerCase().match(/\.(jpeg|jpg|gif|png)$/i);
                              return isImage ? (
-                                <div id={`viewer-container-${i}`} className="relative w-full h-full bg-white shadow-sm rounded-md overflow-hidden flex flex-col group">
-                                  <div className="flex-1 w-full h-full flex items-center justify-center overflow-auto p-4">
-                                    <img 
-                                      src={url} 
-                                      alt={doc.name} 
-                                      className="max-w-full max-h-full object-contain" 
-                                      style={{
-                                        transform: `scale(${zoom}) rotate(${rot}deg)`,
-                                        transition: "transform 0.15s ease-out",
-                                        transformOrigin: "center center"
-                                      }}
-                                    />
-                                  </div>
-                                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 p-1.5 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))}><ZoomOut className="h-4 w-4 text-zinc-700 dark:text-zinc-300" /></Button>
-                                    <span className="text-xs w-12 text-center font-semibold text-zinc-700 dark:text-zinc-300">{Math.round(zoom * 100)}%</span>
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setZoom((z) => Math.min(3, z + 0.1))}><ZoomIn className="h-4 w-4 text-zinc-700 dark:text-zinc-300" /></Button>
-                                    <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 mx-1" />
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setRot((r) => (r - 90) % 360)}><RotateCcw className="h-4 w-4 text-zinc-700 dark:text-zinc-300" /></Button>
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setRot((r) => (r + 90) % 360)}><RotateCw className="h-4 w-4 text-zinc-700 dark:text-zinc-300" /></Button>
-                                    <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 mx-1" />
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => toggleFullscreen(i)}>
-                                      {isFullscreen ? <Minimize2 className="h-4 w-4 text-zinc-700 dark:text-zinc-300" /> : <Maximize2 className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />}
-                                    </Button>
-                                    <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 mx-1" />
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => {
-                                      const a = document.createElement("a");
-                                      a.href = url;
-                                      a.download = doc.name;
-                                      a.click();
-                                      toast.success("Image downloaded");
-                                    }}><Download className="h-4 w-4 text-zinc-700 dark:text-zinc-300" /></Button>
-                                  </div>
-                                </div>
+                                <ImageViewer src={url} alt={doc.name} fileName={doc.fileName || doc.name + '.jpg'} />
                              ) : (
-                                <PDFViewer src={url} fileName={doc.name + ".pdf"} />
+                                <PDFViewer src={url} fileName={doc.fileName || doc.name + ".pdf"} />
                              );
                           })()}
                         </div>
@@ -1079,6 +1117,7 @@ export default function Review({ params }: PageProps) {
               {dialog === "reject" && "Confirm rejection"}
               {dialog === "correction" && "Request corrections"}
               {dialog === "forward" && "Forward to Approver"}
+              {dialog === "forward_to_reviewers" && "Forward to Review Team"}
               {dialog === "failPayment" && "Mark Payment as Failed"}
               {dialog === "submit_review_note" && "Submit Review Note"}
             </DialogTitle>
@@ -1093,6 +1132,8 @@ export default function Review({ params }: PageProps) {
                 "Specify the files or descriptions requiring update. The registration process will be suspended until complete."}
               {dialog === "forward" &&
                 "The application will be sent to the Approver queue for final decision. You may include an optional note."}
+              {dialog === "forward_to_reviewers" &&
+                "The application will be assigned to the Review Team for technical assessment. You may include an optional note."}
               {dialog === "failPayment" &&
                 "A rejection reason is mandatory when failing or refunding a payment. This will be visible to the applicant."}
               {dialog === "submit_review_note" &&
@@ -1103,7 +1144,7 @@ export default function Review({ params }: PageProps) {
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder={
-                (dialog === "approve" || dialog === "forward")
+                (dialog === "approve" || dialog === "forward" || dialog === "forward_to_reviewers")
                   ? "Add an optional note..."
                   : dialog === "submit_review_note"
                     ? "Enter your review notes..."
@@ -1157,6 +1198,7 @@ export default function Review({ params }: PageProps) {
               {dialog === "reject" && "Reject Applicant"}
               {dialog === "correction" && "Request Corrections"}
               {dialog === "forward" && "Forward Application"}
+              {dialog === "forward_to_reviewers" && "Forward to Reviewers"}
               {dialog === "submit_review_note" && "Submit Note"}
               {dialog === "failPayment" && "Mark as Failed"}
             </Button>

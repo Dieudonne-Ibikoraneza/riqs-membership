@@ -680,7 +680,7 @@ export default function Mentorship() {
           )}
 
           {/* Two upgrade paths — only shown when eligible and not yet requested */}
-          {!isFullyUpgraded && upgradeEligible && (!upgradeRequested || assignment?.status === 'Approved') && (
+          {!isFullyUpgraded && upgradeEligible && (!upgradeRequested || assignment?.status === 'Approved' || assignment?.status === 'Correction_Required') && (
             <div className="space-y-4 mt-6 pt-6 border-t border-zinc-100 dark:border-zinc-800">
               <div>
                 <h3 className="text-lg font-bold text-navy dark:text-zinc-100">Ready to Upgrade?</h3>
@@ -766,7 +766,7 @@ export default function Mentorship() {
             <div className="flex items-center gap-3 mt-4 p-4 rounded-lg border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 text-sm">
               <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
               <div className="text-emerald-800 dark:text-emerald-300 font-sans">
-                <strong>Upgrade request submitted!</strong> Your mentorship upgrade is bundled and pending {assignment?.status === 'Pending_Mentor' ? 'Mentor final recommendation' : 'Admin board review'}. Check the APC Assessment History section below for status updates once approved.
+                <strong>{assignment?.status === 'Correction_Required' ? 'Corrections requested.' : 'Upgrade request submitted!'}</strong> Your mentorship upgrade is {assignment?.status === 'Correction_Required' ? 'ready to be resubmitted after you address the review notes.' : `pending ${assignment?.status === 'Pending_Mentor' ? 'Mentor final recommendation' : assignment?.status === 'Pending_Reviewer_Board' ? 'Reviewer Board review' : 'Admin board review'}.`} Check the APC Assessment History section below for status updates once approved.
               </div>
             </div>
           )}

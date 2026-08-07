@@ -119,7 +119,7 @@ export default function MentorshipQueuePage() {
         <div>
           <h1 className="text-3xl font-bold text-navy tracking-tight">Mentorship Queue</h1>
           <p className="text-sm text-muted-foreground font-sans mt-1">
-            Review upgrade requests, inspect submitted documents, and approve candidates to sit the APC.
+            Review upgrade requests, collect reviewer-board recommendations, and process final APC decisions.
           </p>
         </div>
         <Tabs value={status} onValueChange={setStatus} className="w-full sm:w-auto">
@@ -285,6 +285,10 @@ export default function MentorshipQueuePage() {
                           <span className="inline-flex items-center rounded-full bg-red-50 dark:bg-red-500/10 px-2.5 py-1 text-xs font-medium text-red-700 dark:text-red-400 ring-1 ring-inset ring-red-600/10">
                             Flagged
                           </span>
+                        ) : a.status === 'Pending_Reviewer_Board' ? (
+                          <span className="inline-flex items-center rounded-full bg-violet-50 dark:bg-violet-500/10 px-2.5 py-1 text-xs font-medium text-violet-700 dark:text-violet-400 ring-1 ring-inset ring-violet-600/20">
+                            Reviewer Board
+                          </span>
                         ) : (
                           <span className="inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-700 dark:text-blue-400 ring-1 ring-inset ring-blue-700/10 dark:ring-blue-400/20">
                             Pending
@@ -296,7 +300,7 @@ export default function MentorshipQueuePage() {
                           <button
                             className="inline-flex items-center text-xs font-semibold text-navy dark:text-gold hover:underline group"
                           >
-                            {a.status === 'Pending_Admin_Review' ? 'Review' : 'View Details'}
+                            {a.status === 'Pending_Reviewer_Board' ? 'Board Review' : a.status === 'Pending_Admin_Review' ? 'Final Review' : 'View Details'}
                             <ArrowRight className="ml-1 h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
                           </button>
                         </Link>

@@ -328,6 +328,21 @@ export async function flagMentorshipForCorrection(applicationId: string, notes: 
   return data;
 }
 
+export async function submitMentorshipReview(payload: {
+  applicationId: string;
+  notes: string;
+  proposedAssessmentDate?: string;
+  recommendation?: string;
+}): Promise<any> {
+  const { data } = await axiosClient.post('/admin/mentorship/review', payload);
+  return data;
+}
+
+export async function forwardMentorshipToApprover(applicationId: string, notes: string): Promise<any> {
+  const { data } = await axiosClient.post('/admin/mentorship/forward', { applicationId, notes });
+  return data;
+}
+
 export async function awardAssociate(applicationId: string): Promise<any> {
   const { data } = await axiosClient.post(`/progression/associate/award`, { applicationId });
   return data;

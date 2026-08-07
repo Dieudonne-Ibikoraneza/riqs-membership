@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getApplicationDetail, submitReviewerAction, submitApproverDecision, verifyPayment } from "@/lib/api/admin";
+import { getApplicationDetail, submitReviewerAction, submitApproverDecision, verifyPayment, submitMentorshipReview, forwardMentorshipToApprover } from "@/lib/api/admin";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { applicantServices } from "@/services/applicant.services";
@@ -131,6 +131,8 @@ export default function Review({ params }: PageProps) {
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [boardNotes, setBoardNotes] = useState("");
+  const [proposedAssessmentDate, setProposedAssessmentDate] = useState("");
 
 
 
@@ -239,7 +241,8 @@ export default function Review({ params }: PageProps) {
           }),
           apcAssessments: apcRes.assessments || [],
           statusHistory: res.statusHistory || [],
-          logbookEntries: res.logbookEntries || []
+          logbookEntries: res.logbookEntries || [],
+          mentorshipReviews: res.mentorshipReviews || []
         };
         setApp(mappedApp);
       } catch (err) {
@@ -304,6 +307,32 @@ export default function Review({ params }: PageProps) {
       }
     },
     onError: (err: any) => toast.error(err.response?.data?.error || "Failed to review mentorship upgrade")
+  });
+
+  const mentorshipBoardReviewMutation = useMutation({
+    mutationFn: () => submitMentorshipReview({
+      applicationId: app.id,
+      notes: boardNotes,
+      proposedAssessmentDate: app?.mentorship?.apcReadiness === "Ready" ? proposedAssessmentDate : undefined,
+    }),
+    onSuccess: () => {
+      toast.success("Reviewer-board recommendation saved.");
+      setBoardNotes("");
+      setProposedAssessmentDate("");
+      queryClient.invalidateQueries({ queryKey: ["application", id] });
+      window.location.reload();
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || "Failed to save reviewer-board recommendation.")
+  });
+
+  const forwardMentorshipMutation = useMutation({
+    mutationFn: () => forwardMentorshipToApprover(app.id, boardNotes),
+    onSuccess: () => {
+      toast.success("Mentorship upgrade forwarded to Admin/Approver.");
+      setApp((prev: any) => ({ ...prev, mentorship: { ...prev.mentorship, status: "Pending_Admin_Review" } }));
+      setBoardNotes("");
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || "Unable to forward mentorship upgrade.")
   });
 
   const awardAssociateMutation = useMutation({
@@ -533,6 +562,54 @@ export default function Review({ params }: PageProps) {
                   </div>
                 </CardContent>
               </Card>
+
+              {app.mentorship.status === "Pending_Reviewer_Board" && (role === "Reviewer" || role === "Head_Reviewer") && (
+                <div className="bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-900/50 rounded-xl p-5 shadow-sm space-y-4">
+                  <div>
+                    <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">Reviewer Board</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Submit your recommendation{app.mentorship.apcReadiness === "Ready" ? " and proposed APC date/time" : ""}. Three board reviews are required before the Head Reviewer forwards this case.
+                    </p>
+                  </div>
+                  <div className="text-xs font-medium text-blue-800 dark:text-blue-300">
+                    {app.mentorshipReviews?.length || 0} of 3 reviewer submissions received
+                  </div>
+                  {app.mentorshipReviews?.length > 0 && (
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      {app.mentorshipReviews.map((review: any) => (
+                        <div key={review.id}>{review.reviewer?.fullName || "Reviewer"}{review.proposedAssessmentDate ? ` — proposes ${new Date(review.proposedAssessmentDate).toLocaleString()}` : ""}</div>
+                      ))}
+                    </div>
+                  )}
+                  <Textarea value={boardNotes} onChange={(e) => setBoardNotes(e.target.value)} placeholder={role === "Head_Reviewer" ? "Board summary or forwarding note" : "Your review recommendation"} />
+                  {app.mentorship.apcReadiness === "Ready" && (
+                    <div>
+                      <Label className="text-xs">Proposed assessment date & time</Label>
+                      <Input className="mt-1" type="datetime-local" value={proposedAssessmentDate} onChange={(e) => setProposedAssessmentDate(e.target.value)} />
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!boardNotes.trim() || (app.mentorship.apcReadiness === "Ready" && !proposedAssessmentDate) || mentorshipBoardReviewMutation.isPending}
+                      onClick={() => mentorshipBoardReviewMutation.mutate()}
+                    >
+                      {mentorshipBoardReviewMutation.isPending ? "Saving…" : "Submit Board Review"}
+                    </Button>
+                    {role === "Head_Reviewer" && (
+                      <Button
+                        size="sm"
+                        className="bg-navy text-white hover:bg-navy/90"
+                        disabled={!boardNotes.trim() || (app.mentorshipReviews?.length || 0) < 3 || forwardMentorshipMutation.isPending}
+                        onClick={() => forwardMentorshipMutation.mutate()}
+                      >
+                        {forwardMentorshipMutation.isPending ? "Forwarding…" : "Forward to Admin / Approver"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {app.mentorship.status === "Pending_Admin_Review" && (role === "Admin" || role === "Approver") && (
                 <div className="bg-white dark:bg-zinc-900 border border-amber-200 dark:border-amber-900/50 rounded-xl p-5 shadow-sm space-y-4">

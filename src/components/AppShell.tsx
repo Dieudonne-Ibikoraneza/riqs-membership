@@ -145,7 +145,7 @@ export function AppShell({
     { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
     { href: "/admin/applications", label: "Applications", icon: ClipboardList },
     { href: "/admin/mentorship", label: "Mentorship", icon: BookOpen },
-    ...(role === "Admin" ? [{ href: "/admin/apc", label: "APC Assessments", icon: GraduationCap }] : []),
+    ...(["Admin", "Approver"].includes(role || "") ? [{ href: "/admin/apc", label: "APC Assessments", icon: GraduationCap }] : []),
     ...(role === "Admin" ? [{ href: "/admin/payments", label: "Finance & Payments", icon: Wallet }] : []),
     { href: "/admin/members", label: "Members", icon: Users },
     { href: "/admin/email", label: "Email System", icon: Send },

@@ -284,12 +284,12 @@ export default function ApcDetailPage({ params }: PageProps) {
           </div>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">{statusLabels[apc.status]}</p>
           <div className="flex gap-2 mt-3">
-            {apc.status === "Requested" && role === "Admin" && (
+            {apc.status === "Requested" && ["Admin", "Approver"].includes(role || "") && (
               <Button size="sm" className="bg-gold text-[#1a1a1a] hover:bg-gold/90 border-none font-bold h-8 text-xs" onClick={() => setScheduleDialog(true)}>
                 Schedule Board
               </Button>
             )}
-            {["Scheduled", "Attended"].includes(apc.status) && role === "Admin" && (
+            {["Scheduled", "Attended"].includes(apc.status) && ["Admin", "Approver"].includes(role || "") && (
               <Button size="sm" className="bg-navy text-white hover:bg-navy/90 border-none font-bold h-8 text-xs" onClick={() => setGradeDialog(true)}>
                 Grade Result
               </Button>

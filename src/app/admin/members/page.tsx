@@ -59,6 +59,7 @@ import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/lib/auth";
 
 type SortKey = "name" | "id" | "expiry" | "status" | "joined";
 
@@ -73,6 +74,8 @@ function formatLabel(val: string | null | undefined): string {
 
 export default function AdminMembers() {
   const router = useRouter();
+  const { role } = useAuth();
+  const canManageMemberStatus = ["Admin", "Approver"].includes(role || "");
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [catFilter, setCatFilter] = useState("all");
@@ -278,13 +281,15 @@ export default function AdminMembers() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            onClick={() => setAddMemberDialogOpen(true)}
-            className="bg-gold text-[#1a1a1a] hover:bg-gold/90 transition-all font-semibold"
-          >
-            <Users className="mr-2 h-4 w-4" />
-            Add Member
-          </Button>
+          {canManageMemberStatus && (
+            <Button
+              onClick={() => setAddMemberDialogOpen(true)}
+              className="bg-gold text-[#1a1a1a] hover:bg-gold/90 transition-all font-semibold"
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Add Member
+            </Button>
+          )}
           <Link href="/members">
             <Button
               variant="outline"
@@ -636,16 +641,18 @@ export default function AdminMembers() {
                             <Users className="mr-2 h-4 w-4" />
                             View Profile
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setHonorsDialog({ open: true, member: m });
-                              setSelectedHonors(Array.isArray(m.honors) ? m.honors : []);
-                            }}
-                            className="text-indigo-600 dark:text-indigo-400 font-medium cursor-pointer"
-                          >
-                            <Medal className="mr-2 h-4 w-4" />
-                            Assign Honor Badges
-                          </DropdownMenuItem>
+                          {canManageMemberStatus && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setHonorsDialog({ open: true, member: m });
+                                setSelectedHonors(Array.isArray(m.honors) ? m.honors : []);
+                              }}
+                              className="text-indigo-600 dark:text-indigo-400 font-medium cursor-pointer"
+                            >
+                              <Medal className="mr-2 h-4 w-4" />
+                              Assign Honor Badges
+                            </DropdownMenuItem>
+                          )}
                           
                           <DropdownMenuItem 
                             className="cursor-pointer"
@@ -916,9 +923,6 @@ export default function AdminMembers() {
                   <DialogFooter className="mt-2 border-t pt-4">
                     <Button variant="outline" className="text-xs w-full sm:w-auto" onClick={() => setHonorsDialog({ open: false, member: null })}>
                       Cancel
-                    </Button>
-                    <Button asChild className="bg-navy hover:bg-navy/90 text-white text-xs font-bold w-full sm:w-auto">
-                      <Link href={`/admin/settings?category_id=${catObj?.id || member.categoryId}`}>Manage Honors in Settings</Link>
                     </Button>
                   </DialogFooter>
                 </>

@@ -42,6 +42,7 @@ import { toast } from "sonner";
 import { getMemberById, awardFellowStatus, revokeFellowStatus, changeMembershipCategory, sendAdminEmail, updateMemberHonors } from "@/lib/api/admin";
 import { axiosClient } from "@/lib/axiosClient";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 
@@ -86,6 +87,8 @@ const TICKET_PAGE_SIZE = 5;
 export default function AdminMemberProfilePage() {
   const { id } = useParams();
   const router = useRouter();
+  const { role } = useAuth();
+  const canManageMemberStatus = ["Admin", "Approver"].includes(role || "");
   const [member, setMember] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -277,12 +280,16 @@ export default function AdminMemberProfilePage() {
                 <FileText className="h-4 w-4" /> View Application
               </Button>
             )}
-            <Button variant="outline" className="gap-2 hidden sm:flex" onClick={handleOpenHonors}>
-              <Medal className="h-4 w-4" /> Manage Honors
-            </Button>
-            <Button className="bg-navy hover:bg-blue-800 text-white gap-2" onClick={() => setDialog("change-class")}>
-              <TrendingUp className="h-4 w-4" /> Change Membership
-            </Button>
+            {canManageMemberStatus && (
+              <>
+                <Button variant="outline" className="gap-2 hidden sm:flex" onClick={handleOpenHonors}>
+                  <Medal className="h-4 w-4" /> Manage Honors
+                </Button>
+                <Button className="bg-navy hover:bg-blue-800 text-white gap-2" onClick={() => setDialog("change-class")}>
+                  <TrendingUp className="h-4 w-4" /> Change Membership
+                </Button>
+              </>
+            )}
           </div>
         </motion.div>
       </div>
@@ -767,9 +774,6 @@ export default function AdminMemberProfilePage() {
                   <DialogFooter className="mt-2 border-t pt-4">
                     <Button variant="outline" className="text-xs w-full sm:w-auto" onClick={() => setDialog(null)}>
                       Cancel
-                    </Button>
-                    <Button asChild className="bg-navy hover:bg-navy/90 text-white text-xs font-bold w-full sm:w-auto">
-                      <Link href={`/admin/settings?category_id=${category?.id || member?.categoryId}`}>Manage Honors in Settings</Link>
                     </Button>
                   </DialogFooter>
                 </>

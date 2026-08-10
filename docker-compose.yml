@@ -5,23 +5,37 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL to the public backend URL}
+
     image: riqs-membership-web:local
+
     environment:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
+
     ports:
       - "${WEB_PORT:-3000}:3000"
+
     restart: unless-stopped
     init: true
+
     security_opt:
       - no-new-privileges:true
+
     read_only: true
+
     tmpfs:
       - /tmp:size=64m,noexec,nosuid
-      - /app/.next/server:size=128m
+      - /app/.next/server:size=128m,uid=1001,gid=1001,mode=0755
+
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+        ]
       interval: 30s
       timeout: 5s
       start_period: 20s

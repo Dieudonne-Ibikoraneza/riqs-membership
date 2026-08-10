@@ -97,26 +97,26 @@ function DocumentCard({ doc, docTypeMap }: { doc: any; docTypeMap: Record<string
   const friendlyName = formatLabel(doc.documentName || resolveDocName(doc.documentType, docTypeMap));
 
   return (
-    <Card className="border-zinc-200 dark:border-zinc-800">
-      <CardContent className="flex flex-col p-4">
+    <Card className="w-full min-w-0 max-w-full overflow-hidden border-zinc-200 dark:border-zinc-800">
+      <CardContent className="w-full min-w-0 max-w-full flex flex-col p-4">
         {/* Header */}
         <div 
-          className="flex items-start justify-between gap-4 cursor-pointer"
+          className="flex min-w-0 items-start justify-between gap-4 cursor-pointer"
           onClick={toggleExpand}
         >
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm capitalize">{friendlyName}</span>
-              <Badge variant="outline" className="gap-1 text-xs border-zinc-200 bg-zinc-50 dark:bg-zinc-900 text-zinc-650 dark:text-zinc-400">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
+              <span className="min-w-0 flex-1 truncate font-semibold text-zinc-900 dark:text-zinc-100 text-sm capitalize" title={friendlyName}>{friendlyName}</span>
+              <Badge variant="outline" className="shrink-0 gap-1 text-xs border-zinc-200 bg-zinc-50 dark:bg-zinc-900 text-zinc-650 dark:text-zinc-400">
                 <Lock className="h-3 w-3 text-gold" />Locked
               </Badge>
             </div>
-            <div className="text-xs text-muted-foreground font-sans">
+            <div className="min-w-0 max-w-full whitespace-normal break-all text-xs text-muted-foreground font-sans">
               {doc.fileName} · Uploaded {new Date(doc.uploadedAt).toLocaleDateString()}
             </div>
           </div>
           
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             <Button 
               size="sm" 
               variant="outline" 
@@ -145,7 +145,7 @@ function DocumentCard({ doc, docTypeMap }: { doc: any; docTypeMap: Record<string
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden"
             >
-              <div className="mt-4 border border-zinc-200 dark:border-zinc-800 h-[450px] relative bg-zinc-50 dark:bg-zinc-900 rounded-md overflow-hidden">
+              <div className="mt-4 min-w-0 border border-zinc-200 dark:border-zinc-800 h-[min(70vh,450px)] min-h-[300px] relative bg-zinc-50 dark:bg-zinc-900 rounded-md overflow-hidden">
                 {isLoading ? (
                   <div className="w-full h-full p-4 flex flex-col gap-4 bg-zinc-50 dark:bg-zinc-900 animate-pulse">
                     {/* Simulated PDF Toolbar */}
@@ -259,13 +259,14 @@ export default function Documents() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 stagger">
+        <div className="grid min-w-0 gap-4 stagger">
           {documents.map((d: any, index: number) => (
             <motion.div
               key={d.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.04 }}
+              className="min-w-0 max-w-full"
             >
               <DocumentCard doc={d} docTypeMap={docTypeMap} />
             </motion.div>

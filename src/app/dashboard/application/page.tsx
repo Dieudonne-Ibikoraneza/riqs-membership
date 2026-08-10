@@ -1868,7 +1868,7 @@ function WizardContent({
                     </p>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                  <div className="grid min-w-0 grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                     {contextualChecklist.map((d: any) => {
                       const hasDoc = !!data.docs[d.uid];
                       const isUploading = data.docs[d.uid] === "uploading_from_client";
@@ -1876,9 +1876,9 @@ function WizardContent({
                       const isPending = isUploading || isLoadingBackend;
                       const isCollapsed = collapsedDocs[d.uid] || false;
                       return (
-                        <div key={d.uid} className={cn("relative border border-dashed border-zinc-300 rounded-sm p-4 bg-white transition-all", hasDoc ? "col-span-1 md:col-span-2" : "")}>
+                        <div key={d.uid} className={cn("relative w-full min-w-0 max-w-full overflow-hidden border border-dashed border-zinc-300 rounded-sm p-4 bg-white transition-all", hasDoc ? "col-span-1 md:col-span-2" : "")}>
                           {!hasDoc ? (
-                            <div className="flex items-center gap-4">
+                            <div className="flex min-w-0 items-center gap-4">
                               <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                 onChange={(e) => {
                                   if (e.target.files && e.target.files[0]) {
@@ -1899,9 +1899,9 @@ function WizardContent({
                               <div className="w-12 h-12 flex items-center justify-center bg-[#fef4e5] text-navy rounded-sm shrink-0">
                                 <Upload className="h-5 w-5" />
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-navy flex items-center gap-1">
-                                  <span className="truncate">{d.l}</span>
+                              <div className="min-w-0 flex-1">
+                                <p className="min-w-0 flex text-sm font-semibold text-navy items-center gap-1">
+                                  <span className="min-w-0 truncate" title={d.l}>{d.l}</span>
                                   {d.r && <span className="text-red-500 shrink-0">*</span>}
                                 </p>
                                 <p className="text-xs text-muted-foreground truncate">Click to upload</p>
@@ -1909,14 +1909,14 @@ function WizardContent({
                             </div>
                           ) : (
                             <div className="space-y-3 relative z-10">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3 min-w-0">
+                              <div className="flex min-w-0 items-center justify-between gap-3">
+                                <div className="flex min-w-0 flex-1 items-center gap-3">
                                   <div className="w-10 h-10 flex items-center justify-center bg-green-50 text-green-600 rounded-sm shrink-0 cursor-pointer" onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.uid]: !prev[d.k] }))}>
                                     {isPending ? <Loader2 className="h-5 w-5 animate-spin text-gold" /> : <CheckCircle2 className="h-5 w-5" />}
                                   </div>
                                   <div className={cn("select-none flex-1 min-w-0", !isPending && "cursor-pointer")} onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.uid]: !prev[d.k] }))}>
-                                    <p className="text-sm font-semibold text-navy flex items-center gap-1">
-                                      <span className="truncate">{d.l}</span>
+                                    <p className="min-w-0 flex text-sm font-semibold text-navy items-center gap-1">
+                                      <span className="min-w-0 truncate" title={d.l}>{d.l}</span>
                                       {d.r && <span className="text-red-500 shrink-0">*</span>}
                                     </p>
                                     <p className="text-xs text-green-600 truncate">
@@ -1924,7 +1924,7 @@ function WizardContent({
                                     </p>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex shrink-0 items-center gap-2">
                                   {!isPending && (
                                     <Button variant="ghost" size="sm" onClick={() => setCollapsedDocs(prev => ({ ...prev, [d.uid]: !prev[d.k] }))} className="text-muted-foreground hover:bg-zinc-100 hidden sm:flex">
                                       {isCollapsed ? <><ChevronDown className="h-4 w-4 mr-1" /> Expand</> : <><ChevronUp className="h-4 w-4 mr-1" /> Collapse</>}
@@ -1951,7 +1951,7 @@ function WizardContent({
                                     transition={{ duration: 0.3, ease: "easeInOut" }}
                                     className="overflow-hidden"
                                   >
-                                    <div className="w-full h-[450px] border rounded-md overflow-hidden bg-zinc-50 relative mt-2">
+                                    <div className="w-full min-w-0 h-[min(70vh,450px)] min-h-[300px] border rounded-md overflow-hidden bg-zinc-50 relative mt-2">
                                       {isPending ? (
                                         <div className="w-full h-full p-4 flex flex-col gap-4 bg-zinc-100 animate-pulse">
                                           <div className="w-full h-12 bg-zinc-200 rounded-md" />

@@ -318,7 +318,7 @@ export default function SettingsPage() {
 
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="mx-auto min-w-0 w-full max-w-6xl space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-navy flex items-center gap-2">
@@ -330,11 +330,11 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-muted p-1">
-          <TabsTrigger value="categories">Categories & Documents</TabsTrigger>
-          <TabsTrigger value="practice">Practice Locations</TabsTrigger>
-          <TabsTrigger value="entity">Entity Types</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full min-w-0">
+        <TabsList className="flex h-auto w-fit max-w-full min-w-0 flex-nowrap items-stretch justify-start gap-1 overflow-x-auto overflow-y-hidden bg-muted p-1">
+          <TabsTrigger value="categories" className="min-h-10 shrink-0 whitespace-nowrap px-4 py-2 text-center">Categories & Documents</TabsTrigger>
+          <TabsTrigger value="practice" className="min-h-10 shrink-0 whitespace-nowrap px-4 py-2 text-center">Practice Locations</TabsTrigger>
+          <TabsTrigger value="entity" className="min-h-10 shrink-0 whitespace-nowrap px-4 py-2 text-center">Entity Types</TabsTrigger>
         </TabsList>
 
         {/* ─── TAB 1: PRACTICE LOCATIONS (STATIC ENUMS) ────────────────────────── */}
@@ -460,7 +460,7 @@ export default function SettingsPage() {
 
         {/* ─── TAB 3: DYNAMIC CATEGORIES AND DOCUMENTS CRUD ───────────────────────── */}
         <TabsContent value="categories" className="mt-4">
-          <div className="grid gap-6 md:grid-cols-[260px_1fr] items-start">
+          <div className="grid min-w-0 gap-6 md:grid-cols-[260px_minmax(0,1fr)] items-start">
             
             {/* Sidebar of Categories */}
             <Card className="lg:sticky lg:top-6 border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 lg:max-h-[calc(100vh-140px)] max-h-[500px] overflow-y-auto flex flex-col">

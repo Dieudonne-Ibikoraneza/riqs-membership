@@ -339,9 +339,9 @@ export default function AdminOverview() {
       </div>
 
       {/* Live activity + Recent applications */}
-      <div className="grid gap-4 lg:grid-cols-2 items-start max-w-screen">
+      <div className="grid min-w-0 w-full max-w-full gap-4 lg:grid-cols-2 items-start">
         {/* Live Activity */}
-        <Card>
+        <Card className="min-w-0 max-w-full overflow-hidden">
           <CardHeader>
             <CardTitle className="font-display text-lg text-[#0b3363] flex items-center gap-2">
               {!loading && <Activity className="h-4 w-4 text-[#f1a500]" />}
@@ -351,7 +351,7 @@ export default function AdminOverview() {
               {loading ? <Skeleton className="h-4 w-40" /> : "Recent system events"}
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="min-w-0 space-y-2">
             {loading
               ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
               : recentActivity.length === 0
@@ -364,17 +364,17 @@ export default function AdminOverview() {
               : recentActivity.map((a: any, i: number) => (
                 <div
                   key={i}
-                  className="flex items-start gap-3 border-l-2 border-[#f1a500]/60 bg-accent/30 px-3 py-2 text-sm transition-all hover:bg-accent/60 overflow-hidden"
+                  className="flex min-w-0 items-start gap-3 border-l-2 border-[#f1a500]/60 bg-accent/30 px-3 py-2 text-sm transition-all hover:bg-accent/60 overflow-hidden"
                   style={{ animation: `fadeIn .4s ${i * 80}ms both` }}
                 >
                   <div className="h-2 w-2 mt-1.5 rounded-full bg-[#f1a500] animate-pulse shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <div className="text-[#0b3363] text-sm break-all whitespace-normal">
+                    <div className="min-w-0 text-[#0b3363] text-sm break-all whitespace-normal" style={{ overflowWrap: "anywhere" }}>
                       <span className="font-semibold">{a.actionByEmail}</span>
                       {" "}<span className="text-muted-foreground">{a.actionType?.toLowerCase().replace(/_/g, " ")}</span>
                     </div>
                     {a.details && (
-                      <div className="text-[#0b3363] font-semibold text-sm mt-0.5 leading-snug break-all whitespace-normal">
+                      <div className="min-w-0 text-[#0b3363] font-semibold text-sm mt-0.5 leading-snug break-all whitespace-normal" style={{ overflowWrap: "anywhere" }}>
                         {typeof a.details === "object" ? JSON.stringify(a.details) : String(a.details)}
                       </div>
                     )}
@@ -389,9 +389,9 @@ export default function AdminOverview() {
         </Card>
 
         {/* Recent Applications */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-4">
-            <div>
+        <Card className="min-w-0 max-w-full overflow-hidden">
+          <CardHeader className="flex min-w-0 flex-row items-center justify-between pb-4">
+            <div className="min-w-0">
               <CardTitle className="font-display text-lg text-[#0b3363]">
                 {loading ? <Skeleton className="h-6 w-40" /> : "Recent applications"}
               </CardTitle>
@@ -405,7 +405,7 @@ export default function AdminOverview() {
               </Link>
             )}
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="min-w-0 space-y-3">
             {loading
               ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)
               : recentApps.length === 0
@@ -419,12 +419,12 @@ export default function AdminOverview() {
                 <Link
                   key={a.id}
                   href={`/admin/applications/${a.id}`}
-                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between border border-zinc-200 bg-white p-4 transition-all hover:border-[#f1a500] hover:shadow-md gap-3"
+                  className="flex min-w-0 w-full max-w-full flex-col sm:flex-row items-start sm:items-center justify-between border border-zinc-200 bg-white p-4 transition-all hover:border-[#f1a500] hover:shadow-md gap-3"
                   style={{ animation: `fadeUp .4s ${i * 60}ms both` }}
                 >
-                  <div className="min-w-0 w-full sm:w-auto">
-                    <div className="truncate text-[17px] font-semibold text-[#0b3363] mb-0.5">{a.applicantName}</div>
-                    <div className="truncate text-[13px] text-muted-foreground">
+                  <div className="min-w-0 w-full flex-1 sm:w-auto">
+                    <div className="break-words text-[17px] font-semibold text-[#0b3363] mb-0.5" style={{ overflowWrap: "anywhere" }}>{a.applicantName}</div>
+                    <div className="break-words text-[13px] text-muted-foreground" style={{ overflowWrap: "anywhere" }}>
                       {a.id?.slice(0, 8)}… · {a.category} · {a.practiceLocation}
                     </div>
                   </div>

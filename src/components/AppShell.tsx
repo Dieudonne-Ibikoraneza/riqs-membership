@@ -392,15 +392,16 @@ export function AppShell({
       </aside>
 
       {/* Main column */}
-      <div className="relative flex flex-1 flex-col overflow-hidden">
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="absolute left-0 right-0 top-0 flex h-20 shrink-0 items-center justify-between border-b border-zinc-200 bg-white/80 px-4 backdrop-blur-md dark:border-zinc-800 dark:bg-black/50 z-[60]">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setMobileOpen(true)}
+              onClick={() => setMobileOpen((open) => !open)}
               className="md:hidden"
-              aria-label="Open menu"
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileOpen}
             >
-              <Menu className="h-6 w-6" />
+              {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
             <div className="text-sm">
               <div className="font-semibold text-navy text-lg">
@@ -428,11 +429,11 @@ export function AppShell({
         </header>
 
         {/* Content scrolls independently */}
-        <main className="flex-1 overflow-y-auto pt-20">
+        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto pt-20">
           <motion.div
             key={pathname}
             transition={{ duration: 0.35, ease: "easeOut" }}
-            className="p-4 md:p-6"
+            className="min-w-0 w-full max-w-full p-4 md:p-6"
           >
             {showExpiryBanner && (
               <div className="mb-6 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 p-4 shadow-sm relative overflow-hidden flex flex-col sm:flex-row items-center gap-4 sm:justify-between group transition-all hover:bg-amber-500/10">

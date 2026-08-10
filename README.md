@@ -58,6 +58,7 @@ runtime output, runs as a non-root user, and exposes port 3000.
 
 ```bash
 ./scripts/deploy.sh
+./scripts/deploy.sh --pull
 ./scripts/deploy.sh --logs
 ./scripts/deploy.sh --down
 ```
@@ -79,6 +80,11 @@ WEB_PORT=3001
 
 The container health check requests `/`. The frontend does not run database
 migrations; those are owned by the backend deployment.
+
+`--pull` runs `git pull --ff-only` before the Docker build and stops if the
+checkout has uncommitted or divergent changes. The frontend entrypoint seeds
+the Next.js server output into the writable `/app/.next/server` tmpfs before
+starting Next.js.
 
 ## Build-time environment behavior
 

@@ -6,12 +6,14 @@ cd "$SCRIPT_DIR/.."
 
 FOLLOW_LOGS=false
 ACTION=up
+PULL=false
 
 usage() {
   cat <<'USAGE'
 Usage: ./scripts/deploy.sh [options]
 
 Options:
+  --pull       Fast-forward the repository before deploying.
   --logs       Follow frontend logs after deployment.
   --down       Stop the frontend instead of deploying it.
   -h, --help   Show this help.
@@ -20,6 +22,7 @@ USAGE
 
 while (($#)); do
   case "$1" in
+    --pull) PULL=true ;;
     --logs) FOLLOW_LOGS=true ;;
     --down) ACTION=down ;;
     -h|--help) usage; exit 0 ;;
@@ -30,6 +33,12 @@ done
 
 command -v docker >/dev/null 2>&1 || { echo "Docker is required but was not found." >&2; exit 1; }
 docker compose version >/dev/null 2>&1 || { echo "Docker Compose v2 is required." >&2; exit 1; }
+
+if [[ "$PULL" == true ]]; then
+  command -v git >/dev/null 2>&1 || { echo "Git is required for --pull." >&2; exit 1; }
+  echo "Pulling the latest frontend commit..."
+  git pull --ff-only
+fi
 
 if [[ "$ACTION" == "down" ]]; then
   docker compose down

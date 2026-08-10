@@ -1190,9 +1190,9 @@ function WizardContent({
       </Card>
 
       {/* Main Content Grid */}
-      <div className={cn("grid gap-6 items-start", (contextualChecklist.length > 0 && currentStepName !== "Other Documents") ? "lg:grid-cols-12" : "grid-cols-1")}>
+      <div className={cn("grid min-w-0 gap-6 items-start", (contextualChecklist.length > 0 && currentStepName !== "Other Documents") ? "lg:grid-cols-12" : "grid-cols-1")}>
         {/* Left Side: Step Content */}
-        <div className={cn("flex flex-col", (contextualChecklist.length > 0 && currentStepName !== "Other Documents") ? "lg:col-span-5 pr-2" : "w-full")}>
+        <div className={cn("min-w-0 flex flex-col", (contextualChecklist.length > 0 && currentStepName !== "Other Documents") ? "lg:col-span-5 pr-2" : "w-full")}>
           <div className="space-y-6">
           <Card className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 mb-4">
         <CardHeader className="border-b border-zinc-50 dark:border-zinc-800/50 py-4">
@@ -2094,7 +2094,7 @@ function WizardContent({
 
     {/* Right Side: Contextual Document Uploader */}
     {(contextualChecklist.length > 0 && currentStepName !== "Other Documents") && (
-      <div className="lg:col-span-7 flex flex-col relative sticky top-6 h-[calc(100vh-48px)]">
+      <div className="min-w-0 max-w-full lg:col-span-7 flex flex-col relative lg:sticky lg:top-6 h-[min(70vh,650px)] lg:h-[calc(100vh-48px)] overflow-hidden">
         <div className="flex items-center gap-3 mb-2 px-1">
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-100">

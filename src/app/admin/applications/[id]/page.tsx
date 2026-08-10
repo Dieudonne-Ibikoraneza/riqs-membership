@@ -603,9 +603,9 @@ export default function Review({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-5">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-5">
         {/* Left column: Form data */}
-        <div className="space-y-4 lg:col-span-2">
+        <div className="min-w-0 space-y-4 lg:col-span-2">
           {/* APC Assessments — link to dedicated module */}
           {app.apcAssessments && app.apcAssessments.length > 0 && (
             <motion.div
@@ -993,7 +993,7 @@ export default function Review({ params }: PageProps) {
         </div>
 
         {/* Right column: Document viewer */}
-        <div className="lg:col-span-3 flex flex-col gap-4">
+        <div className="min-w-0 max-w-full lg:col-span-3 flex flex-col gap-4">
           {app.applicationReviews && app.applicationReviews.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 15 }}
@@ -1022,13 +1022,13 @@ export default function Review({ params }: PageProps) {
             </motion.div>
           )}
 
-          <Card className="border-zinc-100 dark:border-zinc-800 flex flex-col h-[calc(100vh-5rem)]">
+          <Card className="min-w-0 border-zinc-100 dark:border-zinc-800 flex flex-col h-[min(70vh,650px)] lg:h-[calc(100vh-5rem)]">
             <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800 py-3 px-4 shrink-0">
               <CardTitle className="text-sm font-bold text-navy">
                 Documents Workbench
               </CardTitle>
             </CardHeader>
-          <CardContent className="p-4 flex-1 flex flex-col overflow-hidden">
+          <CardContent className="min-h-0 min-w-0 p-4 flex-1 flex flex-col overflow-hidden">
             <Tabs
               value={String(activeDoc)}
               onValueChange={(v) => {
@@ -1041,27 +1041,33 @@ export default function Review({ params }: PageProps) {
                 setZoom(1);
                 setRot(0);
               }}
-              className="flex-1 flex flex-col"
+              className="min-h-0 min-w-0 flex-1 flex flex-col"
             >
               <div className="flex flex-col mb-4">
                 <div className="flex items-center gap-1.5 px-2 pb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
                   <MoveHorizontal className="w-3.5 h-3.5 opacity-70" />
                   <span>Scroll horizontally to view all submitted documents</span>
                 </div>
-                <TabsList className="flex w-full h-auto overflow-x-auto justify-start bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-lg gap-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                  {app.documents.map((d: any, i: number) => (
-                    <TabsTrigger
-                      key={i}
-                      value={String(i)}
-                      className="shrink-0 text-sm font-semibold px-5 py-2.5 whitespace-nowrap"
-                    >
-                      {formatLabel(d.documentName || resolveDocName(d.documentType))}
-                    </TabsTrigger>
-                  ))}
+                <TabsList className="flex min-w-0 w-full h-auto overflow-x-auto justify-start bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-lg gap-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                  {app.documents.map((d: any, i: number) => {
+                    const documentLabel = formatLabel(d.documentName || resolveDocName(d.documentType));
+                    return (
+                      <TabsTrigger
+                        key={i}
+                        value={String(i)}
+                        title={documentLabel}
+                        className="shrink-0 min-w-[180px] sm:min-w-[220px] max-w-[260px] justify-start text-sm font-semibold px-5 py-2.5 whitespace-nowrap overflow-hidden"
+                      >
+                        <span className="block min-w-0 w-full truncate text-left" title={documentLabel}>
+                          {documentLabel}
+                        </span>
+                      </TabsTrigger>
+                    );
+                  })}
                 </TabsList>
               </div>
               {/* Pre-render all documents so PDFs do not reload when switching tabs */}
-              <div className="relative flex-1 mt-0 overflow-hidden">
+              <div className="relative min-h-0 min-w-0 flex-1 mt-0 overflow-hidden">
                 {app.documents.map((doc: any, i: number) => {
                   const isActive = activeDoc === i;
                   const xPos = isActive ? "0%" : i < activeDoc ? "-100%" : "100%";
@@ -1078,8 +1084,8 @@ export default function Review({ params }: PageProps) {
                       className="absolute inset-0 flex items-center justify-center"
                       style={{ pointerEvents: isActive ? "auto" : "none" }}
                     >
-                      <div className="relative flex h-full w-full items-center justify-center overflow-auto rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4">
-                        <div className="flex items-center justify-center h-full w-full">
+                      <div className="relative flex h-full w-full min-w-0 items-center justify-center overflow-auto rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4">
+                        <div className="flex items-center justify-center h-full w-full min-w-0">
                           {(() => {
                              const url = doc.url;
                              if (!url) {

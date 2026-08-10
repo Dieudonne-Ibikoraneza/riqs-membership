@@ -80,9 +80,9 @@ export function DocumentTabsViewer({ tabs, onUpload, onDelete, onAddTab, isUploa
   };
 
   return (
-    <div className="flex flex-col h-full border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 shadow-sm">
+    <div className="flex min-w-0 max-w-full flex-col h-full border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 shadow-sm">
       {/* ── Browser Tabs Header ── */}
-      <div className="flex items-center overflow-x-auto bg-zinc-100 dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 p-2 gap-1 scrollbar-hide">
+      <div className="flex min-w-0 items-center overflow-x-auto bg-zinc-100 dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 p-2 gap-1 scrollbar-hide">
         {tabs.map((tab) => {
           const isActive = tab.k === activeTabKey;
           const done = !!tab.url;
@@ -94,7 +94,7 @@ export function DocumentTabsViewer({ tabs, onUpload, onDelete, onAddTab, isUploa
               title={tab.l}
               onClick={() => setActiveTabKey(tab.k)}
               className={cn(
-                "group relative flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all flex-1 min-w-[140px] rounded-t-lg border border-transparent cursor-pointer select-none",
+                "group relative flex items-center justify-start gap-2 px-3 sm:px-4 py-2 text-sm font-medium transition-all flex-1 basis-[180px] min-w-[180px] sm:basis-[220px] sm:min-w-[220px] max-w-[260px] rounded-t-lg border border-transparent cursor-pointer select-none",
                 isActive 
                   ? "bg-white dark:bg-zinc-900 border-x-zinc-200 border-t-zinc-200 dark:border-x-zinc-800 dark:border-t-zinc-800 text-navy dark:text-zinc-100 shadow-sm z-10" 
                   : "bg-transparent text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-700 dark:hover:text-zinc-300"
@@ -108,7 +108,7 @@ export function DocumentTabsViewer({ tabs, onUpload, onDelete, onAddTab, isUploa
                 {done ? <Check className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
               </div>
               
-              <span className="truncate flex-1 text-left flex items-center gap-0.5">
+              <span className="block min-w-0 flex-1 truncate text-left" title={tab.l}>
                 {tab.l}
                 {tab.r && <span className="text-red-500 font-bold ml-0.5 leading-none">*</span>}
               </span>

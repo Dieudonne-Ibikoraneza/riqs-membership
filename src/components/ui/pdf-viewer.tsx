@@ -213,6 +213,10 @@ const PDFViewer = ({ src, fileName = "document.pdf", thumbnailMode = false, clas
             // Set display size to match actual size
             canvas.style.width = `${Math.floor(viewport.width)}px`;
             canvas.style.height = `${Math.floor(viewport.height)}px`;
+            // At normal zoom, fit the page to the available viewer width. Keep
+            // the intrinsic size when zoomed so intentional zooming can scroll.
+            canvas.style.maxWidth = zoom <= 1 ? '100%' : 'none';
+            canvas.style.height = zoom <= 1 ? 'auto' : `${Math.floor(viewport.height)}px`;
 
             const transform = outputScale !== 1
                 ? [outputScale, 0, 0, outputScale, 0, 0]

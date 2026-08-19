@@ -362,45 +362,6 @@ export default function Application() {
 
   const pct = Math.round(((step + 1) / STEPS.length) * 100);
 
-  // Filtered categories based on location + entityType
-  const filteredCategories = useMemo(() => {
-    if (!categories) return [];
-    return categories.filter(
-      (c: any) =>
-        c.location === data.practiceLocation &&
-        (c.entityType || c.entity_type) === data.entityType
-    );
-  }, [categories, data.practiceLocation, data.entityType]);
-
-  // Display list for Category step (fallback to hardcoded if backend empty)
-  const categoriesList = useMemo(() => {
-    if (filteredCategories.length > 0) {
-      return filteredCategories.map((c: any) => ({ id: c.id, name: c.category_name }));
-    }
-    // Fallback hardcoded
-    if (data.entityType === "Individual") {
-      if (data.practiceLocation === "Local") {
-        return [{ id: "", name: "Graduate" }, { id: "", name: "Technologist" }, { id: "", name: "Professional" }];
-      } else {
-        return [{ id: "", name: "Technologist" }, { id: "", name: "Professional" }];
-      }
-    } else {
-      if (data.practiceLocation === "Local") {
-        return [
-          { id: "", name: "Small Firm - Annual turnover less than 50 Million RWF" },
-          { id: "", name: "Medium Firm - Annual turnover between 50-100 Million RWF" },
-          { id: "", name: "Large Firm - Annual turnover above 100 Million RWF" },
-        ];
-      } else {
-        return [
-          { id: "", name: "Small Firm - Annual turnover less than 100,000 USD" },
-          { id: "", name: "Medium Firm - Annual turnover between 100,000-500,000 USD" },
-          { id: "", name: "Large Firm - Annual turnover above 500,000 USD" },
-        ];
-      }
-    }
-  }, [filteredCategories, data.entityType, data.practiceLocation]);
-
   const updateLocation = (loc: string) => {
     setData((d: any) => ({ ...d, practiceLocation: loc, categoryId: "", categoryName: "" }));
   };
@@ -712,7 +673,6 @@ export default function Application() {
               pct={pct}
               data={data}
               setData={setData}
-              categoriesList={categoriesList}
               documentChecklist={documentChecklist}
               currentStepName={currentStepName}
               updateLocation={updateLocation}
@@ -748,7 +708,6 @@ export default function Application() {
       pct={pct}
       data={data}
       setData={setData}
-      categoriesList={categoriesList}
       documentChecklist={documentChecklist}
       currentStepName={currentStepName}
       updateLocation={updateLocation}
@@ -775,7 +734,7 @@ export default function Application() {
 
 // ─── Wizard Content (extracted for reuse) ────────────────────────────────────
 function WizardContent({
-  step, STEPS, pct, data, setData, categoriesList, documentChecklist,
+  step, STEPS, pct, data, setData, documentChecklist,
   currentStepName, updateLocation, updateEntity, addMentor, removeMentor,
   appId, isSaving, addEduMutation, delEduMutation, addEmpMutation, delEmpMutation, mentorshipMutation, delMentorMutation,
   submitMutation, submit, next, back, documents, goToStep, reviewerNotes
@@ -1082,32 +1041,6 @@ function WizardContent({
                     </label>
                   ))}
                 </RadioGroup>
-              )}
-
-              {/* ── Category ── */}
-              {currentStepName === "Category" && (
-                <div className="max-w-md space-y-1.5">
-                  <Label htmlFor="app-cat">Membership Category Level</Label>
-                  <Select
-                    value={data.categoryId || data.categoryName}
-                    onValueChange={(v) => {
-                      const found = categoriesList.find((c: any) => c.id === v || c.name === v);
-                      setData({ ...data, categoryId: found?.id || "", categoryName: found?.name || v });
-                    }}
-                  >
-                    <SelectTrigger id="app-cat" className="mt-1 h-11 border-zinc-200 dark:border-zinc-800">
-                      <SelectValue placeholder="Select Category Level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categoriesList.map((c: any) => (
-                        <SelectItem key={c.id || c.name} value={c.id || c.name}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground pt-1 leading-normal font-sans">
-                    Required document checklist and assessment tiers vary based on candidate level.
-                  </p>
-                </div>
               )}
 
               {/* ── Personal Info ── */}
@@ -1736,7 +1669,7 @@ function WizardContent({
                     {[
                       ["Practice Location Status", data.practiceLocation],
                       ["Entity Registration Mode", data.entityType],
-                      ["Assessment Category", data.categoryName || "Not selected"],
+                      ["Application Category", data.categoryName || "Student Member"],
                       ["Full Name on Application", data.personal.fullName || "Not Entered"],
                       ["Contact Phone Number", data.personal.phone || "Not Entered"],
                       ["Primary Contact Email", data.personal.email || "Not Entered"],

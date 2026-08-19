@@ -55,6 +55,7 @@ import { DocumentTabsViewer } from "@/components/ui/document-tabs-viewer";
 import PDFViewer from "@/components/ui/pdf-viewer";
 import ImageViewer from "@/components/ui/image-viewer";
 import { axiosClient } from "@/lib/axiosClient";
+import { getGraduateApplicationRoute, isGraduateApplicationCategory } from "@/lib/application-categories";
 
 // ─── Status Banner ──────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, {
@@ -442,7 +443,7 @@ export default function Application() {
       (c: any) =>
         c.location === data.practiceLocation &&
         (c.entityType || c.entity_type) === data.entityType &&
-        !c.category_name?.toLowerCase().includes("associate") &&
+        (data.entityType !== "Individual" || isGraduateApplicationCategory(c)) &&
         (c.category_name?.toLowerCase().includes("student") ? data.categoryName?.toLowerCase().includes("student") : true)
     );
   }, [categories, data.practiceLocation, data.entityType, data.categoryName]);
@@ -450,15 +451,14 @@ export default function Application() {
   // Display list for Category step (fallback to hardcoded if backend empty)
   const categoriesList = useMemo(() => {
     if (filteredCategories.length > 0) {
-      return filteredCategories.map((c: any) => ({ id: c.id, name: c.category_name }));
+      return filteredCategories.map((c: any) => ({ id: c.id, name: getGraduateApplicationRoute(c)?.title || c.category_name }));
     }
     // Fallback hardcoded
     if (data.entityType === "Individual") {
-      if (data.practiceLocation === "Rwandan") {
-        return [{ id: "", name: "Graduate" }, { id: "", name: "Technologist" }, { id: "", name: "Professional" }];
-      } else {
-        return [{ id: "", name: "Technologist" }, { id: "", name: "Professional" }];
-      }
+      return [
+        { id: "GrQST", name: "Graduate QS Technologist", category_code: "GrQST" },
+        { id: "GrQS", name: "Graduate QS", category_code: "GrQS" },
+      ];
     } else {
       if (data.practiceLocation === "Rwandan") {
         return [
@@ -475,6 +475,14 @@ export default function Application() {
       }
     }
   }, [filteredCategories, data.entityType, data.practiceLocation]);
+
+  const selectedGraduateRoute = useMemo(
+    () => getGraduateApplicationRoute(
+      categories?.find((c: any) => c.id === data.categoryId) ||
+      categoriesList.find((c: any) => c.id === data.categoryId)
+    ),
+    [categories, categoriesList, data.categoryId]
+  );
 
   const updateLocation = (loc: string) => {
     setCachedCategory(prev => ({
@@ -870,6 +878,7 @@ export default function Application() {
               data={data}
               setData={setData}
               categoriesList={categoriesList}
+              selectedGraduateRoute={selectedGraduateRoute}
               documentChecklist={documentChecklist}
               currentStepName={currentStepName}
               updateLocation={updateLocation}
@@ -907,6 +916,7 @@ export default function Application() {
       data={data}
       setData={setData}
       categoriesList={categoriesList}
+      selectedGraduateRoute={selectedGraduateRoute}
       documentChecklist={documentChecklist}
       currentStepName={currentStepName}
       updateLocation={updateLocation}
@@ -933,7 +943,7 @@ export default function Application() {
 
 // ─── Wizard Content (extracted for reuse) ────────────────────────────────────
 function WizardContent({
-  step, STEPS, pct, data, setData, categoriesList, documentChecklist,
+  step, STEPS, pct, data, setData, categoriesList, selectedGraduateRoute, documentChecklist,
   currentStepName, updateLocation, updateEntity, addMentor, removeMentor,
   appId, isSaving, addEduMutation, delEduMutation, addEmpMutation, delEmpMutation, mentorshipMutation, delMentorMutation,
   submitMutation, submit, next, back, documents, goToStep, reviewerNotes, competencies, profilePhotoUrl
@@ -1255,23 +1265,36 @@ function WizardContent({
                     <Select
                       value={data.categoryId}
                       onValueChange={(val) => {
-                        const cat = categoriesList.find((c: any) => c.id === val);
+                        const cat = categoriesList.find((c: any) => c.id === val || c.category_code === val || c.name === val);
                         setData({ ...data, categoryId: val, categoryName: cat?.name || "" });
                       }}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select a category" />
                       </SelectTrigger>
-                      <SelectContent>
+                    <SelectContent>
                         {categoriesList.map((c: any) => (
-                          <SelectItem key={c.id} value={c.id}>
+                          <SelectItem key={c.id || c.category_code || c.name} value={c.id || c.category_code || c.name}>
                             {c.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {selectedGraduateRoute && (
+                      <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
+                        <div className="flex items-start gap-2">
+                          <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
+                          <div className="space-y-2">
+                            <p className="font-semibold">{selectedGraduateRoute.title} requirements</p>
+                            <p>{selectedGraduateRoute.requirement}</p>
+                            <p>{selectedGraduateRoute.description} Your membership starts at graduate level and requires mentorship and practical experience.</p>
+                            <p><span className="font-semibold">Upgrade path:</span> {selectedGraduateRoute.upgrade}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <p className="text-xs text-muted-foreground pt-1 leading-normal font-sans">
-                      Required document checklist and assessment tiers vary based on candidate level.
+                      Applications are currently accepted only through one of the two graduate routes above.
                     </p>
                   </div>
                 </div>

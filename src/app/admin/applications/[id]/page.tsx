@@ -503,7 +503,7 @@ export default function Review({ params }: PageProps) {
               </Button>
             </Link>
           )}
-          {app.status === "Pending" && role === "Admin" && (
+          {app.status === "Pending" && (role === "Admin" || role === "Admin_Assistant") && (
             <>
               <Button
                 variant="outline"

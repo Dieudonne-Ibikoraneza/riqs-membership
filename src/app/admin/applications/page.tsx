@@ -247,6 +247,7 @@ export default function AdminApps() {
           <h1 className="text-3xl font-bold text-navy tracking-tight">
             {isMentorshipRoute ? 'Mentorship Queue' :
              role === 'Admin' ? (view === 'queue' ? 'Incoming Applications' : 'All Applications') :
+             role === 'Admin_Assistant' ? (view === 'queue' ? 'Front Desk Applications' : 'All Submitted Applications') :
              role?.toLowerCase() === 'head_reviewer' || role === 'Reviewer' ? (view === 'queue' ? 'Review Queue' : 'All Applications') :
              role === 'Approver' ? (view === 'queue' ? 'Approval Queue' : 'All Applications') :
              view === 'queue' ? 'Application Queue' : 'All Applications'}
@@ -254,6 +255,7 @@ export default function AdminApps() {
           <p className="text-sm text-muted-foreground font-sans mt-1">
             {isMentorshipRoute ? 'Review, assign mentors, and track APC readiness for candidates.' :
              role === 'Admin' ? (view === 'queue' ? 'Review newly submitted applications and forward complete ones to the Review Team.' : 'Complete global view of all applications in the registry.') :
+             role === 'Admin_Assistant' ? (view === 'queue' ? 'Check incoming applications, request corrections, and forward complete submissions to the Review Team.' : 'Read-only view of all submitted applications.') :
              role?.toLowerCase() === 'head_reviewer' || role === 'Reviewer' ? (view === 'queue' ? 'Applications forwarded by Admin for technical review and assessment.' : 'Complete view of all reviewed applications.') :
              role === 'Approver' ? (view === 'queue' ? 'Applications forwarded by the Review Team awaiting your final decision.' : 'Complete view of all decisions made.') :
              'Review and verify incoming practice applications.'}
@@ -261,7 +263,7 @@ export default function AdminApps() {
         </div>
         <Tabs value={view} onValueChange={(v) => { setView(v as any); setPage(1); }} className="w-full sm:w-auto">
           <TabsList className={cn("grid w-full bg-zinc-100 dark:bg-zinc-800", "grid-cols-2")}>
-            <TabsTrigger value="queue">{role === 'Admin' ? 'Pending Review' : role === 'Approver' ? 'Pending Approval' : 'Under Review'}</TabsTrigger>
+            <TabsTrigger value="queue">{role === 'Admin' || role === 'Admin_Assistant' ? 'Pending Review' : role === 'Approver' ? 'Pending Approval' : 'Under Review'}</TabsTrigger>
             <TabsTrigger value="all">All Records</TabsTrigger>
           </TabsList>
         </Tabs>

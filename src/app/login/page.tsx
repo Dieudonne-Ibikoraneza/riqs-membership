@@ -91,7 +91,7 @@ export default function Login() {
       } catch (e) {}
     }
 
-    if (storedRole && ["Admin", "Reviewer", "Head_Reviewer", "Approver"].includes(storedRole)) {
+    if (storedRole && ["Admin", "Admin_Assistant", "Reviewer", "Head_Reviewer", "Approver"].includes(storedRole)) {
       router.push("/admin");
     } else if (storedIsTeacher) {
       router.push("/teacher");

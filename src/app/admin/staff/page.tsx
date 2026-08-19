@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -48,6 +48,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/lib/auth";
 
 function RoleBadge({ role }: { role: string }) {
   const cls =
@@ -68,6 +69,8 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 export default function StaffManagementPage() {
+  const { role } = useAuth();
+  const canCreateAssistant = role === "Admin" || role === "Approver";
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
@@ -78,6 +81,12 @@ export default function StaffManagementPage() {
     email: "",
     systemRole: "Reviewer"
   });
+
+  useEffect(() => {
+    if (role === "Approver") {
+      setFormData((current) => ({ ...current, systemRole: "Admin_Assistant" }));
+    }
+  }, [role]);
 
   const [staffToLock, setStaffToLock] = useState<{ id: string; name: string } | null>(null);
   const [lockDuration, setLockDuration] = useState<number>(30);
@@ -170,7 +179,7 @@ export default function StaffManagementPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-navy">Staff Management</h1>
           <p className="text-sm text-muted-foreground">
-            Manage internal administrative accounts (Reviewers, Approvers, Teachers, Admins).
+            Manage internal administrative accounts. Approvers can provision Admin Assistant accounts for the application front desk.
           </p>
         </div>
         <Button
@@ -272,7 +281,7 @@ export default function StaffManagementPage() {
                         {new Date(staff.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-5 py-4 text-center">
-                        <DropdownMenu>
+                        {role === "Admin" && <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
@@ -317,7 +326,7 @@ export default function StaffManagementPage() {
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
-                        </DropdownMenu>
+                        </DropdownMenu>}
                       </td>
                     </tr>
                   ))}
@@ -368,10 +377,17 @@ export default function StaffManagementPage() {
                   value={formData.systemRole}
                   onChange={e => setFormData({...formData, systemRole: e.target.value})}
                 >
-                  <option value="Reviewer">Reviewer</option>
-                  <option value="Approver">Approver</option>
-                  <option value="Teacher">Teacher</option>
-                  <option value="Admin">Admin</option>
+                  {role === "Admin" ? (
+                    <>
+                      <option value="Reviewer">Reviewer</option>
+                      <option value="Approver">Approver</option>
+                      <option value="Teacher">Teacher</option>
+                      <option value="Admin">Admin</option>
+                      <option value="Admin_Assistant">Admin Assistant</option>
+                    </>
+                  ) : canCreateAssistant ? (
+                    <option value="Admin_Assistant">Admin Assistant</option>
+                  ) : null}
                 </select>
               </div>
             </div>

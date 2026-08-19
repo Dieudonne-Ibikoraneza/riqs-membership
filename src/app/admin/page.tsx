@@ -95,9 +95,10 @@ export default function AdminOverview() {
 
   // Pick the right role slice
   const isAdmin    = role === "Admin" || !!stats?.admin;
+  const isAssistant = role === "Admin_Assistant" || !!stats?.adminAssistant;
   const isReviewer = role === "Reviewer" || role?.toLowerCase() === "head_reviewer" || !!stats?.reviewer;
   const isApprover = role === "Approver" || !!stats?.approver;
-  const d = stats?.admin || stats?.reviewer || stats?.approver || null;
+  const d = stats?.admin || stats?.adminAssistant || stats?.reviewer || stats?.approver || null;
 
   // Derived values — reviewers use reviewRate, others use approvalRate
   const rateData        = d?.reviewRate || d?.approvalRate || {};
@@ -131,6 +132,11 @@ export default function AdminOverview() {
       { i: Clock,         label: "Unpaid Invoices",    desc: "Outstanding payments",     v: d?.unpaidInvoices     ?? 0, c: "text-red-600",     bg: "bg-red-50",       border: "hover:border-red-200" },
       { i: CheckCircle2,  label: "Mentorship Queue",   desc: "Upgrade requests",         v: d?.mentorshipQueue    ?? 0, c: "text-purple-600",  bg: "bg-purple-50",    border: "hover:border-purple-200" },
     ] : []),
+    ...(isAssistant ? [
+      { i: ClipboardList, label: "Pending Applications", desc: "Awaiting front-desk review", v: d?.pendingApplications ?? 0, c: "text-amber-600", bg: "bg-amber-50", border: "hover:border-amber-200" },
+      { i: AlertTriangle, label: "Corrections", desc: "Returned to applicants", v: d?.correctionApplications ?? 0, c: "text-orange-600", bg: "bg-orange-50", border: "hover:border-orange-200" },
+      { i: CheckCircle2, label: "Forwarded", desc: "Sent to reviewer committee", v: d?.forwardedApplications ?? 0, c: "text-emerald-600", bg: "bg-emerald-50", border: "hover:border-emerald-200" },
+    ] : []),
     ...(isReviewer ? [
       { i: ClipboardList, label: "Assigned to Me",     desc: "Currently under review",   v: d?.assignedApplications?? 0, c: "text-blue-600",    bg: "bg-blue-50",      border: "hover:border-blue-200" },
       { i: Clock,         label: "Pending Queue",       desc: "Awaiting reviewer",        v: d?.pendingReviews     ?? 0, c: "text-amber-600",   bg: "bg-amber-50",     border: "hover:border-amber-200" },
@@ -145,6 +151,8 @@ export default function AdminOverview() {
   // Active queue total for the banner
   const activeQueue = isAdmin
     ? (d?.pendingApplications ?? 0)
+    : isAssistant
+    ? (d?.pendingApplications ?? 0)
     : isReviewer
     ? (d?.assignedApplications ?? 0) + (d?.pendingReviews ?? 0)
     : (d?.pendingApproval ?? 0);
@@ -157,9 +165,11 @@ export default function AdminOverview() {
   const recentActivity = d?.recentActivity ?? [];
 
   // Banner label
-  const bannerLabel = isAdmin ? "Administrator Workspace" : isReviewer ? "Reviewer Workspace" : "Approver Workspace";
+  const bannerLabel = isAdmin ? "Administrator Workspace" : isAssistant ? "Admin Assistant Workspace" : isReviewer ? "Reviewer Workspace" : "Approver Workspace";
   const bannerDesc  = isAdmin
     ? "Manage incoming applications, oversee mentorship progress, and approve professional upgrades across the institution."
+    : isAssistant
+    ? "Process incoming applications, request corrections, and forward complete submissions to the reviewer committee."
     : isReviewer
     ? "Review assigned applications, take over pending cases, and track your approval history."
     : "Review applications that have cleared the reviewer stage and make final approval decisions.";
@@ -203,7 +213,7 @@ export default function AdminOverview() {
       {/* Grid Stats */}
       <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${kpiStats.length <= 3 ? "lg:grid-cols-3" : kpiStats.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-5"}`}>
         {loading
-          ? Array.from({ length: isReviewer ? 3 : isApprover ? 2 : 5 }).map((_, i) => (
+          ? Array.from({ length: isReviewer ? 3 : isApprover ? 2 : isAssistant ? 3 : 5 }).map((_, i) => (
               <Card key={i}><CardContent className="p-4"><Skeleton className="h-20 w-full" /></CardContent></Card>
             ))
           : kpiStats.map((s, i) => (

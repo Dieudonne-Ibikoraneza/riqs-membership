@@ -75,7 +75,7 @@ export function PublicHeader() {
 
         <div className="hidden items-center gap-2 md:flex">
           {role ? (
-            <Link href={role === "Admin" || role === "Reviewer" || role === "Head_Reviewer" || role === "Approver" ? "/admin" : isTeacher ? "/teacher" : "/dashboard"}>
+            <Link href={role === "Admin" || role === "Admin_Assistant" || role === "Reviewer" || role === "Head_Reviewer" || role === "Approver" ? "/admin" : isTeacher ? "/teacher" : "/dashboard"}>
               <Button className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-0">
                 Go to dashboard
               </Button>
@@ -132,7 +132,7 @@ export function PublicHeader() {
             })}
             <div className="flex gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 mt-2">
               {role ? (
-                <Link href={role === "Admin" || role === "Reviewer" || role === "Head_Reviewer" || role === "Approver" ? "/admin" : isTeacher ? "/teacher" : "/dashboard"} className="flex-1">
+                <Link href={role === "Admin" || role === "Admin_Assistant" || role === "Reviewer" || role === "Head_Reviewer" || role === "Approver" ? "/admin" : isTeacher ? "/teacher" : "/dashboard"} className="flex-1">
                   <Button className="w-full bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-0">
                     Go to dashboard
                   </Button>

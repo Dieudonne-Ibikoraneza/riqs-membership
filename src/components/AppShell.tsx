@@ -94,14 +94,14 @@ export function AppShell({
   useEffect(() => {
     if (!role) return; // Wait until auth is hydrated
 
-    if (kind === "admin" && !["Admin", "Reviewer", "Head_Reviewer", "Approver"].includes(role)) {
+    if (kind === "admin" && !["Admin", "Admin_Assistant", "Reviewer", "Head_Reviewer", "Approver"].includes(role)) {
       router.replace(isTeacher ? "/teacher" : "/dashboard");
     } else if (kind === "teacher" && !isTeacher) {
-      router.replace(["Admin", "Reviewer", "Head_Reviewer", "Approver"].includes(role) ? "/admin" : "/dashboard");
+      router.replace(["Admin", "Admin_Assistant", "Reviewer", "Head_Reviewer", "Approver"].includes(role) ? "/admin" : "/dashboard");
     } else if (kind === "member" && !isStudent && !isMentor) {
       if (isTeacher) {
         router.replace("/teacher");
-      } else if (["Admin", "Reviewer", "Head_Reviewer", "Approver"].includes(role)) {
+      } else if (["Admin", "Admin_Assistant", "Reviewer", "Head_Reviewer", "Approver"].includes(role)) {
         router.replace("/admin");
       }
     }
@@ -141,25 +141,30 @@ export function AppShell({
     { href: "/dashboard/support", label: "Support & Inquiries", icon: MessageSquare },
   ];
 
+  const isAdminAssistant = role === "Admin_Assistant";
   const adminLinks = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
     { href: "/admin/applications", label: "Applications", icon: ClipboardList },
-    { href: "/admin/mentorship", label: "Mentorship", icon: BookOpen },
+    ...(!isAdminAssistant ? [{ href: "/admin/mentorship", label: "Mentorship", icon: BookOpen }] : []),
     ...(["Admin", "Approver"].includes(role || "") ? [{ href: "/admin/apc", label: "APC Assessments", icon: GraduationCap }] : []),
     ...(role === "Admin" ? [{ href: "/admin/payments", label: "Finance & Payments", icon: Wallet }] : []),
-    { href: "/admin/members", label: "Members", icon: Users },
-    { href: "/admin/email", label: "Email System", icon: Send },
-    ...(role === "Admin"
+    ...(!isAdminAssistant ? [{ href: "/admin/members", label: "Members", icon: Users }] : []),
+    ...(!isAdminAssistant ? [{ href: "/admin/email", label: "Email System", icon: Send }] : []),
+    ...(["Admin", "Approver"].includes(role || "")
       ? [
           { href: "/admin/staff", label: "Staff Management", icon: Shield },
+        ]
+      : []),
+    ...(role === "Admin"
+      ? [
           { href: "/admin/settings", label: "System Settings", icon: Settings },
           { href: "/admin/templates", label: "Email Templates", icon: FileCode },
         ]
       : []),
-    { href: "/admin/reports", label: "Reports", icon: BarChart3 },
+    ...(!isAdminAssistant ? [{ href: "/admin/reports", label: "Reports", icon: BarChart3 }] : []),
     ...(role === "Admin" ? [{ href: "/admin/export", label: "Export Tool", icon: Folder }] : []),
     ...(role === "Admin" ? [{ href: "/admin/audit", label: "Audit Log", icon: ClipboardList }] : []),
-    { href: "/admin/support", label: "Support & Inquiries", icon: MessageSquare },
+    ...(!isAdminAssistant ? [{ href: "/admin/support", label: "Support & Inquiries", icon: MessageSquare }] : []),
   ];
 
   const activeAppMatch = pathname.match(/^\/teacher\/application\/([^/]+)/);

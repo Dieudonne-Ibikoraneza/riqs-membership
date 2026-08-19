@@ -77,6 +77,17 @@ export default function Review({ params }: PageProps) {
   const queryClient = useQueryClient();
   const [app, setApp] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("riqs.auth.token");
+    if (!token) return;
+    try {
+      setUserId(JSON.parse(atob(token.split(".")[1])).id || null);
+    } catch {
+      setUserId(null);
+    }
+  }, []);
 
   // Fetch document types to resolve human-readable names
   const { data: docTypes = [] } = useQuery({
@@ -133,6 +144,11 @@ export default function Review({ params }: PageProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [boardNotes, setBoardNotes] = useState("");
   const [proposedAssessmentDate, setProposedAssessmentDate] = useState("");
+
+  const hasSubmittedBoardReview = Boolean(
+    userId && app?.mentorshipReviews?.some((review: any) => review.reviewerId === userId)
+  );
+  const canEditForwardingNote = role === "Head_Reviewer" || !hasSubmittedBoardReview;
 
 
 
@@ -326,7 +342,10 @@ export default function Review({ params }: PageProps) {
   });
 
   const forwardMentorshipMutation = useMutation({
-    mutationFn: () => forwardMentorshipToApprover(app.id, boardNotes),
+    mutationFn: () => forwardMentorshipToApprover(
+      app.id,
+      boardNotes.trim() || "Forwarded by Head Reviewer after completion of the reviewer-board submissions."
+    ),
     onSuccess: () => {
       toast.success("Mentorship upgrade forwarded to Admin/Approver.");
       setApp((prev: any) => ({ ...prev, mentorship: { ...prev.mentorship, status: "Pending_Admin_Review" } }));
@@ -563,6 +582,39 @@ export default function Review({ params }: PageProps) {
                 </CardContent>
               </Card>
 
+              {app.mentorshipReviews?.length > 0 && (
+                <Card className="border-blue-200 dark:border-blue-900/50 shadow-sm">
+                  <CardHeader className="py-3 px-4 border-b border-blue-100 dark:border-blue-900/40">
+                    <CardTitle className="text-sm font-bold text-navy dark:text-blue-200">
+                      Reviewer Assessment Suggestions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-3">
+                    {app.mentorshipReviews.map((review: any) => {
+                      const suggestedDate = review.proposedAssessmentDate || review.proposed_assessment_date;
+                      return (
+                        <div key={review.id} className="rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/40 p-3 text-xs">
+                          <div className="font-semibold text-navy dark:text-zinc-100">
+                            {review.reviewer?.fullName || "Reviewer"}
+                          </div>
+                          {suggestedDate && (
+
+                            <div className="mt-1 text-muted-foreground">
+                              Suggested assessment: {new Date(suggestedDate).toLocaleString()}
+                            </div>
+                          )}
+                          {review.notes && (
+                            <div className="mt-1 text-muted-foreground">
+                              Notes: <span className="font-medium text-zinc-700 dark:text-zinc-300">{review.notes}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              )}
+
               {app.mentorship.status === "Pending_Reviewer_Board" && (role === "Reviewer" || role === "Head_Reviewer") && (
                 <div className="bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-900/50 rounded-xl p-5 shadow-sm space-y-4">
                   <div>
@@ -574,34 +626,32 @@ export default function Review({ params }: PageProps) {
                   <div className="text-xs font-medium text-blue-800 dark:text-blue-300">
                     {app.mentorshipReviews?.length || 0} of 3 reviewer submissions received
                   </div>
-                  {app.mentorshipReviews?.length > 0 && (
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      {app.mentorshipReviews.map((review: any) => (
-                        <div key={review.id}>{review.reviewer?.fullName || "Reviewer"}{review.proposedAssessmentDate ? ` — proposes ${new Date(review.proposedAssessmentDate).toLocaleString()}` : ""}</div>
-                      ))}
+                  {hasSubmittedBoardReview && role !== "Head_Reviewer" && (
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                      You have already submitted your board recommendation for this mentorship upgrade.
                     </div>
                   )}
-                  <Textarea value={boardNotes} onChange={(e) => setBoardNotes(e.target.value)} placeholder={role === "Head_Reviewer" ? "Board summary or forwarding note" : "Your review recommendation"} />
+                  <Textarea value={boardNotes} onChange={(e) => setBoardNotes(e.target.value)} disabled={!canEditForwardingNote} placeholder={role === "Head_Reviewer" ? "Board summary or forwarding note" : "Your review recommendation"} />
                   {app.mentorship.apcReadiness === "Ready" && (
                     <div>
                       <Label className="text-xs">Proposed assessment date & time</Label>
-                      <Input className="mt-1" type="datetime-local" value={proposedAssessmentDate} onChange={(e) => setProposedAssessmentDate(e.target.value)} />
+                      <Input className="mt-1" type="datetime-local" value={proposedAssessmentDate} disabled={hasSubmittedBoardReview} onChange={(e) => setProposedAssessmentDate(e.target.value)} />
                     </div>
                   )}
                   <div className="flex flex-col gap-2">
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={!boardNotes.trim() || (app.mentorship.apcReadiness === "Ready" && !proposedAssessmentDate) || mentorshipBoardReviewMutation.isPending}
+                      disabled={hasSubmittedBoardReview || !boardNotes.trim() || (app.mentorship.apcReadiness === "Ready" && !proposedAssessmentDate) || mentorshipBoardReviewMutation.isPending}
                       onClick={() => mentorshipBoardReviewMutation.mutate()}
                     >
-                      {mentorshipBoardReviewMutation.isPending ? "Saving…" : "Submit Board Review"}
+                      {hasSubmittedBoardReview ? "Review Submitted" : mentorshipBoardReviewMutation.isPending ? "Saving…" : "Submit Board Review"}
                     </Button>
                     {role === "Head_Reviewer" && (
                       <Button
                         size="sm"
                         className="bg-navy text-white hover:bg-navy/90"
-                        disabled={!boardNotes.trim() || (app.mentorshipReviews?.length || 0) < 3 || forwardMentorshipMutation.isPending}
+                        disabled={(app.mentorshipReviews?.length || 0) < 3 || forwardMentorshipMutation.isPending}
                         onClick={() => forwardMentorshipMutation.mutate()}
                       >
                         {forwardMentorshipMutation.isPending ? "Forwarding…" : "Forward to Admin / Approver"}

@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { authServices } from "@/services/auth.services";
 import { toast } from "sonner";
 
-export type Role = "Admin" | "Reviewer" | "Head_Reviewer" | "Approver" | "Teacher" | "Mentor" | "Standard" | "Student" | null;
+export type Role = "Admin" | "Admin_Assistant" | "Reviewer" | "Head_Reviewer" | "Approver" | "Teacher" | "Mentor" | "Standard" | "Student" | null;
 
 interface Pending {
   email: string;

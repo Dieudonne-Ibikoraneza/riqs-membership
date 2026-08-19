@@ -556,33 +556,62 @@ export default function Application() {
   };
 
   const documentChecklist = useMemo(() => {
-    // Find active category from backend configuration if loaded
-    const activeCategory = categories?.find((c: any) => c.id === data.categoryId);
+    let catName = data.categoryName || "";
+    const activeCategory = categories?.find((c: any) => c.id === data.categoryId)
+      || categories?.find((c: any) => c.category_name === catName || c.categoryName === catName);
     
-    // If active category exists and has dynamic required documents, use them!
-    if (activeCategory && ((activeCategory.required_documents && activeCategory.required_documents.length > 0) || (activeCategory.optional_documents && activeCategory.optional_documents.length > 0))) {
+    if (activeCategory) {
+      catName = activeCategory.category_name || (activeCategory as any).categoryName || catName;
+      const normalizeDocument = (document: any, req: boolean) => {
+        let parsed = document;
+        if (typeof document === 'string') {
+          try { parsed = JSON.parse(document); } catch (e) { parsed = document; }
+        }
+        const name = typeof parsed === "string"
+          ? parsed
+          : parsed?.name || parsed?.documentName || parsed?.label || "Required document";
+        const typeCode = typeof parsed === "object"
+          ? parsed?.typeCode || parsed?.type_code || parsed?.code
+          : undefined;
+        return { name, typeCode, req };
+      };
+
+      let reqDocs = activeCategory.required_documents || (activeCategory as any).requiredDocuments || [];
+      if (typeof reqDocs === 'string') {
+        try { reqDocs = JSON.parse(reqDocs); } catch(e) { reqDocs = []; }
+      }
+      let optDocs = activeCategory.optional_documents || (activeCategory as any).optionalDocuments || [];
+      if (typeof optDocs === 'string') {
+        try { optDocs = JSON.parse(optDocs); } catch(e) { optDocs = []; }
+      }
+
       const docs = [
-        ...(activeCategory.required_documents || []).map((d: any) => ({ name: d.name, req: true })),
-        ...(activeCategory.optional_documents || []).map((d: any) => ({ name: d.name, req: false }))
+        ...(reqDocs as any[]).map((d: any) => normalizeDocument(d, true)),
+        ...(optDocs as any[]).map((d: any) => normalizeDocument(d, false))
       ];
-      return docs.map((doc: { name: string, req: boolean }) => {
-        const docName = doc.name;
-        let k = docName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-        // Maintain compatibility for the uploader step routing keys
-        if (docName.toLowerCase().includes("degree") || docName.toLowerCase().includes("diploma")) {
+      
+      const typeCounts: Record<string, number> = {};
+      return docs.map((doc: any) => {
+        const base = doc.typeCode || doc.name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+        typeCounts[base] = (typeCounts[base] || 0) + 1;
+        const uid = typeCounts[base] > 1 ? `${base}_${typeCounts[base]}` : base;
+        
+        let k = base;
+        if (doc.name.toLowerCase().includes("degree") || doc.name.toLowerCase().includes("diploma")) {
           k = "degree";
-        } else if (docName.toLowerCase().includes("passport") || docName.toLowerCase().includes("photo")) {
+        } else if (doc.name.toLowerCase().includes("passport") || doc.name.toLowerCase().includes("photo")) {
           k = "photo";
         }
+        
         return {
           k,
-          l: docName.replace(/_/g, " "),
+          uid,
+          l: doc.name,
           r: doc.req
         };
       });
     }
 
-    const catName = data.categoryName || "";
     const list = [];
     if (data.entityType === "Individual") {
       if (data.practiceLocation === "Rwandan") {
@@ -1560,13 +1589,13 @@ function WizardContent({
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                     {contextualChecklist.map((d: any) => {
-                      const hasDoc = !!data.docs[d.k];
-                      const isUploading = data.docs[d.k] === "uploading_from_client";
-                      const isLoadingBackend = data.docs[d.k] === "loading_from_backend";
+                      const hasDoc = !!data.docs[d.uid];
+                      const isUploading = data.docs[d.uid] === "uploading_from_client";
+                      const isLoadingBackend = data.docs[d.uid] === "loading_from_backend";
                       const isPending = isUploading || isLoadingBackend;
-                      const isCollapsed = collapsedDocs[d.k] || false;
+                      const isCollapsed = collapsedDocs[d.uid] || false;
                       return (
-                        <div key={d.k} className={cn("relative border border-dashed border-zinc-300 rounded-sm p-4 bg-white transition-all", hasDoc ? "col-span-1 md:col-span-2" : "")}>
+                        <div key={d.uid} className={cn("relative border border-dashed border-zinc-300 rounded-sm p-4 bg-white transition-all", hasDoc ? "col-span-1 md:col-span-2" : "")}>
                           {!hasDoc ? (
                             <div className="flex items-center gap-4">
                               <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -1574,13 +1603,13 @@ function WizardContent({
                                   if (e.target.files && e.target.files[0]) {
                                     const file = e.target.files[0];
                                     if (!appId) { toast.error("Please save first step before uploading."); return; }
-                                    setData({ ...data, docs: { ...data.docs, [d.k]: "uploading_from_client" } });
-                                    uploadFileMutation.mutate({ file, documentType: d.k }, {
+                                    setData({ ...data, docs: { ...data.docs, [d.uid]: "uploading_from_client" } });
+                                    uploadFileMutation.mutate({ file, documentType: d.uid }, {
                                       onSuccess: () => {
                                         const isImg = file.type.startsWith("image/") || file.name.match(/\.(jpeg|jpg|gif|png)$/i);
-                                        setData((prev: any) => ({ ...prev, docs: { ...prev.docs, [d.k]: URL.createObjectURL(file) + (isImg ? "#image" : "#pdf") } }));
+                                        setData((prev: any) => ({ ...prev, docs: { ...prev.docs, [d.uid]: URL.createObjectURL(file) + (isImg ? "#image" : "#pdf") } }));
                                         // Ensure it's expanded when a new file is uploaded
-                                        setCollapsedDocs(prev => ({ ...prev, [d.k]: false }));
+                                        setCollapsedDocs(prev => ({ ...prev, [d.uid]: false }));
                                       }
                                     });
                                   }
@@ -1601,10 +1630,10 @@ function WizardContent({
                             <div className="space-y-3 relative z-10">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 flex items-center justify-center bg-green-50 text-green-600 rounded-sm shrink-0 cursor-pointer" onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.k]: !prev[d.k] }))}>
+                                  <div className="w-10 h-10 flex items-center justify-center bg-green-50 text-green-600 rounded-sm shrink-0 cursor-pointer" onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.uid]: !prev[d.uid] }))}>
                                     {isPending ? <Loader2 className="h-5 w-5 animate-spin text-gold" /> : <CheckCircle2 className="h-5 w-5" />}
                                   </div>
-                                  <div className={cn("select-none flex-1", !isPending && "cursor-pointer")} onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.k]: !prev[d.k] }))}>
+                                  <div className={cn("select-none flex-1", !isPending && "cursor-pointer")} onClick={() => !isPending && setCollapsedDocs(prev => ({ ...prev, [d.uid]: !prev[d.uid] }))}>
                                     <p className="text-sm font-semibold text-navy truncate">{d.l}</p>
                                     <p className="text-xs text-green-600">
                                       {isUploading ? "Uploading document..." : isLoadingBackend ? "Loading document..." : "Successfully uploaded"}
@@ -1613,19 +1642,19 @@ function WizardContent({
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {!isPending && (
-                                    <Button variant="ghost" size="sm" onClick={() => setCollapsedDocs(prev => ({ ...prev, [d.k]: !prev[d.k] }))} className="text-muted-foreground hover:bg-zinc-100 hidden sm:flex">
+                                    <Button variant="ghost" size="sm" onClick={() => setCollapsedDocs(prev => ({ ...prev, [d.uid]: !prev[d.uid] }))} className="text-muted-foreground hover:bg-zinc-100 hidden sm:flex">
                                       {isCollapsed ? <><ChevronDown className="h-4 w-4 mr-1" /> Expand</> : <><ChevronUp className="h-4 w-4 mr-1" /> Collapse</>}
                                     </Button>
                                   )}
                                   <Button variant="ghost" size="sm" onClick={() => {
                                     const newDocs = { ...data.docs };
-                                    delete newDocs[d.k];
+                                    delete newDocs[d.uid];
                                     setData({ ...data, docs: newDocs });
                                     if (appId) {
-                                      deleteDocumentMutation.mutate({ appId, documentType: d.k });
+                                      deleteDocumentMutation.mutate({ appId, documentType: d.uid });
                                     }
                                   }} className="text-red-500 hover:bg-red-50" disabled={isPending || deleteDocumentMutation.isPending}>
-                                    {deleteDocumentMutation.isPending && deleteDocumentMutation.variables?.documentType === d.k ? <Loader2 className="h-4 w-4 mr-1 md:mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 sm:mr-2" />} <span className="hidden sm:inline">Remove</span>
+                                    {deleteDocumentMutation.isPending && deleteDocumentMutation.variables?.documentType === d.uid ? <Loader2 className="h-4 w-4 mr-1 md:mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 sm:mr-2" />} <span className="hidden sm:inline">Remove</span>
                                   </Button>
                                 </div>
                               </div>

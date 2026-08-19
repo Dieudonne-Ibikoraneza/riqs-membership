@@ -33,6 +33,7 @@ import {
   XCircle,
   AlertTriangle,
   Trophy,
+  Loader,
   Loader2,
   User,
   Pencil,
@@ -211,6 +212,7 @@ export default function Application() {
 
   const [step, setStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [hasLoaded, setHasLoaded] = useState(false);
   const getCacheKey = (loc: string, ent: string) => `${loc}-${ent}`;
   const [cachedCategory, setCachedCategory] = useState<{ [key: string]: { id: string, name: string } }>({});
@@ -456,8 +458,8 @@ export default function Application() {
     // Fallback hardcoded
     if (data.entityType === "Individual") {
       return [
-        { id: "GrQST", name: "Graduate QS Technologist", category_code: "GrQST" },
-        { id: "GrQS", name: "Graduate QS", category_code: "GrQS" },
+        { id: "GradQST", name: "Graduate QS Technologist", category_code: "GradQST" },
+        { id: "GradQS", name: "Graduate QS", category_code: "GradQS" },
       ];
     } else {
       if (data.practiceLocation === "Rwandan") {
@@ -514,48 +516,79 @@ export default function Application() {
     setData({ ...data, mentors: data.mentors.filter((_: any, idx: number) => idx !== i) });
 
   // ─── Auto-save mutation ────────────────────────────────────────────────────
+  const buildApplicationPayload = (currentStep: number) => ({
+    practiceLocation: data.practiceLocation,
+    entityType: data.entityType,
+    categoryId: data.categoryId,
+    fullName: data.personal.fullName,
+    phoneNumber: data.personal.phone,
+    dob: data.personal.dob,
+    nationalIdOrPassport: data.personal.nationalId,
+    gender: data.personal.gender,
+    nationality: data.personal.nationality,
+    yearsInProfession: data.personal.yearsInProfession,
+    residencyAddress: data.personal.residentAddress,
+    workAddress: data.personal.workAddress,
+    countryOfOrigin: data.personal.countryOfOrigin,
+    firmName: data.entityType === "Firm" ? data.personal.firmName : undefined,
+    firmAddress: data.entityType === "Firm" ? data.personal.firmAddress : undefined,
+    firmContactRegistrationNumber: data.entityType === "Firm" ? data.personal.firmContactRegistrationNumber : undefined,
+    firmContactResidence: data.entityType === "Firm" ? data.personal.firmContactResidence : undefined,
+    firmMainBusinessActivity: data.entityType === "Firm" ? data.personal.firmMainBusinessActivity : undefined,
+    firmCountryOfIncorporation: data.entityType === "Firm" ? data.personal.firmCountryOfIncorporation : undefined,
+    firmPrincipalPlaceOfBusiness: data.entityType === "Firm" ? data.personal.firmPrincipalPlaceOfBusiness : undefined,
+    studentAssociation: data.studentAssociation,
+    competenceSummary: data.competenceSummary,
+    agreedToMentorshipIntent: data.agreedToMentorshipIntent,
+    agreedToDeclarations: !!(data.noCriminalOffense && data.agreedToTerms),
+    currentStep,
+  });
+
   const saveMutation = useMutation({
     mutationFn: applicantServices.saveApplication,
     onSuccess: (res) => {
+      setSaveStatus("saved");
       // Update appId if newly created
       queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
     },
     onError: (err: any) => {
+      setSaveStatus("error");
       toast.error(err?.response?.data?.error || "Failed to save progress");
     },
   });
+
+  // Save edits after the user pauses briefly, rather than waiting for Next.
+  // localStorage remains the immediate recovery fallback.
+  useEffect(() => {
+    if (!hasLoaded || !data.categoryId || !isEditable) return;
+
+    setSaveStatus("idle");
+    const timer = window.setTimeout(() => {
+      setSaveStatus("saving");
+      saveMutation.mutate(buildApplicationPayload(step) as any);
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [data, step, hasLoaded, isEditable]);
+
+  // Attempt one last backend save when the user switches tabs or leaves the page.
+  useEffect(() => {
+    const saveBeforeLeaving = () => {
+      if (document.visibilityState === "hidden" && hasLoaded && data.categoryId && isEditable) {
+        setSaveStatus("saving");
+        saveMutation.mutate(buildApplicationPayload(step) as any);
+      }
+    };
+
+    document.addEventListener("visibilitychange", saveBeforeLeaving);
+    return () => document.removeEventListener("visibilitychange", saveBeforeLeaving);
+  }, [data, step, hasLoaded, isEditable]);
 
   // Handle Save & Logout Event
   useEffect(() => {
     const handleSaveAndLogout = () => {
       if (data.categoryId) {
-        saveMutation.mutate({
-          practiceLocation: data.practiceLocation,
-          entityType: data.entityType,
-          categoryId: data.categoryId,
-          fullName: data.personal.fullName,
-          phoneNumber: data.personal.phone,
-          dob: data.personal.dob,
-          nationalIdOrPassport: data.personal.nationalId,
-          gender: data.personal.gender,
-          nationality: data.personal.nationality,
-          yearsInProfession: data.personal.yearsInProfession,
-          residencyAddress: data.personal.residentAddress,
-          workAddress: data.personal.workAddress,
-          countryOfOrigin: data.personal.countryOfOrigin,
-          firmName: data.entityType === "Firm" ? data.personal.firmName : undefined,
-          firmAddress: data.entityType === "Firm" ? data.personal.firmAddress : undefined,
-          firmContactRegistrationNumber: data.entityType === "Firm" ? data.personal.firmContactRegistrationNumber : undefined,
-          firmContactResidence: data.entityType === "Firm" ? data.personal.firmContactResidence : undefined,
-          firmMainBusinessActivity: data.entityType === "Firm" ? data.personal.firmMainBusinessActivity : undefined,
-          firmCountryOfIncorporation: data.entityType === "Firm" ? data.personal.firmCountryOfIncorporation : undefined,
-          firmPrincipalPlaceOfBusiness: data.entityType === "Firm" ? data.personal.firmPrincipalPlaceOfBusiness : undefined,
-          studentAssociation: data.studentAssociation,
-          competenceSummary: data.competenceSummary,
-          agreedToMentorshipIntent: data.agreedToMentorshipIntent,
-          agreedToDeclarations: !!(data.noCriminalOffense && data.agreedToTerms),
-          currentStep: step,
-        } as any, {
+        saveMutation.mutate(buildApplicationPayload(step) as any, {
           onSuccess: () => {
             localStorage.removeItem('riqs_app_draft');
             localStorage.removeItem('riqs_app_step');
@@ -701,14 +734,6 @@ export default function Application() {
   // ─── Save & advance ────────────────────────────────────────────────────────
   const next = () => {
     if (data.entityType === "Firm" && currentStepName === "Personal Info") {
-      let sum = 0;
-      for (const sh of data.personal.shareholders) {
-        sum += parseFloat(sh.shareholdingPercentage || "0") || 0;
-      }
-      const rounded = Math.round(sum * 100) / 100;
-      if (rounded < 99.9 || rounded > 100.1) {
-         return toast.error("The firm shareholders' shares must sum to 100%.");
-      }
       if (appId) {
         applicantServices.saveShareholders(appId, data.personal.shareholders.map((s: any) => ({
           ...s,
@@ -774,33 +799,8 @@ export default function Application() {
     }
     if (data.categoryId) {
       // Fire and forget, no await or loading state to ensure instant transition
-      saveMutation.mutate({
-        practiceLocation: data.practiceLocation,
-        entityType: data.entityType,
-        categoryId: data.categoryId,
-        fullName: data.personal.fullName,
-        phoneNumber: data.personal.phone,
-        dob: data.personal.dob,
-        nationalIdOrPassport: data.personal.nationalId,
-        gender: data.personal.gender,
-        nationality: data.personal.nationality,
-        yearsInProfession: data.personal.yearsInProfession,
-        residencyAddress: data.personal.residentAddress,
-        workAddress: data.personal.workAddress,
-        countryOfOrigin: data.personal.countryOfOrigin,
-        firmName: data.entityType === "Firm" ? data.personal.firmName : undefined,
-        firmAddress: data.entityType === "Firm" ? data.personal.firmAddress : undefined,
-        firmContactRegistrationNumber: data.entityType === "Firm" ? data.personal.firmContactRegistrationNumber : undefined,
-        firmContactResidence: data.entityType === "Firm" ? data.personal.firmContactResidence : undefined,
-        firmMainBusinessActivity: data.entityType === "Firm" ? data.personal.firmMainBusinessActivity : undefined,
-        firmCountryOfIncorporation: data.entityType === "Firm" ? data.personal.firmCountryOfIncorporation : undefined,
-        firmPrincipalPlaceOfBusiness: data.entityType === "Firm" ? data.personal.firmPrincipalPlaceOfBusiness : undefined,
-        studentAssociation: data.studentAssociation,
-        competenceSummary: data.competenceSummary,
-        agreedToMentorshipIntent: data.agreedToMentorshipIntent,
-        agreedToDeclarations: !!(data.noCriminalOffense && data.agreedToTerms),
-        currentStep: Math.min(STEPS.length - 1, step + 1),
-      } as any);
+      setSaveStatus("saving");
+      saveMutation.mutate(buildApplicationPayload(Math.min(STEPS.length - 1, step + 1)) as any);
     }
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
   };
@@ -823,31 +823,106 @@ export default function Application() {
   };
 
   const documentChecklist = useMemo(() => {
-    const activeCategory = categories?.find((c: any) => c.id === data.categoryId);
+    let catName = data.categoryName || "";
+    const activeCategory = categories?.find((c: any) => c.id === data.categoryId)
+      || categories?.find((c: any) => c.category_name === catName || c.categoryName === catName);
     
     if (activeCategory) {
+      catName = activeCategory.category_name || (activeCategory as any).categoryName || catName;
+      const normalizeDocument = (document: any, req: boolean) => {
+        let parsed = document;
+        if (typeof document === 'string') {
+          try { parsed = JSON.parse(document); } catch (e) { parsed = document; }
+        }
+        const name = typeof parsed === "string"
+          ? parsed
+          : parsed?.name || parsed?.documentName || parsed?.label || "Required document";
+        const typeCode = typeof parsed === "object"
+          ? parsed?.typeCode || parsed?.type_code || parsed?.code
+          : undefined;
+        return { name, typeCode, req };
+      };
+
+      let reqDocs = activeCategory.required_documents || (activeCategory as any).requiredDocuments || [];
+      if (typeof reqDocs === 'string') {
+        try { reqDocs = JSON.parse(reqDocs); } catch(e) { reqDocs = []; }
+      }
+      let optDocs = activeCategory.optional_documents || (activeCategory as any).optionalDocuments || [];
+      if (typeof optDocs === 'string') {
+        try { optDocs = JSON.parse(optDocs); } catch(e) { optDocs = []; }
+      }
+
       const docs = [
-        ...(activeCategory.required_documents || []).map((d: any) => ({ name: d.name, typeCode: d.typeCode, req: true })),
-        ...(activeCategory.optional_documents || []).map((d: any) => ({ name: d.name, typeCode: d.typeCode, req: false }))
+        ...(reqDocs as any[]).map((d: any) => normalizeDocument(d, true)),
+        ...(optDocs as any[]).map((d: any) => normalizeDocument(d, false))
       ];
-      // Track how many times each typeCode appears so duplicates get a unique suffix
+      
       const typeCounts: Record<string, number> = {};
       return docs.map((doc: any) => {
-        const base = doc.typeCode || doc.name.toLowerCase().replace(/[^a-z0-9]/g, "_");
+        const base = doc.typeCode || doc.name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
         typeCounts[base] = (typeCounts[base] || 0) + 1;
-        // uid is always unique: "certificate_1", "certificate_2", etc.
-        // k stays as the raw typeCode for category-filter logic
         const uid = typeCounts[base] > 1 ? `${base}_${typeCounts[base]}` : base;
         return {
-          k: base,   // typeCode — used for step-routing filter (Education vs Other Docs)
-          uid,       // unique storage key — used as React key AND data.docs key
+          k: base,
+          uid,
           l: doc.name,
-          r: data.categoryName?.toLowerCase().includes("student") ? false : doc.req
+          r: catName?.toLowerCase().includes("student") ? false : doc.req
         };
       });
     }
-    return [];
-  }, [categories, data.categoryId]);
+
+    const list = [];
+    if (data.entityType === "Individual") {
+      if (data.practiceLocation === "Rwandan") {
+        if (catName === "Graduate" || catName.includes("Graduate")) {
+          list.push({ k: "degree", uid: "degree", l: "Notarized Degree/Diploma (HEC equivalency if foreign)", r: true });
+          list.push({ k: "transcript", uid: "transcript", l: "Notarized Academic Transcripts showing subjects", r: false });
+          list.push({ k: "membership_origin", uid: "membership_origin", l: "Membership certificate from origin country", r: false });
+          list.push({ k: "permit", uid: "permit", l: "Valid Visa/Residence Permit/National ID", r: true });
+        } else if (catName === "Technologist" || catName.includes("Technologist")) {
+          list.push({ k: "degree", uid: "degree", l: "Notarized Advanced Diploma (HEC equivalency if foreign)", r: true });
+          list.push({ k: "transcript", uid: "transcript", l: "Notarized Academic Transcripts", r: false });
+          list.push({ k: "cv", uid: "cv", l: "Curriculum Vitae (CV)", r: true });
+          list.push({ k: "payment", uid: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: true });
+        } else {
+          list.push({ k: "degree", uid: "degree", l: "Notarized Degree Certificate (HEC equivalent if foreign)", r: true });
+          list.push({ k: "transcript", uid: "transcript", l: "Notarized Academic Transcripts showing subjects", r: true });
+          list.push({ k: "cpd_certificate", uid: "cpd_certificate", l: "At least 2 CPD Activities certificate copies", r: false });
+          list.push({ k: "logbook", uid: "logbook", l: "Logbook of records", r: false });
+          list.push({ k: "application_letter", uid: "application_letter", l: "Application Letter", r: true });
+          list.push({ k: "id_passport", uid: "id_passport", l: "Copy of ID / Passport", r: true });
+          list.push({ k: "cv", uid: "cv", l: "Curriculum Vitae (CV)", r: false });
+          list.push({ k: "payment", uid: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: true });
+        }
+      } else {
+        list.push({ k: "degree", uid: "degree", l: "Notarized Degree/Diploma (HEC equivalency if foreign)", r: true });
+        list.push({ k: "membership_origin", uid: "membership_origin", l: "Membership certificate from origin country", r: true });
+        list.push({ k: "good_standing", uid: "good_standing", l: "Letter of good standing from origin institute", r: true });
+        list.push({ k: "cv", uid: "cv", l: "Curriculum Vitae (CV)", r: true });
+        list.push({ k: "application_letter", uid: "application_letter", l: "Application Letter", r: true });
+        list.push({ k: "passport", uid: "passport", l: "Copy of Passport", r: true });
+        list.push({ k: "permit", uid: "permit", l: "Valid Visa/Residence Permit", r: true });
+        list.push({ k: "payment", uid: "payment", l: "Proof of Momo Payment (10,000 RWF via Momo Code: 604516)", r: true });
+      }
+    } else if (data.entityType === "Firm") {
+      if (data.practiceLocation === "Rwandan") {
+        list.push({ k: "application_letter", uid: "application_letter", l: "Application Letter addressed to Executive Secretary", r: true });
+        list.push({ k: "firm_cert", uid: "firm_cert", l: "Copy of firm registration certificate (RDB)", r: true });
+        list.push({ k: "tin", uid: "tin", l: "Tax Identification Number (TIN)", r: true });
+        list.push({ k: "tax_clearance", uid: "tax_clearance", l: "Tax clearance certificate (RRA)", r: true });
+        list.push({ k: "rssb", uid: "rssb", l: "RSSB clearance certificate", r: true });
+        list.push({ k: "payment", uid: "payment", l: "Proof of payment (Bank slip)", r: true });
+      } else {
+        list.push({ k: "application_letter", uid: "application_letter", l: "Application Letter addressed to Executive Secretary", r: true });
+        list.push({ k: "firm_cert", uid: "firm_cert", l: "Copy of firm registration certificate from Origin Country", r: true });
+        list.push({ k: "incorporation", uid: "incorporation", l: "RDB certificate of incorporation as a branch", r: true });
+        list.push({ k: "tax_clearance", uid: "tax_clearance", l: "Tax clearance certificate (RRA)", r: true });
+        list.push({ k: "rssb", uid: "rssb", l: "RSSB clearance certificate", r: true });
+        list.push({ k: "payment", uid: "payment", l: "Proof of payment (Bank slip)", r: true });
+      }
+    }
+    return list;
+  }, [categories, data.categoryId, data.categoryName, data.entityType, data.practiceLocation]);
 
   const currentStepName = STEPS[step];
 
@@ -897,6 +972,7 @@ export default function Application() {
               submit={submit}
               next={next}
               back={back}
+              saveStatus={saveStatus}
               documents={profileData?.documents || []}
               reviewerNotes={reviewerNotes}
             />
@@ -935,6 +1011,7 @@ export default function Application() {
       submit={submit}
       next={next}
       back={back}
+      saveStatus={saveStatus}
       documents={profileData?.documents || []}
       reviewerNotes={reviewerNotes}
     />
@@ -946,7 +1023,7 @@ function WizardContent({
   step, STEPS, pct, data, setData, categoriesList, selectedGraduateRoute, documentChecklist,
   currentStepName, updateLocation, updateEntity, addMentor, removeMentor,
   appId, isSaving, addEduMutation, delEduMutation, addEmpMutation, delEmpMutation, mentorshipMutation, delMentorMutation,
-  submitMutation, submit, next, back, documents, goToStep, reviewerNotes, competencies, profilePhotoUrl
+  submitMutation, submit, next, back, saveStatus, documents, goToStep, reviewerNotes, competencies, profilePhotoUrl
 }: any) {
   const queryClient = useQueryClient();
   const [photoDragActive, setPhotoDragActive] = useState(false);
@@ -1046,6 +1123,84 @@ function WizardContent({
 
   const contextualChecklist = getContextualChecklist();
 
+  const handleSubmit = () => {
+    const firstInvalidStep = STEPS.find((stepName: string) => getStepIssues(stepName).length > 0);
+    if (firstInvalidStep) {
+      goToStep(STEPS.indexOf(firstInvalidStep));
+      toast.error(`${firstInvalidStep}: ${getStepIssues(firstInvalidStep)[0]}`);
+      return;
+    }
+    submit();
+  };
+
+  const getStepDocumentChecklist = (stepName: string) => {
+    if (stepName === "Education") return documentChecklist.filter((d: any) => EDUCATION_DOC_TYPES.includes(d.k));
+    if (stepName === "Other Documents") return documentChecklist.filter((d: any) => !["photo", ...EDUCATION_DOC_TYPES].includes(d.k));
+    return [];
+  };
+
+  const getStepIssues = (stepName: string): string[] => {
+    if (stepName === "Practice Location") return data.practiceLocation ? [] : ["Select your practice location."];
+    if (stepName === "Entity Type") return data.entityType ? [] : ["Select an application type."];
+    if (stepName === "Category") return data.categoryId ? [] : ["Select an assessment category."];
+
+    if (stepName === "Personal Info") {
+      const p = data.personal;
+      if (data.entityType === "Individual") {
+        const missing: string[] = [];
+        if (!p.fullName) missing.push("full name");
+        if (!p.phone) missing.push("phone number");
+        if (!p.email) missing.push("email address");
+        if (!p.nationalId) missing.push("national ID or passport");
+        if (!p.gender) missing.push("gender");
+        if (!p.nationality) missing.push("nationality");
+        if (!photoPreview) missing.push("passport photo");
+        const address = p.residentAddress;
+        if (data.practiceLocation === "Rwandan" && (!address?.district || !address?.sector || !address?.cell || !address?.village)) missing.push("complete resident address");
+        return missing.length ? [`Complete: ${missing.join(", ")}.`] : [];
+      }
+      const missing: string[] = [];
+      if (!p.fullName) missing.push("representative name");
+      if (!p.phone) missing.push("representative phone");
+      if (!p.firmName) missing.push("firm name");
+      if (!p.firmAddress) missing.push("firm address");
+      if (!data.personal.shareholders?.some((s: any) => s.fullName)) missing.push("at least one shareholder");
+      const shareTotal = (data.personal.shareholders || []).reduce((sum: number, s: any) => sum + (parseFloat(s.shareholdingPercentage || "0") || 0), 0);
+      if (Math.round(shareTotal * 100) / 100 !== 100) missing.push("shareholdings totaling 100%");
+      return missing.length ? [`Complete: ${missing.join(", ")}.`] : [];
+    }
+
+    if (stepName === "Employment Record" && data.entityType === "Individual" && !data.hasNoEmployment) {
+      if (!data.employment.some((e: any) => e.id || (e.company && e.role && e.from))) return ["Add at least one employment record or select that you have never been employed."];
+      if (data.practiceLocation === "Rwandan") {
+        const address = data.personal.workAddress;
+        if (!address?.district || !address?.sector || !address?.cell || !address?.village) return ["Complete your work address."];
+      }
+    }
+
+    if (stepName === "Education" && data.entityType === "Individual") {
+      if (!data.education.some((e: any) => e.id || (e.institution && e.studyField && e.degree && e.startDateRaw))) return ["Add and save at least one academic record."];
+      const missingDocs = getStepDocumentChecklist(stepName).filter((d: any) => d.r && (!data.docs[d.uid] || ["loading_from_backend", "uploading_from_client"].includes(data.docs[d.uid])));
+      if (missingDocs.length) return [`Upload required education documents: ${missingDocs.map((d: any) => d.l).join(", ")}.`];
+    }
+
+    if (stepName === "Other Documents") {
+      const missingDocs = getStepDocumentChecklist(stepName).filter((d: any) => d.r && (!data.docs[d.uid] || ["loading_from_backend", "uploading_from_client"].includes(data.docs[d.uid])));
+      if (missingDocs.length) return [`Upload required documents: ${missingDocs.map((d: any) => d.l).join(", ")}.`];
+    }
+
+    if (stepName === "Mentorship Plan" && !data.agreedToMentorshipIntent) return ["Confirm your mentorship plan and intent."];
+
+    if (stepName === "Declarations" && (!data.noCriminalOffense || !data.agreedToTerms)) {
+      const missing: string[] = [];
+      if (!data.noCriminalOffense) missing.push("criminal offense declaration");
+      if (!data.agreedToTerms) missing.push("terms and conditions");
+      return [`Accept: ${missing.join(" and ")}.`];
+    }
+
+    return [];
+  };
+
   const uploadPhotoMutation = useMutation({
     mutationFn: async (file: File) => {
       // Instead of an application document, we upload it as the member's profile photo
@@ -1137,6 +1292,13 @@ function WizardContent({
               ? "Review the feedback below and update your application." 
               : "Complete the steps below — your progress is saved automatically."}
           </p>
+          {!reviewerNotes && saveStatus !== "idle" && (
+            <p className="mt-1 text-xs text-muted-foreground" aria-live="polite">
+              {saveStatus === "saving" && "Saving your latest changes..."}
+              {saveStatus === "saved" && "All changes saved."}
+              {saveStatus === "error" && "Could not save the latest changes. Your local draft is still available."}
+            </p>
+          )}
         </div>
         {!reviewerNotes && (
           <Badge variant="outline" className="border-gold/40 bg-gold/10 text-gold font-bold">
@@ -1167,15 +1329,17 @@ function WizardContent({
           </div>
           <div className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-4 lg:flex-nowrap lg:justify-between">
             {STEPS.map((s: string, i: number) => {
-              const done = i < step, active = i === step;
+              const active = i === step;
+              const visitedWithIssues = i < step && getStepIssues(s).length > 0;
+              const done = i < step && !visitedWithIssues;
               return (
                 <button
                   key={s}
-                  onClick={() => i <= step && goToStep(i)}
+                  onClick={() => goToStep(i)}
                   className={cn(
                     "group flex flex-col items-center gap-1.5 transition-all outline-none",
                     "w-[calc(33.333%-1rem)] md:w-[calc(25%-1rem)] lg:w-auto lg:flex-1",
-                    i > step && "cursor-default opacity-60",
+                    "cursor-pointer",
                   )}
                 >
                   <div className={cn(
@@ -1184,7 +1348,9 @@ function WizardContent({
                     active && "bg-navy text-white scale-110 ring-4 ring-navy/15 animate-pulse-gold",
                     !done && !active && "bg-muted text-muted-foreground border border-border",
                   )}>
-                    {done ? <Check className="h-4 w-4" /> : i + 1}
+                    {currentStepName === "Review & Submit" && getStepIssues(s).length > 0 ? (
+                      <span className="text-base font-extrabold text-red-700" aria-label="Step has missing information">!</span>
+                    ) : done ? <Check className="h-4 w-4" /> : active ? i + 1 : visitedWithIssues ? <Loader className="h-4 w-4" aria-label="Step incomplete" /> : i + 1}
                   </div>
                   <span className={cn(
                     "text-[10px] text-center leading-tight transition-colors hidden md:block mt-1 max-w-[110px] break-words whitespace-normal font-sans",
@@ -1207,6 +1373,15 @@ function WizardContent({
           <Card className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 mb-4">
         <CardHeader className="border-b border-zinc-50 dark:border-zinc-800/50 py-4">
           <CardTitle className="text-xl text-navy">{currentStepName}</CardTitle>
+          {currentStepName !== "Review & Submit" && getStepIssues(currentStepName).length > 0 && (
+            <div className="mt-3 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-semibold">This step needs attention</p>
+                <p>{getStepIssues(currentStepName).join(" ")}</p>
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-6">
           <AnimatePresence mode="wait">
@@ -2036,6 +2211,26 @@ function WizardContent({
               {/* ── Review & Submit ── */}
               {currentStepName === "Review & Submit" && (
                 <div className="space-y-6">
+                  {STEPS.some((stepName: string) => getStepIssues(stepName).length > 0) && (
+                    <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-700" />
+                        <div className="space-y-2">
+                          <p className="font-semibold">Your application is not ready to submit.</p>
+                          <p>Click a step with a red exclamation mark to complete the missing information.</p>
+                          <ul className="list-disc space-y-1 pl-5">
+                            {STEPS.filter((stepName: string) => getStepIssues(stepName).length > 0).map((stepName: string) => (
+                              <li key={stepName}>
+                                <button type="button" className="cursor-pointer font-semibold underline" onClick={() => goToStep(STEPS.indexOf(stepName))}>
+                                  {stepName}
+                                </button>{": "}{getStepIssues(stepName).join(" ")}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="grid gap-6 md:grid-cols-2">
                     <div className="bg-zinc-50 p-5 text-sm space-y-2.5 rounded-md border border-zinc-100">
                       {[
@@ -2095,9 +2290,9 @@ function WizardContent({
                   </div>
 
                   <Button
-                    disabled={submitMutation.isPending || !data.agreedToTerms || !data.noCriminalOffense}
-                    onClick={submit}
-                    className="w-full h-12 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-bold border-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={submitMutation.isPending || STEPS.some((stepName: string) => getStepIssues(stepName).length > 0)}
+                    onClick={handleSubmit}
+                    className="w-full h-12 cursor-pointer bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-bold border-none disabled:pointer-events-auto disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitMutation.isPending ? (
                       <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</>
@@ -2290,7 +2485,7 @@ function WizardContent({
             return false;
           };
           return (
-            <Button onClick={next} disabled={isNextDisabled()}
+            <Button onClick={next} disabled={isSaving}
               className="bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold border-none font-semibold">
               {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <>Next <ChevronRight className="ml-2 h-4 w-4" /></>}
             </Button>

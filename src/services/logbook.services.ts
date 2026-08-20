@@ -49,12 +49,12 @@ export const logbookServices = {
     return data;
   },
 
-  submitMentorRecommendation: async (formData: FormData): Promise<any> => {
-    const { data } = await axiosClient.post(`/logbook/mentor-recommendation`, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data"
-      }
-    });
+  submitMentorRecommendation: async (payload: { applicationId: string; recommend: boolean; mentorNotes?: string } | FormData): Promise<any> => {
+    // Keep the old local component compatible while all live requests use the checkbox payload.
+    const body = payload instanceof FormData
+      ? { applicationId: String(payload.get("applicationId") || ""), recommend: true }
+      : payload;
+    const { data } = await axiosClient.post(`/logbook/mentor-recommendation`, body);
     return data;
   },
 

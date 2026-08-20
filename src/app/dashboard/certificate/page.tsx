@@ -171,15 +171,14 @@ function CertificateContent() {
   const appStatus = profileData?.application?.status || (isAdminCreatedMember ? "Approved" : "None");
   const isApproved = appStatus === "Approved";
 
-  // Check if Processing_Fee (application fee) is cleared
-  const processingFeeTx = profileData?.financialTransactions?.find(
-    (tx: any) => tx.txType === "Processing_Fee"
+  // Credentials are issued only after the first-year membership fee is cleared.
+  const firstYearFeeTx = profileData?.financialTransactions?.find(
+    (tx: any) => tx.txType === "First_Year_Fee"
   );
-  
-  // Default to true for backward compatibility if no tx is found
-  const isProcessingFeeCleared = isAdminCreatedMember ? true : (processingFeeTx ? processingFeeTx.status === "Cleared" : true);
-
-  const isFullyActive = isApproved && isProcessingFeeCleared;
+  const hasMembershipId = Boolean((profileData?.profile as any)?.membershipId);
+  // Preserve access for legacy/admin-created members that have no application fee transaction.
+  const isFirstYearFeeCleared = isAdminCreatedMember || (firstYearFeeTx ? firstYearFeeTx.status === "Cleared" : hasMembershipId);
+  const isFullyActive = isApproved && hasMembershipId && isFirstYearFeeCleared;
 
   // Lazy-load passport photo if approved
   useEffect(() => {
@@ -346,9 +345,9 @@ function CertificateContent() {
       badgeText = "No Application Found";
       descText = "You have not started your professional membership application yet. To get licensed, you must submit an application packet.";
       showButton = true;
-    } else if (appStatus === "Approved" && !isProcessingFeeCleared) {
-      badgeText = "Pending Application Fee";
-      descText = "Congratulations! Your application has been approved by the Governing Council. However, your initial application fee (Processing Fee) has not yet been cleared by the admin. Please ensure you have uploaded your proof of payment on the payments page, and wait for administrative clearance to receive your practicing license.";
+    } else if (appStatus === "Approved" && !isFirstYearFeeCleared) {
+      badgeText = "First-Year Fee Required";
+      descText = "Your application has been approved, but your membership credentials have not been issued yet. Please pay and submit proof of payment for the first-year membership fee, then wait for verification before accessing your certificate.";
       showButton = true;
       buttonLabel = "Go to Payments";
       buttonHref = "/dashboard/payments";

@@ -77,14 +77,12 @@ export async function submitReviewerAction(
 export async function submitApproverDecision(
   applicationId: string,
   action: "Approve" | "Reject" | "ReturnForCorrection",
-  notes?: string,
-  overrideCategoryId?: string
+  notes?: string
 ): Promise<any> {
   const { data } = await axiosClient.post(`/admin/approver-decision`, {
     applicationId,
     action,
     notes,
-    overrideCategoryId,
   });
   return data;
 }

@@ -7,7 +7,6 @@ import { getApplicationDetail, submitReviewerAction, submitApproverDecision, ver
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { applicantServices } from "@/services/applicant.services";
-import { publicServices } from "@/services/public.services";
 import { logbookServices, LogbookEntry } from "@/services/logbook.services";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   ArrowLeft,
@@ -152,14 +150,7 @@ export default function Review({ params }: PageProps) {
   const [selectedCorrectionDocuments, setSelectedCorrectionDocuments] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [overrideCategoryId, setOverrideCategoryId] = useState<string>("keep_default");
   const [refreshKey, setRefreshKey] = useState(0);
-
-  const { data: categories = [] } = useQuery({
-    queryKey: ["publicCategories"],
-    queryFn: () => publicServices.getCategories({ includeAdminOnly: true }),
-    staleTime: 5 * 60 * 1000,
-  });
   const prevDoc = useRef(activeDoc);
   const [direction, setDirection] = useState(0);
 
@@ -425,7 +416,7 @@ export default function Review({ params }: PageProps) {
     setIsSubmitting(true);
     try {
       if (action === "approve" || action === "reject") {
-        await submitApproverDecision(app.id, action === "approve" ? "Approve" : "Reject", note, overrideCategoryId === "keep_default" ? undefined : overrideCategoryId);
+        await submitApproverDecision(app.id, action === "approve" ? "Approve" : "Reject", note);
       } else if (action === "correction" && (role === "Approver" || role === "Admin") && app.status === "Pending Approval") {
         await submitApproverDecision(app.id, "ReturnForCorrection", actionNote);
       } else {
@@ -1179,7 +1170,7 @@ export default function Review({ params }: PageProps) {
           <div className="space-y-3 text-sm py-2">
             <DialogDescription className="min-w-0 break-words text-muted-foreground leading-relaxed">
               {dialog === "approve" &&
-                "A new membership certificate, practicing license, and membership ID will be generated and dispatched automatically."}
+                "This will approve the application and create the first-year membership fee invoice. Membership credentials will be generated after the payment is submitted and verified."}
               {dialog === "reject" &&
                 "An administrative reason is required and will be sent directly to the candidate."}
               {dialog === "correction" &&
@@ -1270,24 +1261,6 @@ export default function Review({ params }: PageProps) {
                   : "Please provide a reason for the applicant..."
               }
             />
-            {dialog === "approve" && (
-              <div className="space-y-1.5 pt-2">
-                <Label className="text-xs text-muted-foreground">Category (Optional Override)</Label>
-                <Select value={overrideCategoryId} onValueChange={setOverrideCategoryId}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={`Default: ${app?.category}`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="keep_default">Default: {app?.category}</SelectItem>
-                    {categories.map((c: any) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.category_name} ({c.category_code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
           </div>
           <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button

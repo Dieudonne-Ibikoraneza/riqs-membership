@@ -33,6 +33,7 @@ import {
   XCircle,
   AlertTriangle,
   Trophy,
+  CreditCard,
   Loader,
   Loader2,
   User,
@@ -96,9 +97,9 @@ const STATUS_CONFIG: Record<string, {
   },
   Approved: {
     icon: <Trophy className="h-12 w-12" />,
-    title: "Congratulations — Membership Approved!",
+    title: "Application Approved",
     description:
-      "Your RIQS membership application has been officially approved! Welcome to the Rwanda Institute of Quantity Surveyors. Your membership certificate and ID are now available for download on the Certificate page. We look forward to your contributions to the profession.",
+      "Your RIQS membership application has been approved. Complete and submit the first-year membership fee payment so your membership credentials can be issued.",
     color: "text-gold dark:text-gold",
     bg: "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-700",
     badge: "border-amber-300 bg-amber-100 text-amber-800",
@@ -123,8 +124,23 @@ const STATUS_CONFIG: Record<string, {
   },
 };
 
-function StatusBanner({ status, onRefresh, isRefreshing }: { status: string; onRefresh?: () => void; isRefreshing?: boolean }) {
+function StatusBanner({ status, onRefresh, isRefreshing, firstYearFeeCleared, firstYearFeeAmount, membershipId }: { status: string; onRefresh?: () => void; isRefreshing?: boolean; firstYearFeeCleared?: boolean; firstYearFeeAmount?: number; membershipId?: string | null }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG["Pending"];
+  // A membership ID is only issued after the first-year fee is verified. Keep
+  // it as a safe fallback for older records whose transaction is not exposed
+  // by the profile response.
+  const paymentComplete = status === "Approved" && (Boolean(firstYearFeeCleared) || Boolean(membershipId));
+  const paymentRequired = status === "Approved" && !paymentComplete;
+  const title = paymentRequired
+    ? "Application Approved — Payment Required"
+    : paymentComplete
+      ? "Application Approved — Membership Active"
+      : cfg.title;
+  const description = paymentRequired
+    ? `Your application has been approved. Please pay the first-year membership fee${firstYearFeeAmount ? ` of ${Number(firstYearFeeAmount).toLocaleString()} RWF` : ""} and submit proof of payment. Your membership ID, certificate, and other credentials will be issued after the payment is verified.`
+    : paymentComplete
+      ? "Your application was approved and your first-year membership fee has been verified. Your membership credentials are now available on the Certificate page."
+      : cfg.description;
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -139,7 +155,7 @@ function StatusBanner({ status, onRefresh, isRefreshing }: { status: string; onR
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {onRefresh && status !== "Approved" && (
+          {onRefresh && (status !== "Approved" || paymentRequired) && (
             <Button 
               variant="outline" 
               size="sm" 
@@ -159,11 +175,19 @@ function StatusBanner({ status, onRefresh, isRefreshing }: { status: string; onR
       <Card className={cn("border-2", cfg.bg)}>
         <CardContent className="p-10 flex flex-col items-center text-center space-y-5">
           <div className={cfg.color}>{cfg.icon}</div>
-          <h2 className={cn("text-2xl font-bold", cfg.color)}>{cfg.title}</h2>
+          <h2 className={cn("text-2xl font-bold", cfg.color)}>{title}</h2>
           <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">
-            {cfg.description}
+            {description}
           </p>
-          {status === "Approved" && (
+          {paymentRequired && (
+            <Button
+              className="mt-2 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold font-bold border-none"
+              onClick={() => window.location.href = "/dashboard/payments"}
+            >
+              <CreditCard className="mr-2 h-4 w-4" /> Pay First-Year Fee
+            </Button>
+          )}
+          {paymentComplete && membershipId && (
             <Button
               className="mt-2 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold font-bold border-none"
               onClick={() => window.location.href = "/dashboard/certificate"}
@@ -942,7 +966,14 @@ export default function Application() {
   if (appStatus && appStatus !== "Draft") {
     return (
       <div className="space-y-6">
-        <StatusBanner status={appStatus} onRefresh={refetchProfile} isRefreshing={profileFetching} />
+        <StatusBanner
+          status={appStatus}
+          onRefresh={refetchProfile}
+          isRefreshing={profileFetching}
+          firstYearFeeCleared={Boolean(profileData?.profile?.membershipId) || profileData?.financialTransactions?.some((tx: any) => tx.txType === "First_Year_Fee" && tx.status === "Cleared")}
+          firstYearFeeAmount={(profileData?.application as any)?.first_year_fee}
+          membershipId={profileData?.profile?.membershipId}
+        />
         {appStatus === "Correction_Required" && (
           <div className="mt-8 pt-8 border-t border-zinc-200 dark:border-zinc-800">
               <WizardContent competencies={competencies}

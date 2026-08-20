@@ -245,7 +245,7 @@ export default function AdminOverview() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="font-display text-lg text-[#0b3363]">
-                {loading ? <Skeleton className="h-6 w-48" /> : (isReviewer ? "My Reviews" : "Applications vs Approvals")}
+                {loading ? <Skeleton className="h-6 w-48" /> : (isReviewer ? "My Reviews" : isAssistant ? "Applications vs Forwarded" : "Applications vs Approvals")}
               </CardTitle>
               <CardDescription className="mt-1">
                 {loading ? <Skeleton className="h-4 w-64" /> : (isReviewer ? "Total applications & forwarded — last 12 months" : "Monthly throughput — last 12 months")}
@@ -276,7 +276,7 @@ export default function AdminOverview() {
                       <Tooltip content={<CustomTooltip />} cursor={{ stroke: GOLD, strokeWidth: 1 }} />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
                       <Area type="monotone" dataKey="applications" name={isReviewer ? "Received" : "Applications"} stroke={GOLD} strokeWidth={2} fill="url(#gApps)" />
-                      <Area type="monotone" dataKey="approved" name={isReviewer ? "Forwarded" : "Approved"} stroke={NAVY} strokeWidth={2} fill="url(#gApp)" />
+                      <Area type="monotone" dataKey="approved" name={isReviewer || isAssistant ? "Forwarded" : "Approved"} stroke={NAVY} strokeWidth={2} fill="url(#gApp)" />
                     </AreaChart>
                   </ResponsiveContainer>
               }

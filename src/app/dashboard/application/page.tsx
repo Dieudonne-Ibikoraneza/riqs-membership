@@ -87,9 +87,9 @@ const STATUS_CONFIG: Record<string, {
   },
   Pending_Approval: {
     icon: <CheckCircle2 className="h-12 w-12" />,
-    title: "Awaiting Final Board Approval",
+    title: "Awaiting Final Application Decision",
     description:
-      "Excellent news! Your application has successfully passed the reviewer assessment stage and has been forwarded to the RIQS Board for final approval. This is the last step before your membership is confirmed. You will be notified once a decision has been made.",
+      "Excellent news! Your application has successfully passed the reviewer assessment stage and has been forwarded for final approval. This is the last step before your membership is confirmed. You will be notified once a decision has been made.",
     color: "text-emerald-700 dark:text-emerald-400",
     bg: "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800",
     badge: "border-emerald-300 bg-emerald-100 text-emerald-800",
@@ -318,7 +318,7 @@ export default function Application() {
         firmPrincipalPlaceOfBusiness: savedLocal?.personal?.firmPrincipalPlaceOfBusiness || (application as any)?.firmPrincipalPlaceOfBusiness || "",
         shareholders: savedLocal?.personal?.shareholders || prev.personal.shareholders,
       },
-      hasNoEmployment: savedLocal?.hasNoEmployment || false,
+      hasNoEmployment: savedLocal?.hasNoEmployment ?? (application as any)?.hasNoEmployment ?? false,
       dynamicTabs: savedLocal?.dynamicTabs || [],
       education: (savedLocal?.education && savedLocal.education.some((e: any) => e.institution || e.id)) ? savedLocal.education : 
         (education?.length ? education.map((e: any) => ({
@@ -540,6 +540,7 @@ export default function Application() {
     studentAssociation: data.studentAssociation,
     competenceSummary: data.competenceSummary,
     agreedToMentorshipIntent: data.agreedToMentorshipIntent,
+    hasNoEmployment: data.hasNoEmployment,
     agreedToDeclarations: !!(data.noCriminalOffense && data.agreedToTerms),
     currentStep,
   });
@@ -1032,6 +1033,7 @@ function WizardContent({
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [verifyingMentorIdx, setVerifyingMentorIdx] = useState<number | null>(null);
   const [collapsedDocs, setCollapsedDocs] = useState<Record<string, boolean>>({});
+  const [resolvedCorrectionDocuments, setResolvedCorrectionDocuments] = useState<string[]>([]);
 
   const verifyMentor = async (index: number, membershipId: string) => {
     if (!membershipId) return;
@@ -1123,6 +1125,35 @@ function WizardContent({
 
   const contextualChecklist = getContextualChecklist();
 
+  const correctionStorageKey = appId && reviewerNotes
+    ? `riqs_app_resolved_corrections_${appId}_${encodeURIComponent(reviewerNotes)}`
+    : null;
+
+  useEffect(() => {
+    if (!correctionStorageKey) {
+      setResolvedCorrectionDocuments([]);
+      return;
+    }
+    try {
+      const stored = localStorage.getItem(correctionStorageKey);
+      setResolvedCorrectionDocuments(stored ? JSON.parse(stored) : []);
+    } catch {
+      setResolvedCorrectionDocuments([]);
+    }
+  }, [correctionStorageKey]);
+
+  const markCorrectionDocumentResolved = (documentName?: string) => {
+    if (!documentName || !reviewerNotes) return;
+    setResolvedCorrectionDocuments((current) => {
+      if (current.includes(documentName)) return current;
+      const next = [...current, documentName];
+      if (correctionStorageKey) {
+        localStorage.setItem(correctionStorageKey, JSON.stringify(next));
+      }
+      return next;
+    });
+  };
+
   const handleSubmit = () => {
     const firstInvalidStep = STEPS.find((stepName: string) => getStepIssues(stepName).length > 0);
     if (firstInvalidStep) {
@@ -1136,6 +1167,37 @@ function WizardContent({
   const getStepDocumentChecklist = (stepName: string) => {
     if (stepName === "Education") return documentChecklist.filter((d: any) => EDUCATION_DOC_TYPES.includes(d.k));
     if (stepName === "Other Documents") return documentChecklist.filter((d: any) => !["photo", ...EDUCATION_DOC_TYPES].includes(d.k));
+    return [];
+  };
+
+  const correctionDocumentNames = useMemo(() => {
+    if (!reviewerNotes) return [] as string[];
+    const match = reviewerNotes.match(/Documents requiring attention:\s*([\s\S]*?)(?:\n\s*Reviewer notes:|$)/i);
+    if (!match) return [] as string[];
+    return match[1]
+      .split("\n")
+      .map((line: string) => line.replace(/^\s*-\s*/, "").trim())
+      .filter(Boolean)
+      .filter((name: string) => !resolvedCorrectionDocuments.includes(name));
+  }, [reviewerNotes, resolvedCorrectionDocuments]);
+
+  const getCorrectionStepIssues = (stepName: string): string[] => {
+    if (correctionDocumentNames.length === 0) return [];
+    const documents = correctionDocumentNames.join(" ").toLowerCase();
+    const educationMatch = /transcript|academic|degree|diploma|certificate|student association|cpd/.test(documents);
+    const personalMatch = /passport photo|passport|national id|identity|id document/.test(documents);
+    const employmentMatch = /employment|employer|work record/.test(documents);
+    const mentorshipMatch = /mentor|mentorship/.test(documents);
+    const otherMatch = correctionDocumentNames.some((name: string) => {
+      const value = name.toLowerCase();
+      return !/transcript|academic|degree|diploma|certificate|student association|cpd|passport photo|passport|national id|identity|id document|employment|employer|work record|mentor|mentorship/.test(value);
+    });
+
+    if (stepName === "Education" && educationMatch) return [`Review the flagged education documents: ${correctionDocumentNames.join(", ")}.`];
+    if (stepName === "Personal Info" && personalMatch) return [`Review the flagged personal document: ${correctionDocumentNames.join(", ")}.`];
+    if (stepName === "Employment Record" && employmentMatch) return [`Review the flagged employment information: ${correctionDocumentNames.join(", ")}.`];
+    if (stepName === "Mentorship Plan" && mentorshipMatch) return [`Review the flagged mentorship information: ${correctionDocumentNames.join(", ")}.`];
+    if (stepName === "Other Documents" && otherMatch) return [`Review the flagged documents: ${correctionDocumentNames.join(", ")}.`];
     return [];
   };
 
@@ -1330,7 +1392,9 @@ function WizardContent({
           <div className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-4 lg:flex-nowrap lg:justify-between">
             {STEPS.map((s: string, i: number) => {
               const active = i === step;
-              const visitedWithIssues = i < step && getStepIssues(s).length > 0;
+              const hasCorrectionIssue = getCorrectionStepIssues(s).length > 0;
+              const hasStepIssue = getStepIssues(s).length > 0 || hasCorrectionIssue;
+              const visitedWithIssues = i < step && hasStepIssue;
               const done = i < step && !visitedWithIssues;
               return (
                 <button
@@ -1348,7 +1412,7 @@ function WizardContent({
                     active && "bg-navy text-white scale-110 ring-4 ring-navy/15 animate-pulse-gold",
                     !done && !active && "bg-muted text-muted-foreground border border-border",
                   )}>
-                    {currentStepName === "Review & Submit" && getStepIssues(s).length > 0 ? (
+                    {(currentStepName === "Review & Submit" && getStepIssues(s).length > 0) || (reviewerNotes && hasCorrectionIssue) ? (
                       <span className="text-base font-extrabold text-red-700" aria-label="Step has missing information">!</span>
                     ) : done ? <Check className="h-4 w-4" /> : active ? i + 1 : visitedWithIssues ? <Loader className="h-4 w-4" aria-label="Step incomplete" /> : i + 1}
                   </div>
@@ -1373,12 +1437,12 @@ function WizardContent({
           <Card className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 mb-4">
         <CardHeader className="border-b border-zinc-50 dark:border-zinc-800/50 py-4">
           <CardTitle className="text-xl text-navy">{currentStepName}</CardTitle>
-          {currentStepName !== "Review & Submit" && getStepIssues(currentStepName).length > 0 && (
+          {currentStepName !== "Review & Submit" && (getStepIssues(currentStepName).length > 0 || getCorrectionStepIssues(currentStepName).length > 0) && (
             <div className="mt-3 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <div>
                 <p className="font-semibold">This step needs attention</p>
-                <p>{getStepIssues(currentStepName).join(" ")}</p>
+                <p>{[...getStepIssues(currentStepName), ...getCorrectionStepIssues(currentStepName)].join(" ")}</p>
               </div>
             </div>
           )}
@@ -2089,6 +2153,7 @@ function WizardContent({
                                         setData((prev: any) => ({ ...prev, docs: { ...prev.docs, [d.uid]: URL.createObjectURL(file) + (isImg ? "#image" : "#pdf") } }));
                                         // Ensure it's expanded when a new file is uploaded
                                         setCollapsedDocs(prev => ({ ...prev, [d.uid]: false }));
+                                        markCorrectionDocumentResolved(d.l);
                                       }
                                     });
                                   }
@@ -2352,7 +2417,10 @@ function WizardContent({
             const isImg = file.type.startsWith("image/") || file.name.match(/\.(jpeg|jpg|gif|png)$/i);
             const url = URL.createObjectURL(file) + (isImg ? "#image" : "#pdf");
             setData({ ...data, docs: { ...data.docs, [key]: url } });
-            uploadFileMutation.mutate({ file, documentType: key });
+            const tabDocument = contextualChecklist.find((d: any) => d.uid === key);
+            uploadFileMutation.mutate({ file, documentType: key }, {
+              onSuccess: () => markCorrectionDocumentResolved(tabDocument?.l),
+            });
           }}
           onDelete={(key) => {
             const newDocs = { ...data.docs };
@@ -2386,7 +2454,9 @@ function WizardContent({
             // If the base tab is empty, upload there directly instead of creating a new tab
             if (!data.docs[baseTab.k]) {
               setData({ ...data, docs: { ...data.docs, [baseTab.k]: url } });
-              uploadFileMutation.mutate({ file, documentType: baseTab.k });
+              uploadFileMutation.mutate({ file, documentType: baseTab.k }, {
+                onSuccess: () => markCorrectionDocumentResolved(baseTab?.l),
+              });
               return;
             }
 
@@ -2408,7 +2478,9 @@ function WizardContent({
                 { k: newKey, l: newLabel, base: baseTab.k }
               ]
             });
-            uploadFileMutation.mutate({ file, documentType: newKey });
+            uploadFileMutation.mutate({ file, documentType: newKey }, {
+              onSuccess: () => markCorrectionDocumentResolved(baseTab?.l),
+            });
           }}
         />
       </div>

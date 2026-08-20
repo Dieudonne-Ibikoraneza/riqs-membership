@@ -26,6 +26,7 @@ export interface ApplicantProfileResponse {
     approvedAt?: string | null;
     reviewerNotes?: string | null;
     currentStep?: number | null;
+    hasNoEmployment?: boolean | null;
   } | null;
   education: Array<{
     id: string;
@@ -102,6 +103,7 @@ export const applicantServices = {
     workAddress?: object;
     countryOfOrigin?: string;
     currentStep?: number;
+    hasNoEmployment?: boolean;
   }): Promise<any> => {
     const response = await axiosClient.patch('/applicants/application', data);
     return response.data;

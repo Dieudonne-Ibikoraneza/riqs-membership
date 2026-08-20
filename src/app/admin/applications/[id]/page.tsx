@@ -15,10 +15,12 @@ import { Badge } from "@/components/ui/badge";
 import PDFViewer from "@/components/ui/pdf-viewer";
 import ImageViewer from "@/components/ui/image-viewer";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ArrowLeft,
   Check,
@@ -146,6 +148,8 @@ export default function Review({ params }: PageProps) {
     null | "approve" | "reject" | "correction" | "forward" | "submit_review_note" | "failPayment" | "forward_to_reviewers"
   >(null);
   const [note, setNote] = useState("");
+  const [complianceStatus, setComplianceStatus] = useState<"Compliant" | "Non-compliant" | "">("");
+  const [selectedCorrectionDocuments, setSelectedCorrectionDocuments] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [overrideCategoryId, setOverrideCategoryId] = useState<string>("keep_default");
@@ -261,6 +265,7 @@ export default function Review({ params }: PageProps) {
               originalFileUrl: d.fileUrl
             };
           }),
+          categoryDocuments: res.categoryDocuments || [],
           apcAssessments: apcRes.assessments || [],
           statusHistory: res.statusHistory || [],
           logbookEntries: res.logbookEntries || [],
@@ -373,10 +378,34 @@ export default function Review({ params }: PageProps) {
     );
   }
 
+  const approverReturnCount = (app.statusHistory || []).filter(
+    (history: any) => history.oldStatus === "Pending_Approval" && history.newStatus === "Under_Review"
+  ).length;
+  const currentReviewRound = approverReturnCount + 1;
+  const currentRoundReviews = (app.applicationReviews || []).filter(
+    (review: any) => (review.reviewRound || 1) === currentReviewRound
+  );
+  const hasCurrentReviewerReview = currentRoundReviews.some(
+    (review: any) => review.reviewerId === userId
+  );
+
   const handle = async (action: "approve" | "reject" | "correction" | "forward" | "submit_review_note" | "failPayment" | "forward_to_reviewers") => {
-    if (action !== "approve" && action !== "submit_review_note" && action !== "forward_to_reviewers" && !note.trim()) {
+    if (action === "submit_review_note" && !complianceStatus) {
+      return toast.error("Select Compliant or Non-compliant before submitting the review.");
+    }
+    if (action === "submit_review_note" && complianceStatus === "Non-compliant" && !note.trim()) {
+      return toast.error("Please provide review notes for a Non-compliant assessment.");
+    }
+    if (action !== "approve" && action !== "submit_review_note" && action !== "forward" && action !== "forward_to_reviewers" && !note.trim()) {
       return toast.error("Please add a note explaining the reason");
     }
+    if (action === "correction" && selectedCorrectionDocuments.length === 0) {
+      return toast.error("Select at least one document that requires correction.");
+    }
+
+    const actionNote = action === "correction"
+      ? `Documents requiring attention:\n${selectedCorrectionDocuments.map((documentName) => `- ${documentName}`).join("\n")}\n\nReviewer notes:\n${note.trim()}`
+      : note;
 
     if (action === "failPayment") {
       setIsSubmitting(true);
@@ -398,7 +427,7 @@ export default function Review({ params }: PageProps) {
       if (action === "approve" || action === "reject") {
         await submitApproverDecision(app.id, action === "approve" ? "Approve" : "Reject", note, overrideCategoryId === "keep_default" ? undefined : overrideCategoryId);
       } else if (action === "correction" && (role === "Approver" || role === "Admin") && app.status === "Pending Approval") {
-        await submitApproverDecision(app.id, "ReturnForCorrection", note);
+        await submitApproverDecision(app.id, "ReturnForCorrection", actionNote);
       } else {
         const actionMap = {
           correction: "ReturnForCorrection",
@@ -406,7 +435,12 @@ export default function Review({ params }: PageProps) {
           forward_to_reviewers: "ForwardToReviewers",
           submit_review_note: "SubmitReviewNote"
         } as const;
-        await submitReviewerAction(app.id, actionMap[action as keyof typeof actionMap], note);
+        await submitReviewerAction(
+          app.id,
+          actionMap[action as keyof typeof actionMap],
+          actionNote,
+          action === "submit_review_note" ? complianceStatus || undefined : undefined
+        );
       }
 
       const msg =
@@ -418,15 +452,18 @@ export default function Review({ params }: PageProps) {
               ? "Application forwarded to Approver"
               : action === "forward_to_reviewers"
                 ? "Application forwarded to Review Team"
-                : action === "submit_review_note"
+              : action === "submit_review_note"
                   ? "Review note submitted successfully"
-                  : "Correction request successfully sent to applicant";
+                  : action === "correction" && app.status === "Pending Approval"
+                    ? "Application returned to the Review Team"
+                    : "Correction request successfully sent to applicant";
 
       toast.success(msg);
       
       if (action === "submit_review_note" || action === "forward_to_reviewers") {
         setDialog(null);
         setNote("");
+        setComplianceStatus("");
         setIsSubmitting(false);
         // Re-fetch the application data without navigating away from this page.
         setRefreshKey((key) => key + 1);
@@ -508,7 +545,7 @@ export default function Review({ params }: PageProps) {
               <Button
                 variant="outline"
                 className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-900/50 dark:text-orange-400 dark:hover:bg-orange-950/20"
-                onClick={() => setDialog("correction")}
+                onClick={() => { setSelectedCorrectionDocuments([]); setDialog("correction"); }}
               >
                 <AlertTriangle className="mr-2 h-4 w-4" />
                 Flag correction
@@ -524,15 +561,15 @@ export default function Review({ params }: PageProps) {
             </>
           )}
 
-          {app.status === "Under Review" && (role === "Reviewer" || role?.toLowerCase() === "head_reviewer") && !app.applicationReviews?.some((review: { reviewerId?: string }) => review.reviewerId === userId) && (
+          {app.status === "Under Review" && (role === "Reviewer" || role?.toLowerCase() === "head_reviewer") && !hasCurrentReviewerReview && (
             <Button
               variant="outline"
               className="border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-950/20 shadow-sm"
-              onClick={() => setDialog("submit_review_note")}
+              onClick={() => { setComplianceStatus(""); setNote(""); setDialog("submit_review_note"); }}
               disabled={isSubmitting || !userId}
             >
               <FileText className="mr-2 h-4 w-4" />
-              Add Review Note
+              {currentReviewRound > 1 ? "Add Follow-up Review" : "Add Review Note"}
             </Button>
           )}
 
@@ -541,7 +578,7 @@ export default function Review({ params }: PageProps) {
               <Button
                 variant="outline"
                 className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-900/50 dark:text-orange-400 dark:hover:bg-orange-950/20"
-                onClick={() => setDialog("correction")}
+                onClick={() => { setSelectedCorrectionDocuments([]); setDialog("correction"); }}
               >
                 <AlertTriangle className="mr-2 h-4 w-4" />
                 Flag correction
@@ -554,15 +591,15 @@ export default function Review({ params }: PageProps) {
                       <Button
                         className="bg-navy hover:bg-navy/90 text-white border-none"
                         onClick={() => setDialog("forward")}
-                        disabled={isSubmitting || (app.applicationReviews?.length || 0) < 3}
-                        style={(app.applicationReviews?.length || 0) < 3 ? { pointerEvents: "none" } : undefined}
+                        disabled={isSubmitting || currentRoundReviews.length < 3}
+                        style={currentRoundReviews.length < 3 ? { pointerEvents: "none" } : undefined}
                       >
                         <Check className="mr-2 h-4 w-4" />
                         Forward to Approver
                       </Button>
                     </span>
                   </TooltipTrigger>
-                  {(app.applicationReviews?.length || 0) < 3 && (
+                  {currentRoundReviews.length < 3 && (
                     <TooltipContent className="z-[70] flex items-center gap-2 bg-amber-500 text-white border-none shadow-md">
                       <Info className="h-4 w-4" />
                       <p className="font-medium">Min of 3 reviews are required!</p>
@@ -578,7 +615,7 @@ export default function Review({ params }: PageProps) {
               <Button
                 variant="outline"
                 className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-900/50 dark:text-orange-400 dark:hover:bg-orange-950/20"
-                onClick={() => setDialog("correction")}
+                onClick={() => { setSelectedCorrectionDocuments([]); setDialog("correction"); }}
               >
                 <AlertTriangle className="mr-2 h-4 w-4" />
                 Return for Correction
@@ -613,14 +650,14 @@ export default function Review({ params }: PageProps) {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.15 }}
             >
-              <div className={`flex items-center justify-between gap-3 p-3.5 rounded-lg border ${
+              <div className={`flex flex-col items-stretch gap-3 p-3.5 rounded-lg border ${
                 app.apcAssessments.some((a: any) => a.status === "Requested")
                   ? "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50"
                   : app.apcAssessments.some((a: any) => a.status === "Scheduled")
                     ? "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/50"
                     : "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50"
               }`}>
-                <div className="text-sm">
+                <div className="min-w-0 text-sm">
                   <span className="font-semibold text-zinc-800 dark:text-zinc-200">APC Status: </span>
                   <span className="text-zinc-600 dark:text-zinc-400">
                     {app.apcAssessments[0]?.status?.replace("_", " ")}
@@ -637,27 +674,27 @@ export default function Review({ params }: PageProps) {
           )}
 
           {/* Payment Clearance */}
-          {role === "Admin" && app.processingFeeTxId && (
+          {(role === "Admin" || role === "Admin_Assistant") && app.processingFeeTxId && (
             <motion.div
               initial={{ opacity: 0, x: -15 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
             >
-              <div className={`flex items-center justify-between gap-3 p-3.5 rounded-lg border ${
+              <div className={`flex flex-col items-stretch gap-3 p-3.5 rounded-lg border ${
                 app.processingFeeCleared
                   ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50"
                   : app.processingFeeStatus === 'Failed'
                     ? "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-900/50"
                     : "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50"
               }`}>
-                <div className="text-sm">
+                <div className="min-w-0 text-sm">
                   <span className="font-semibold text-zinc-800 dark:text-zinc-200">Processing Fee: </span>
                   <span className="text-zinc-600 dark:text-zinc-400 capitalize">
                     {app.processingFeeStatus?.replace(/_/g, " ")}
                   </span>
                 </div>
                 {!app.processingFeeCleared && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex w-full flex-wrap items-center justify-end gap-2 border-t border-current/10 pt-3">
                     {app.processingFeeStatus !== 'Failed' && (
                       <Button 
                         size="sm" 
@@ -667,7 +704,7 @@ export default function Review({ params }: PageProps) {
                         }}
                         disabled={verifyPaymentMutation.isPending}
                         variant="outline"
-                        className="h-7 px-2.5 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30"
+                        className="h-8 min-w-0 flex-1 px-2.5 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30 sm:flex-none"
                       >
                         <X className="mr-1 h-3 w-3" />
                         Failed
@@ -677,7 +714,7 @@ export default function Review({ params }: PageProps) {
                       size="sm" 
                       onClick={() => verifyPaymentMutation.mutate({ txId: app.processingFeeTxId, action: "Cleared" })}
                       disabled={verifyPaymentMutation.isPending}
-                      className="h-7 text-xs gap-1 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
+                      className="h-8 min-w-0 flex-1 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-transparent sm:flex-none"
                     >
                       {verifyPaymentMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                       Mark as Cleared
@@ -697,14 +734,15 @@ export default function Review({ params }: PageProps) {
             );
             if (notesToShow.length === 0) return null;
 
-            const getNoteStyle = (newStatus: string) => {
+            const getNoteStyle = (history: any) => {
+              const { newStatus, oldStatus } = history;
               if (newStatus === "Under_Review") return {
                 card: "border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20",
                 header: "border-blue-200/50 dark:border-blue-900/50",
                 title: "text-blue-900 dark:text-blue-400",
                 dot: "bg-blue-500",
                 body: "text-blue-800 dark:text-blue-400/90",
-                label: "Admin Forwarding Note"
+                label: oldStatus === "Pending_Approval" ? "Approver Correction Note" : "Admin Forwarding Note"
               };
               if (newStatus === "Pending_Approval") return {
                 card: "border-violet-200 dark:border-violet-900/50 bg-violet-50/50 dark:bg-violet-950/20",
@@ -728,7 +766,7 @@ export default function Review({ params }: PageProps) {
             return (
               <div className="flex flex-col gap-2">
                 {notesToShow.map((h: any, idx: number) => {
-                  const s = getNoteStyle(h.newStatus);
+                  const s = getNoteStyle(h);
                   return (
                     <motion.div
                       key={idx}
@@ -1014,7 +1052,17 @@ export default function Review({ params }: PageProps) {
                         <span className="font-semibold text-zinc-800 dark:text-zinc-200">{r.reviewer?.fullName || "Reviewer"}</span>
                         <span className="text-xs text-muted-foreground">{r.updatedAt ? new Date(r.updatedAt).toLocaleDateString() : ""}</span>
                       </div>
-                      <div className="text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">{r.notes}</div>
+                      {r.complianceStatus && (
+                        <Badge
+                          variant="outline"
+                          className={r.complianceStatus === "Compliant"
+                            ? "mb-2 border-emerald-300 bg-emerald-50 text-emerald-700"
+                            : "mb-2 border-red-300 bg-red-50 text-red-700"}
+                        >
+                          {r.complianceStatus}
+                        </Badge>
+                      )}
+                      {r.notes && <div className="text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">{r.notes}</div>}
                     </div>
                   ))}
                 </CardContent>
@@ -1116,7 +1164,7 @@ export default function Review({ params }: PageProps) {
 
       {/* Dynamic Action Modals */}
       <Dialog open={!!dialog} onOpenChange={(o) => !o && setDialog(null)}>
-        <DialogContent>
+        <DialogContent className="w-[calc(100vw-1rem)] max-w-2xl max-h-[92vh] overflow-x-hidden overflow-y-auto p-3 sm:w-[calc(100%-2rem)] sm:p-6">
           <DialogHeader>
             <DialogTitle>
               {dialog === "approve" && "Confirm approval"}
@@ -1129,7 +1177,7 @@ export default function Review({ params }: PageProps) {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm py-2">
-            <DialogDescription className="text-muted-foreground leading-relaxed">
+            <DialogDescription className="min-w-0 break-words text-muted-foreground leading-relaxed">
               {dialog === "approve" &&
                 "A new membership certificate, practicing license, and membership ID will be generated and dispatched automatically."}
               {dialog === "reject" &&
@@ -1143,9 +1191,70 @@ export default function Review({ params }: PageProps) {
               {dialog === "failPayment" &&
                 "A rejection reason is mandatory when failing or refunding a payment. This will be visible to the applicant."}
               {dialog === "submit_review_note" &&
-                "Add your initial review comments. This will not change the status of the application."}
+                "Record your assessment of the application. Select Compliant or Non-compliant. Notes are required for a Non-compliant assessment and optional for a Compliant assessment."}
             </DialogDescription>
+            {dialog === "submit_review_note" && (
+              <div className="rounded-md border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-900/50 dark:bg-blue-950/20">
+                <Label className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                  Compliance assessment <span className="text-red-500">*</span>
+                </Label>
+                <RadioGroup
+                  value={complianceStatus}
+                  onValueChange={(value) => setComplianceStatus(value as "Compliant" | "Non-compliant")}
+                  className="mt-2 grid gap-2 sm:grid-cols-2"
+                >
+                  <label className="flex cursor-pointer items-center gap-2 rounded border border-emerald-200 bg-white p-2.5 text-sm hover:bg-emerald-50 dark:bg-zinc-900 dark:hover:bg-emerald-950/20">
+                    <RadioGroupItem value="Compliant" />
+                    <span className="font-medium text-emerald-700 dark:text-emerald-300">Compliant</span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 rounded border border-red-200 bg-white p-2.5 text-sm hover:bg-red-50 dark:bg-zinc-900 dark:hover:bg-red-950/20">
+                    <RadioGroupItem value="Non-compliant" />
+                    <span className="font-medium text-red-700 dark:text-red-300">Non-compliant</span>
+                  </label>
+                </RadioGroup>
+              </div>
+            )}
+            {dialog === "correction" && (
+              <div className="space-y-2 rounded-md border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-900/50 dark:bg-orange-950/20">
+                <Label className="text-sm font-semibold text-orange-900 dark:text-orange-200">
+                  Select documents requiring correction <span className="text-red-500">*</span>
+                </Label>
+                <p className="text-xs text-orange-800/80 dark:text-orange-200/80">
+                  {app?.status === "Pending Approval" && (role === "Approver" || role === "Admin")
+                    ? "The selected document names will be included in the correction note sent to the Review Committee."
+                    : "The selected document names will be included in the applicant&apos;s correction email."}
+                </p>
+                <div className="max-h-[32vh] space-y-2 overflow-y-auto rounded border border-orange-200/70 bg-white p-2 dark:border-orange-900/50 dark:bg-zinc-900 sm:max-h-48">
+                  {(() => {
+                    const documentNames = [
+                      ...((app?.categoryDocuments || []) as any[]).map((document: any) => document.name || document.documentName || document.documentType),
+                      ...((app?.documents || []) as any[]).map((document: any) => document.name || document.documentName || document.documentType),
+                    ].filter(Boolean).filter((name: string, index: number, names: string[]) => names.indexOf(name) === index);
+
+                    return documentNames.length > 0 ? documentNames.map((documentName: string, index: number) => {
+                    const checked = selectedCorrectionDocuments.includes(documentName);
+                    return (
+                      <label key={`${documentName}-${index}`} className="flex min-w-0 cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm hover:bg-orange-50 dark:hover:bg-orange-950/30">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(value) => setSelectedCorrectionDocuments((current) =>
+                            value === true
+                              ? [...current, documentName]
+                              : current.filter((name) => name !== documentName)
+                          )}
+                        />
+                        <span className="min-w-0 break-words" title={documentName}>{documentName}</span>
+                      </label>
+                    );
+                    }) : (
+                    <p className="px-2 py-1 text-xs text-muted-foreground">No category documents were found for this application.</p>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
             <Textarea
+              className="w-full min-w-0"
               rows={4}
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -1153,7 +1262,11 @@ export default function Review({ params }: PageProps) {
                 (dialog === "approve" || dialog === "forward" || dialog === "forward_to_reviewers")
                   ? "Add an optional note..."
                   : dialog === "submit_review_note"
-                    ? "Enter your review notes..."
+                    ? complianceStatus === "Non-compliant"
+                      ? "Explain what is non-compliant and what must be addressed..."
+                      : "Add optional review notes..."
+                    : dialog === "correction" && app?.status === "Pending Approval" && (role === "Approver" || role === "Admin")
+                      ? "Add an optional note for the Review Committee..."
                   : "Please provide a reason for the applicant..."
               }
             />
@@ -1176,23 +1289,29 @@ export default function Review({ params }: PageProps) {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               variant="outline"
               onClick={() => setDialog(null)}
               disabled={isSubmitting}
+              className="w-full sm:w-auto"
             >
               Cancel
             </Button>
             <Button
               onClick={() => handle(dialog!)}
-              disabled={isSubmitting}
+              disabled={
+                isSubmitting ||
+                (dialog === "correction" && (!note.trim() || selectedCorrectionDocuments.length === 0)) ||
+                (dialog === "failPayment" && !note.trim()) ||
+                (dialog === "submit_review_note" && (!complianceStatus || (complianceStatus === "Non-compliant" && !note.trim())))
+              }
               className={
                 dialog === "approve"
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  ? "w-full bg-emerald-600 hover:bg-emerald-700 text-white sm:w-auto"
                   : dialog === "reject" || dialog === "correction" || dialog === "failPayment"
-                    ? "bg-red-600 hover:bg-red-700 text-white"
-                    : "bg-navy hover:bg-navy/90 text-white"
+                    ? "w-full bg-red-600 hover:bg-red-700 text-white disabled:cursor-not-allowed disabled:pointer-events-auto disabled:opacity-50 sm:w-auto"
+                    : "w-full bg-navy hover:bg-navy/90 text-white sm:w-auto"
               }
             >
               {isSubmitting ? (

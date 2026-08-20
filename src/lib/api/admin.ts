@@ -62,12 +62,14 @@ export async function submitReviewDecision(
 export async function submitReviewerAction(
   applicationId: string,
   action: "ReturnForCorrection" | "ForwardToApprover" | "SubmitReviewNote" | "ForwardToReviewers",
-  notes?: string
+  notes?: string,
+  complianceStatus?: "Compliant" | "Non-compliant"
 ): Promise<any> {
   const { data } = await axiosClient.post(`/admin/reviewer-action`, {
     applicationId,
     action,
     notes,
+    complianceStatus,
   });
   return data;
 }

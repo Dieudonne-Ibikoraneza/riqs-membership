@@ -147,7 +147,7 @@ export function AppShell({
     { href: "/admin/applications", label: "Applications", icon: ClipboardList },
     ...(!isAdminAssistant ? [{ href: "/admin/mentorship", label: "Mentorship", icon: BookOpen }] : []),
     ...(["Admin", "Approver"].includes(role || "") ? [{ href: "/admin/apc", label: "APC Assessments", icon: GraduationCap }] : []),
-    ...(role === "Admin" ? [{ href: "/admin/payments", label: "Finance & Payments", icon: Wallet }] : []),
+    ...(role === "Admin" || role === "Admin_Assistant" ? [{ href: "/admin/payments", label: "Finance & Payments", icon: Wallet }] : []),
     ...(!isAdminAssistant ? [{ href: "/admin/members", label: "Members", icon: Users }] : []),
     ...(!isAdminAssistant ? [{ href: "/admin/email", label: "Email System", icon: Send }] : []),
     ...(["Admin", "Approver"].includes(role || "")

@@ -9,8 +9,8 @@ export interface ApplicantProfileResponse {
     dateOfBirth: string | null;
     gender: string | null;
     nationalIdOrPassport: string | null;
-    residencyAddress: string | null;
-    workAddress: string | null;
+    residencyAddress: string | Record<string, string> | null;
+    workAddress: string | Record<string, string> | null;
     membershipClass: string | null;
     membershipId?: string | null;
     profilePhotoUrl?: string | null;
@@ -87,6 +87,40 @@ export const applicantServices = {
         'Content-Type': 'multipart/form-data',
       },
     });
+    return response.data;
+  },
+
+  submitProfileEditRequest: async (payload: {
+    fullName?: string;
+    residencyAddress?: string | Record<string, string>;
+    workAddress?: string | Record<string, string>;
+    memberNotes?: string;
+    education?: Array<{ institution: string; qualificationType: string; fieldOfStudy: string; startDate: string; endDate: string }>;
+    employment?: Array<{ companyName: string; jobTitle: string; startDate: string; endDate?: string; isCurrent?: boolean }>;
+    photo?: File | null;
+    certificates?: Record<number, File>;
+  }): Promise<any> => {
+    const formData = new FormData();
+    if (payload.fullName) formData.append('fullName', payload.fullName);
+    if (payload.residencyAddress) formData.append('residencyAddress', typeof payload.residencyAddress === 'string' ? payload.residencyAddress : JSON.stringify(payload.residencyAddress));
+    if (payload.workAddress) formData.append('workAddress', typeof payload.workAddress === 'string' ? payload.workAddress : JSON.stringify(payload.workAddress));
+    if (payload.memberNotes) formData.append('memberNotes', payload.memberNotes);
+    if (payload.education) formData.append('education', JSON.stringify(payload.education));
+    if (payload.employment) formData.append('employment', JSON.stringify(payload.employment));
+    if (payload.photo) formData.append('photo', payload.photo);
+    if (payload.certificates) {
+      Object.entries(payload.certificates).forEach(([index, file]) => {
+        formData.append(`certificate_${index}`, file);
+      });
+    }
+    const response = await axiosClient.post('/members/profile/edit-request', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  getMyProfileEditRequests: async (): Promise<{ requests: any[] }> => {
+    const response = await axiosClient.get('/members/profile/edit-request');
     return response.data;
   },
 

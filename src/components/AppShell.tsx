@@ -34,6 +34,7 @@ import {
   Clock,
   MessageSquare,
   BarChart3,
+  UserCog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -146,7 +147,8 @@ export function AppShell({
     { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
     { href: "/admin/applications", label: "Applications", icon: ClipboardList },
     ...(!isAdminAssistant ? [{ href: "/admin/mentorship", label: "Mentorship", icon: BookOpen }] : []),
-    ...(["Admin", "Approver"].includes(role || "") ? [{ href: "/admin/apc", label: "APC Assessments", icon: GraduationCap }] : []),
+    ...(["Admin", "Approver", "Admin_Assistant"].includes(role || "") ? [{ href: "/admin/apc", label: "APC Assessments", icon: GraduationCap }] : []),
+    ...(["Admin", "Admin_Assistant"].includes(role || "") ? [{ href: "/admin/profile-requests", label: "Profile Requests", icon: UserCog }] : []),
     ...(role === "Admin" || role === "Admin_Assistant" ? [{ href: "/admin/payments", label: "Finance & Payments", icon: Wallet }] : []),
     ...(!isAdminAssistant ? [{ href: "/admin/members", label: "Members", icon: Users }] : []),
     ...(!isAdminAssistant ? [{ href: "/admin/email", label: "Email System", icon: Send }] : []),

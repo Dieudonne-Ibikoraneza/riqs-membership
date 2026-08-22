@@ -46,7 +46,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { MonthYearPicker } from "@/components/ui/month-picker";
-import { TimePicker } from "@/components/ui/time-picker";
 import { scheduleApc, gradeApc, getApplicationDetail } from "@/lib/api/admin";
 import { axiosClient } from "@/lib/axiosClient";
 import { cn } from "@/lib/utils";
@@ -93,6 +92,7 @@ export default function ApcDetailPage({ params }: PageProps) {
   const { role } = useAuth();
   const [apc, setApc] = useState<any>(null);
   const [apcDocs, setApcDocs] = useState<any[]>([]);
+  const [mentorshipInfo, setMentorshipInfo] = useState<any>(null);
   const [activeDoc, setActiveDoc] = useState(0);
   const [direction, setDirection] = useState(0);
   const prevDoc = useRef(activeDoc);
@@ -100,7 +100,7 @@ export default function ApcDetailPage({ params }: PageProps) {
   const [scheduleDialog, setScheduleDialog] = useState(false);
   const [gradeDialog, setGradeDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [scheduleForm, setScheduleForm] = useState({ date: "", time: "", chair: "", chairEmail: "", exam1: "", exam1Email: "", exam2: "", exam2Email: "" });
+  const [scheduleForm, setScheduleForm] = useState({ periodStart: "", periodEnd: "" });
   const [gradeForm, setGradeForm] = useState({ status: "Passed", score: "", notes: "" });
 
   const loadApc = async () => {
@@ -132,6 +132,10 @@ export default function ApcDetailPage({ params }: PageProps) {
         }
         
         const mAssignment = appDetails.mentorship || appDetails.application?.mentorshipAssignment;
+        setMentorshipInfo(mAssignment ? {
+          agreedReviewPeriodStart: mAssignment.agreedReviewPeriodStart,
+          agreedReviewPeriodEnd: mAssignment.agreedReviewPeriodEnd
+        } : null);
         if (mAssignment) {
           if (mAssignment.yearOneReportUrl) {
             mentorshipDocuments.push({
@@ -170,22 +174,17 @@ export default function ApcDetailPage({ params }: PageProps) {
   useEffect(() => { loadApc(); }, [id]);
 
   const handleSchedule = async () => {
-    if (!scheduleForm.date) return toast.error("Please select an assessment date.");
+    if (!scheduleForm.periodStart) return toast.error("Please select an assessment period.");
     setIsSubmitting(true);
     try {
       await scheduleApc({
         applicationId: apc.application.id,
-        assessmentDate: new Date(`${scheduleForm.date}T${scheduleForm.time || "09:00"}`).toISOString(),
-        panelChair: scheduleForm.chair,
-        panelChairEmail: scheduleForm.chairEmail,
-        examiner1: scheduleForm.exam1,
-        examiner1Email: scheduleForm.exam1Email,
-        examiner2: scheduleForm.exam2,
-        examiner2Email: scheduleForm.exam2Email,
+        assessmentPeriodStart: scheduleForm.periodStart,
+        assessmentPeriodEnd: scheduleForm.periodEnd || undefined,
       });
       toast.success("APC Board successfully scheduled.");
       setScheduleDialog(false);
-      setScheduleForm({ date: "", time: "", chair: "", chairEmail: "", exam1: "", exam1Email: "", exam2: "", exam2Email: "" });
+      setScheduleForm({ periodStart: "", periodEnd: "" });
       await loadApc();
     } catch (err: any) {
       toast.error(err?.response?.data?.error || "Failed to schedule APC board.");
@@ -284,12 +283,12 @@ export default function ApcDetailPage({ params }: PageProps) {
           </div>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">{statusLabels[apc.status]}</p>
           <div className="flex gap-2 mt-3">
-            {apc.status === "Requested" && ["Admin", "Approver"].includes(role || "") && (
+            {apc.status === "Requested" && ["Admin", "Approver", "Admin_Assistant"].includes(role || "") && (
               <Button size="sm" className="bg-gold text-[#1a1a1a] hover:bg-gold/90 border-none font-bold h-8 text-xs" onClick={() => setScheduleDialog(true)}>
                 Schedule Board
               </Button>
             )}
-            {["Scheduled", "Attended"].includes(apc.status) && ["Admin", "Approver"].includes(role || "") && (
+            {["Scheduled", "Attended"].includes(apc.status) && ["Admin", "Approver", "Admin_Assistant"].includes(role || "") && (
               <Button size="sm" className="bg-navy text-white hover:bg-navy/90 border-none font-bold h-8 text-xs" onClick={() => setGradeDialog(true)}>
                 Grade Result
               </Button>
@@ -321,6 +320,34 @@ export default function ApcDetailPage({ params }: PageProps) {
         </Card>
       </motion.div>
 
+      {/* Reviewer Board Recommended Period */}
+      {mentorshipInfo?.agreedReviewPeriodStart && (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <Card className="border-blue-200 dark:border-blue-900/50">
+            <CardHeader className="pb-3 border-b border-blue-100 dark:border-blue-900/40">
+              <CardTitle className="text-sm font-bold text-navy dark:text-blue-200 flex items-center gap-2">
+                <ClipboardCheck className="h-4 w-4 text-gold" /> Reviewer Board Recommendation
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-1">
+              <p className="text-xs text-muted-foreground">
+                Final period agreed by the Head Reviewer when forwarding this mentorship upgrade to the Approver:
+              </p>
+              <p className="text-sm font-semibold text-navy dark:text-white">
+                {(() => {
+                  const start = new Date(mentorshipInfo.agreedReviewPeriodStart).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+                  if (mentorshipInfo.agreedReviewPeriodEnd) {
+                    const end = new Date(mentorshipInfo.agreedReviewPeriodEnd).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+                    return `${start} – ${end}`;
+                  }
+                  return start;
+                })()}
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Board Details (only if Scheduled/Completed) */}
       {apc.status !== "Requested" && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
@@ -332,12 +359,16 @@ export default function ApcDetailPage({ params }: PageProps) {
             </CardHeader>
             <CardContent className="p-4 space-y-0">
               <DetailRow
-                label="Assessment Date"
-                value={apc.assessmentDate ? new Date(apc.assessmentDate).toLocaleDateString("en-GB", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }) : undefined}
+                label="Assessment Period"
+                value={apc.assessmentPeriodStart ? (() => {
+                  const start = new Date(apc.assessmentPeriodStart).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+                  if (apc.assessmentPeriodEnd) {
+                    const end = new Date(apc.assessmentPeriodEnd).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+                    return `${start} – ${end}`;
+                  }
+                  return start;
+                })() : undefined}
               />
-              <DetailRow label="Panel Chair" value={apc.panelChairName} />
-              <DetailRow label="Examiner 1" value={apc.examiner1Name} />
-              <DetailRow label="Examiner 2" value={apc.examiner2Name} />
             </CardContent>
           </Card>
         </motion.div>
@@ -452,52 +483,38 @@ export default function ApcDetailPage({ params }: PageProps) {
       <Dialog open={scheduleDialog} onOpenChange={setScheduleDialog}>
         <DialogContent>
           <DialogHeader><DialogTitle>Schedule APC Board — {apc.member?.fullName}</DialogTitle></DialogHeader>
+          {mentorshipInfo?.agreedReviewPeriodStart && (
+            <div className="rounded-md border border-blue-200 dark:border-blue-900/50 bg-blue-50/60 dark:bg-blue-950/20 p-3 text-xs">
+              <span className="font-semibold text-blue-800 dark:text-blue-300">Reviewer board recommended:</span>{" "}
+              <span className="text-blue-900 dark:text-blue-200">
+                {(() => {
+                  const start = new Date(mentorshipInfo.agreedReviewPeriodStart).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+                  if (mentorshipInfo.agreedReviewPeriodEnd) {
+                    const end = new Date(mentorshipInfo.agreedReviewPeriodEnd).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+                    return `${start} – ${end}`;
+                  }
+                  return start;
+                })()}
+              </span>
+            </div>
+          )}
           <div className="space-y-4 py-1">
             <div className="space-y-2">
-              <Label>Assessment Date & Time</Label>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <MonthYearPicker value={scheduleForm.date} onChange={(v) => setScheduleForm({ ...scheduleForm, date: v })} placeholder="Select date" />
+              <Label>Assessment Period</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <MonthYearPicker monthOnly value={scheduleForm.periodStart} onChange={(v) => setScheduleForm({ ...scheduleForm, periodStart: v })} placeholder="Start month" />
                 </div>
-                <div className="w-[140px]">
-                  <TimePicker value={scheduleForm.time} onChange={(v) => setScheduleForm({ ...scheduleForm, time: v })} placeholder="Select time" />
+                <div>
+                  <MonthYearPicker monthOnly value={scheduleForm.periodEnd} onChange={(v) => setScheduleForm({ ...scheduleForm, periodEnd: v })} placeholder="End month (optional)" />
                 </div>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Panel Chair Name</Label>
-                <Input placeholder="e.g. John Doe (PrQS)" value={scheduleForm.chair} onChange={(e) => setScheduleForm({ ...scheduleForm, chair: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Panel Chair Email</Label>
-                <Input placeholder="chair@example.com" value={scheduleForm.chairEmail} onChange={(e) => setScheduleForm({ ...scheduleForm, chairEmail: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Examiner 1 Name</Label>
-                <Input placeholder="e.g. Jane Smith (PrQS)" value={scheduleForm.exam1} onChange={(e) => setScheduleForm({ ...scheduleForm, exam1: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Examiner 1 Email</Label>
-                <Input placeholder="exam1@example.com" value={scheduleForm.exam1Email} onChange={(e) => setScheduleForm({ ...scheduleForm, exam1Email: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Examiner 2 Name</Label>
-                <Input placeholder="e.g. Robert Brown (PrQS)" value={scheduleForm.exam2} onChange={(e) => setScheduleForm({ ...scheduleForm, exam2: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Examiner 2 Email</Label>
-                <Input placeholder="exam2@example.com" value={scheduleForm.exam2Email} onChange={(e) => setScheduleForm({ ...scheduleForm, exam2Email: e.target.value })} />
-              </div>
+              <p className="text-xs text-muted-foreground">Choose one month for a single-month period, or add an end month for a range.</p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setScheduleDialog(false)} disabled={isSubmitting}>Cancel</Button>
-            <Button onClick={handleSchedule} disabled={isSubmitting || !scheduleForm.date} className="bg-navy hover:bg-navy/90 text-white">
+            <Button onClick={handleSchedule} disabled={isSubmitting || !scheduleForm.periodStart} className="bg-navy hover:bg-navy/90 text-white">
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />} Confirm Schedule
             </Button>
           </DialogFooter>

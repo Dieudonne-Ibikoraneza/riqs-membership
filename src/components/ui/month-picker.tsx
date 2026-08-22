@@ -10,6 +10,7 @@ interface MonthYearPickerProps {
   value: string; // "YYYY-MM" or "present" or ""
   onChange: (val: string) => void;
   allowPresent?: boolean;
+  monthOnly?: boolean;
   placeholder?: string;
   className?: string;
 }
@@ -34,13 +35,14 @@ export function MonthYearPicker({
   value,
   onChange,
   allowPresent = false,
+  monthOnly = false,
   placeholder = "Select Date",
   className,
 }: MonthYearPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<"bottom" | "top">("bottom");
   const containerRef = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<"days" | "months">("days");
+  const [view, setView] = useState<"days" | "months" | "years">("days");
 
   // Parse current year/month/day from value or default to current date
   const parseValue = () => {
@@ -66,7 +68,7 @@ export function MonthYearPicker({
   // Reset view to 'days' when opening
   useEffect(() => {
     if (isOpen) {
-      setView("days");
+      setView(monthOnly ? "months" : "days");
     }
   }, [isOpen]);
 
@@ -131,6 +133,11 @@ export function MonthYearPicker({
 
   const handleSelectMonth = (monthVal: string) => {
     setActiveMonth(monthVal);
+    if (monthOnly) {
+      onChange(`${activeYear}-${monthVal}`);
+      setIsOpen(false);
+      return;
+    }
     setView("days");
   };
 
@@ -154,8 +161,12 @@ export function MonthYearPicker({
     const d = new Date();
     const curYear = d.getFullYear();
     const curMonth = String(d.getMonth() + 1).padStart(2, "0");
-    const curDay = String(d.getDate()).padStart(2, "0");
-    onChange(`${curYear}-${curMonth}-${curDay}`);
+    if (monthOnly) {
+      onChange(`${curYear}-${curMonth}`);
+    } else {
+      const curDay = String(d.getDate()).padStart(2, "0");
+      onChange(`${curYear}-${curMonth}-${curDay}`);
+    }
     setIsOpen(false);
   };
 
@@ -272,7 +283,7 @@ export function MonthYearPicker({
                   </div>
                 </div>
               </>
-            ) : (
+            ) : view === "months" ? (
               <>
                 {/* Header: Year */}
                 <div className="flex items-center justify-between pb-2.5 border-b border-zinc-100 dark:border-zinc-800/80">
@@ -283,9 +294,13 @@ export function MonthYearPicker({
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
-                  <span className="text-sm font-bold text-navy dark:text-gold tracking-wide">
+                  <button
+                    type="button"
+                    onClick={() => setView("years")}
+                    className="text-sm font-bold text-navy dark:text-gold tracking-wide hover:underline cursor-pointer"
+                  >
                     {activeYear}
-                  </span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => setActiveYear(y => y + 1)}
@@ -314,6 +329,36 @@ export function MonthYearPicker({
                       </button>
                     );
                   })}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between pb-2.5 border-b border-zinc-100 dark:border-zinc-800/80">
+                  <span className="text-sm font-bold text-navy dark:text-gold tracking-wide">Select year</span>
+                  <button
+                    type="button"
+                    onClick={() => setView("months")}
+                    className="text-xs font-semibold text-muted-foreground hover:text-navy dark:hover:text-gold"
+                  >
+                    Back to months
+                  </button>
+                </div>
+                <div className="grid max-h-56 grid-cols-3 gap-1.5 overflow-y-auto py-3 pr-1">
+                  {Array.from({ length: 61 }, (_, index) => new Date().getFullYear() - 50 + index).map((year) => (
+                    <button
+                      key={year}
+                      type="button"
+                      onClick={() => { setActiveYear(year); setView("months"); }}
+                      className={cn(
+                        "h-9 rounded-none text-xs font-semibold transition-colors cursor-pointer",
+                        activeYear === year
+                          ? "bg-navy text-white dark:bg-gold dark:text-[#1a1a1a]"
+                          : "text-zinc-700 hover:bg-zinc-100 hover:text-navy dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-gold"
+                      )}
+                    >
+                      {year}
+                    </button>
+                  ))}
                 </div>
               </>
             )}
@@ -347,7 +392,7 @@ export function MonthYearPicker({
                   onClick={handleToday}
                   className="text-xs font-bold text-navy hover:text-navy/85 dark:text-gold dark:hover:text-gold/85 py-1 px-2.5 rounded-none transition-colors cursor-pointer"
                 >
-                  Today
+                  {monthOnly ? "This Month" : "Today"}
                 </button>
               </div>
             </div>

@@ -32,8 +32,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { MonthYearPicker } from "@/components/ui/month-picker";
-import { TimePicker } from "@/components/ui/time-picker";
-import { getAllApc, scheduleApc, gradeApc } from "@/lib/api/admin";
+import { getAllApc, scheduleApc, gradeApc, bulkScheduleApc } from "@/lib/api/admin";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 type TabId = "all" | "Requested" | "Scheduled" | "completed";
@@ -44,6 +44,14 @@ const TABS: { id: TabId; label: string; icon: any; statusFilter?: string }[] = [
   { id: "Scheduled", label: "Scheduled Boards", icon: Calendar, statusFilter: "Scheduled" },
   { id: "completed", label: "Completed", icon: ClipboardCheck, statusFilter: "Passed,Failed,No_Show,Attended" },
 ];
+
+function formatMonthPeriod(start?: string | null, end?: string | null): string | null {
+  if (!start) return null;
+  const startLabel = new Date(start).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  if (!end) return startLabel;
+  const endLabel = new Date(end).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  return `${startLabel} – ${endLabel}`;
+}
 
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, string> = {
@@ -73,12 +81,18 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function ApcPage() {
   const queryClient = useQueryClient();
+  const { role } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>("all");
   const [scheduleDialog, setScheduleDialog] = useState<any>(null); // apc row being scheduled
   const [gradeDialog, setGradeDialog] = useState<any>(null); // apc row being graded
+  const [bulkScheduleDialog, setBulkScheduleDialog] = useState(false);
+  const [selectedAssessments, setSelectedAssessments] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [scheduleForm, setScheduleForm] = useState({ date: "", time: "", chair: "", chairEmail: "", exam1: "", exam1Email: "", exam2: "", exam2Email: "" });
+  const [scheduleForm, setScheduleForm] = useState({ periodStart: "", periodEnd: "" });
+  const [bulkScheduleForm, setBulkScheduleForm] = useState({ periodStart: "", periodEnd: "" });
   const [gradeForm, setGradeForm] = useState({ status: "Passed", score: "", notes: "" });
+
+  const canSchedule = ['Admin', 'Approver', 'Admin_Assistant'].includes(role || "");
 
   const currentTab = TABS.find((t) => t.id === activeTab)!;
 
@@ -91,25 +105,58 @@ export default function ApcPage() {
   const assessments: any[] = data?.assessments || [];
 
   const handleSchedule = async () => {
-    if (!scheduleForm.date) return toast.error("Please select an assessment date.");
+    if (!scheduleForm.periodStart) return toast.error("Please select an assessment period.");
     setIsSubmitting(true);
     try {
       await scheduleApc({
         applicationId: scheduleDialog.application.id,
-        assessmentDate: new Date(`${scheduleForm.date}T${scheduleForm.time || "09:00"}`).toISOString(),
-        panelChair: scheduleForm.chair,
-        panelChairEmail: scheduleForm.chairEmail,
-        examiner1: scheduleForm.exam1,
-        examiner1Email: scheduleForm.exam1Email,
-        examiner2: scheduleForm.exam2,
-        examiner2Email: scheduleForm.exam2Email,
+        assessmentPeriodStart: scheduleForm.periodStart,
+        assessmentPeriodEnd: scheduleForm.periodEnd || undefined,
       });
       toast.success("APC Board successfully scheduled.");
       setScheduleDialog(null);
-      setScheduleForm({ date: "", time: "", chair: "", chairEmail: "", exam1: "", exam1Email: "", exam2: "", exam2Email: "" });
+      setScheduleForm({ periodStart: "", periodEnd: "" });
       queryClient.invalidateQueries({ queryKey: ["apcAll"] });
     } catch (err: any) {
       toast.error(err?.response?.data?.error || "Failed to schedule APC board.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const toggleSelectAssessment = (id: string) => {
+    setSelectedAssessments((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const selectableIds = assessments.filter((a) => a.status === "Requested").map((a) => a.id);
+    const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedAssessments.has(id));
+    setSelectedAssessments(allSelected ? new Set() : new Set(selectableIds));
+  };
+
+  const handleBulkSchedule = async () => {
+    if (!bulkScheduleForm.periodStart) return toast.error("Please select an assessment period.");
+    setIsSubmitting(true);
+    try {
+      const result = await bulkScheduleApc({
+        applicationIds: assessments
+          .filter((a) => selectedAssessments.has(a.id))
+          .map((a) => a.application.id),
+        assessmentPeriodStart: bulkScheduleForm.periodStart,
+        assessmentPeriodEnd: bulkScheduleForm.periodEnd || undefined,
+      });
+      toast.success(result.message || "Assessments scheduled successfully.");
+      setBulkScheduleDialog(false);
+      setBulkScheduleForm({ periodStart: "", periodEnd: "" });
+      setSelectedAssessments(new Set());
+      queryClient.invalidateQueries({ queryKey: ["apcAll"] });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to bulk schedule assessments.");
     } finally {
       setIsSubmitting(false);
     }
@@ -187,8 +234,34 @@ export default function ApcPage() {
               {assessments.length} candidate{assessments.length !== 1 ? "s" : ""} awaiting board scheduling
             </p>
             <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
-              Click "Schedule Board" on each row to assign a date, panel chair, and examiners.
+              Select candidates below and set an assessment period, or click "Schedule" on a single row.
             </p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Bulk Action Bar — visible on any tab once candidates awaiting scheduling are selected */}
+      {canSchedule && selectedAssessments.size > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-navy/5 dark:bg-navy/20 border border-navy/20 dark:border-navy/40"
+        >
+          <p className="text-sm font-semibold text-navy dark:text-white">
+            {selectedAssessments.size} candidate{selectedAssessments.size !== 1 ? "s" : ""} selected
+          </p>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" className="text-xs" onClick={() => setSelectedAssessments(new Set())}>
+              Clear
+            </Button>
+            <Button
+              size="sm"
+              className="bg-navy text-white hover:bg-navy/90 shrink-0"
+              onClick={() => setBulkScheduleDialog(true)}
+            >
+              <Calendar className="mr-2 h-4 w-4" />
+              Schedule {selectedAssessments.size} Selected
+            </Button>
           </div>
         </motion.div>
       )}
@@ -217,7 +290,21 @@ export default function ApcPage() {
               <table className="w-full text-sm">
                 <thead className="bg-navy text-white">
                   <tr>
-                    {["Candidate", "Category", "Status", "Date", "Score", "Actions"].map((h) => (
+                    {canSchedule && (
+                      <th className="px-5 py-3.5 text-left w-10">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-white/40 bg-transparent accent-gold cursor-pointer"
+                          checked={
+                            assessments.some((a) => a.status === "Requested") &&
+                            assessments.filter((a) => a.status === "Requested").every((a) => selectedAssessments.has(a.id))
+                          }
+                          onChange={toggleSelectAll}
+                          disabled={!assessments.some((a) => a.status === "Requested")}
+                        />
+                      </th>
+                    )}
+                    {["Candidate", "Category", "Status", "Assessment Period", "Score", "Actions"].map((h) => (
                       <th key={h} className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-white">
                         {h}
                       </th>
@@ -233,6 +320,17 @@ export default function ApcPage() {
                         i % 2 === 1 && "bg-zinc-50/30 dark:bg-zinc-950/10"
                       )}
                     >
+                      {canSchedule && (
+                        <td className="px-5 py-4">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 accent-navy dark:accent-gold cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                            checked={selectedAssessments.has(apc.id)}
+                            onChange={() => toggleSelectAssessment(apc.id)}
+                            disabled={apc.status !== "Requested"}
+                          />
+                        </td>
+                      )}
                       <td className="px-5 py-4">
                         {(() => {
                           const photoDoc = apc.application?.uploadedDocuments?.find((d: any) => d.documentType === 'Passport_Photo' || d.documentType === 'PassportPhoto');
@@ -275,9 +373,16 @@ export default function ApcPage() {
                         <StatusBadge status={apc.status} />
                       </td>
                       <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400">
-                        {apc.assessmentDate
-                          ? new Date(apc.assessmentDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-                          : <span className="italic text-zinc-400">Not set</span>}
+                        {apc.assessmentPeriodStart ? (
+                          <>
+                            {new Date(apc.assessmentPeriodStart).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })}
+                            {apc.assessmentPeriodEnd && (
+                              <> – {new Date(apc.assessmentPeriodEnd).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })}</>
+                            )}
+                          </>
+                        ) : (
+                          <span className="italic text-zinc-400">Not set</span>
+                        )}
                       </td>
                       <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400">
                         {apc.scorePercentage ? `${apc.scorePercentage}%` : "—"}
@@ -288,7 +393,7 @@ export default function ApcPage() {
                             <Button
                               size="sm"
                               className="h-7 text-xs bg-gold text-[#1a1a1a] hover:bg-gold/90 border-none font-bold"
-                              onClick={() => { setScheduleDialog(apc); setScheduleForm({ date: "", time: "", chair: "", chairEmail: "", exam1: "", exam1Email: "", exam2: "", exam2Email: "" }); }}
+                              onClick={() => { setScheduleDialog(apc); setScheduleForm({ periodStart: "", periodEnd: "" }); }}
                             >
                               Schedule Board
                             </Button>
@@ -332,54 +437,82 @@ export default function ApcPage() {
               <p className="text-xs text-muted-foreground">{scheduleDialog.application?.category?.categoryName}</p>
             </div>
           )}
+          {scheduleDialog && formatMonthPeriod(scheduleDialog.boardRecommendedPeriodStart, scheduleDialog.boardRecommendedPeriodEnd) && (
+            <div className="rounded-md border border-blue-200 dark:border-blue-900/50 bg-blue-50/60 dark:bg-blue-950/20 p-3 text-xs mb-1">
+              <span className="font-semibold text-blue-800 dark:text-blue-300">Reviewer board recommended:</span>{" "}
+              <span className="text-blue-900 dark:text-blue-200">
+                {formatMonthPeriod(scheduleDialog.boardRecommendedPeriodStart, scheduleDialog.boardRecommendedPeriodEnd)}
+              </span>
+            </div>
+          )}
           <div className="space-y-4 py-1">
             <div className="space-y-2">
-              <Label>Assessment Date & Time</Label>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <MonthYearPicker value={scheduleForm.date} onChange={(v) => setScheduleForm({ ...scheduleForm, date: v })} placeholder="Select date" />
+              <Label>Assessment Period</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <MonthYearPicker monthOnly value={scheduleForm.periodStart} onChange={(v) => setScheduleForm({ ...scheduleForm, periodStart: v })} placeholder="Start month" />
                 </div>
-                <div className="w-[140px]">
-                  <TimePicker value={scheduleForm.time} onChange={(v) => setScheduleForm({ ...scheduleForm, time: v })} placeholder="Select time" />
+                <div>
+                  <MonthYearPicker monthOnly value={scheduleForm.periodEnd} onChange={(v) => setScheduleForm({ ...scheduleForm, periodEnd: v })} placeholder="End month (optional)" />
                 </div>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Panel Chair Name</Label>
-                <Input placeholder="e.g. John Doe (PrQS)" value={scheduleForm.chair} onChange={(e) => setScheduleForm({ ...scheduleForm, chair: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Panel Chair Email</Label>
-                <Input placeholder="chair@example.com" value={scheduleForm.chairEmail} onChange={(e) => setScheduleForm({ ...scheduleForm, chairEmail: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Examiner 1 Name</Label>
-                <Input placeholder="e.g. Jane Smith (PrQS)" value={scheduleForm.exam1} onChange={(e) => setScheduleForm({ ...scheduleForm, exam1: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Examiner 1 Email</Label>
-                <Input placeholder="exam1@example.com" value={scheduleForm.exam1Email} onChange={(e) => setScheduleForm({ ...scheduleForm, exam1Email: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Examiner 2 Name</Label>
-                <Input placeholder="e.g. Robert Brown (PrQS)" value={scheduleForm.exam2} onChange={(e) => setScheduleForm({ ...scheduleForm, exam2: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Examiner 2 Email</Label>
-                <Input placeholder="exam2@example.com" value={scheduleForm.exam2Email} onChange={(e) => setScheduleForm({ ...scheduleForm, exam2Email: e.target.value })} />
-              </div>
+              <p className="text-xs text-muted-foreground">Choose one month for a single-month period, or add an end month for a range.</p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setScheduleDialog(null)} disabled={isSubmitting}>Cancel</Button>
-            <Button onClick={handleSchedule} disabled={isSubmitting || !scheduleForm.date} className="bg-navy hover:bg-navy/90 text-white">
+            <Button onClick={handleSchedule} disabled={isSubmitting || !scheduleForm.periodStart} className="bg-navy hover:bg-navy/90 text-white">
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
               Confirm Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Schedule Dialog */}
+      <Dialog open={bulkScheduleDialog} onOpenChange={(o) => !o && setBulkScheduleDialog(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bulk Schedule APC Boards</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1 py-1 mb-2 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+            <p className="font-semibold text-sm text-navy dark:text-white">{selectedAssessments.size} candidate{selectedAssessments.size !== 1 ? "s" : ""} selected</p>
+            <p className="text-xs text-muted-foreground">All selected candidates will be assigned the same assessment period.</p>
+          </div>
+          {(() => {
+            const selectedRows = assessments.filter((a) => selectedAssessments.has(a.id));
+            const withRecs = selectedRows.filter((a) => formatMonthPeriod(a.boardRecommendedPeriodStart, a.boardRecommendedPeriodEnd));
+            if (withRecs.length === 0) return null;
+            return (
+              <div className="rounded-md border border-blue-200 dark:border-blue-900/50 bg-blue-50/60 dark:bg-blue-950/20 p-3 text-xs mb-1 space-y-1 max-h-32 overflow-y-auto">
+                <p className="font-semibold text-blue-800 dark:text-blue-300">Reviewer board recommendations:</p>
+                {withRecs.map((a) => (
+                  <p key={a.id} className="text-blue-900 dark:text-blue-200">
+                    {a.member?.fullName}: {formatMonthPeriod(a.boardRecommendedPeriodStart, a.boardRecommendedPeriodEnd)}
+                  </p>
+                ))}
+              </div>
+            );
+          })()}
+          <div className="space-y-4 py-1">
+            <div className="space-y-2">
+              <Label>Assessment Period</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <MonthYearPicker monthOnly value={bulkScheduleForm.periodStart} onChange={(v) => setBulkScheduleForm({ ...bulkScheduleForm, periodStart: v })} placeholder="Start month" />
+                </div>
+                <div>
+                  <MonthYearPicker monthOnly value={bulkScheduleForm.periodEnd} onChange={(v) => setBulkScheduleForm({ ...bulkScheduleForm, periodEnd: v })} placeholder="End month (optional)" />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Choose one month for a single-month period, or add an end month for a range.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkScheduleDialog(false)} disabled={isSubmitting}>Cancel</Button>
+            <Button onClick={handleBulkSchedule} disabled={isSubmitting || !bulkScheduleForm.periodStart} className="bg-navy hover:bg-navy/90 text-white">
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              Confirm Bulk Schedule
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -395,7 +528,14 @@ export default function ApcPage() {
             <div className="space-y-1 py-1 mb-2 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
               <p className="font-semibold text-sm text-navy dark:text-white">{gradeDialog.member?.fullName}</p>
               <p className="text-xs text-muted-foreground">
-                Board date: {gradeDialog.assessmentDate ? new Date(gradeDialog.assessmentDate).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }) : "—"}
+                Assessment period: {gradeDialog.assessmentPeriodStart ? (() => {
+                  const start = new Date(gradeDialog.assessmentPeriodStart).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+                  if (gradeDialog.assessmentPeriodEnd) {
+                    const end = new Date(gradeDialog.assessmentPeriodEnd).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+                    return `${start} – ${end}`;
+                  }
+                  return start;
+                })() : "—"}
               </p>
             </div>
           )}

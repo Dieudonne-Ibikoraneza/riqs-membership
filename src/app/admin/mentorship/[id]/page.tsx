@@ -14,8 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import PDFViewer from "@/components/ui/pdf-viewer";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MonthYearPicker } from "@/components/ui/month-picker";
 import {
   ArrowLeft,
   Check,
@@ -143,7 +143,12 @@ export default function Review({ params }: PageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [boardNotes, setBoardNotes] = useState("");
-  const [proposedAssessmentDate, setProposedAssessmentDate] = useState("");
+  const [reviewPeriodStart, setReviewPeriodStart] = useState("");
+  const [reviewPeriodEnd, setReviewPeriodEnd] = useState("");
+  const [agreedReviewPeriodStart, setAgreedReviewPeriodStart] = useState("");
+  const [agreedReviewPeriodEnd, setAgreedReviewPeriodEnd] = useState("");
+  const [isForwardPeriodDialogOpen, setIsForwardPeriodDialogOpen] = useState(false);
+  const [isUpgradeApprovalDialogOpen, setIsUpgradeApprovalDialogOpen] = useState(false);
 
   const hasSubmittedBoardReview = Boolean(
     userId && app?.mentorshipReviews?.some((review: any) => review.reviewerId === userId)
@@ -239,7 +244,11 @@ export default function Review({ params }: PageProps) {
               status: mAssignment.status,
               yearOneReportUrl: mAssignment.yearOneReportUrl,
               yearTwoReportUrl: mAssignment.yearTwoReportUrl,
-              mentorRecommendationUrl: mAssignment.mentorRecommendationUrl
+              mentorRecommendationUrl: mAssignment.mentorRecommendationUrl,
+              mentorRecommended: mAssignment.mentorRecommended,
+              mentorNotes: mAssignment.mentorNotes,
+              agreedReviewPeriodStart: mAssignment.agreedReviewPeriodStart,
+              agreedReviewPeriodEnd: mAssignment.agreedReviewPeriodEnd
             };
           })() : null,
           shareholders: res.shareholders || [],
@@ -329,14 +338,27 @@ export default function Review({ params }: PageProps) {
     mutationFn: () => submitMentorshipReview({
       applicationId: app.id,
       notes: boardNotes,
-      proposedAssessmentDate: app?.mentorship?.apcReadiness === "Ready" ? proposedAssessmentDate : undefined,
+      reviewPeriodStart,
+      reviewPeriodEnd: reviewPeriodEnd || undefined,
     }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Reviewer-board recommendation saved.");
       setBoardNotes("");
-      setProposedAssessmentDate("");
+      setReviewPeriodStart("");
+      setReviewPeriodEnd("");
+      const newReview = {
+        id: data.review.id,
+        reviewerId: userId,
+        reviewer: { fullName: data.review.reviewer?.fullName || "You" },
+        reviewPeriodStart: data.review.reviewPeriodStart,
+        reviewPeriodEnd: data.review.reviewPeriodEnd,
+        notes: data.review.notes
+      };
+      setApp((prev: any) => ({
+        ...prev,
+        mentorshipReviews: [...(prev.mentorshipReviews || []), newReview]
+      }));
       queryClient.invalidateQueries({ queryKey: ["application", id] });
-      window.location.reload();
     },
     onError: (err: any) => toast.error(err.response?.data?.error || "Failed to save reviewer-board recommendation.")
   });
@@ -344,12 +366,15 @@ export default function Review({ params }: PageProps) {
   const forwardMentorshipMutation = useMutation({
     mutationFn: () => forwardMentorshipToApprover(
       app.id,
-      boardNotes.trim() || "Forwarded by Head Reviewer after completion of the reviewer-board submissions."
+      boardNotes.trim() || "Forwarded by Head Reviewer after completion of the reviewer-board submissions.",
+      agreedReviewPeriodStart,
+      agreedReviewPeriodEnd || undefined
     ),
     onSuccess: () => {
       toast.success("Mentorship upgrade forwarded to Admin/Approver.");
       setApp((prev: any) => ({ ...prev, mentorship: { ...prev.mentorship, status: "Pending_Admin_Review" } }));
       setBoardNotes("");
+      setIsForwardPeriodDialogOpen(false);
     },
     onError: (err: any) => toast.error(err.response?.data?.error || "Unable to forward mentorship upgrade.")
   });
@@ -368,6 +393,25 @@ export default function Review({ params }: PageProps) {
     },
     onError: (err: any) => toast.error(err.response?.data?.error || "Failed to award Associate class")
   });
+
+  const executeUpgradeApproval = () => {
+    if (app.mentorship?.apcReadiness !== "Ready") {
+      mentorshipUpgradeMutation.mutateAsync({ action: "Approve" }).then(() => {
+        awardAssociateMutation.mutate();
+      });
+    } else {
+      mentorshipUpgradeMutation.mutate({ action: "Approve" });
+    }
+  };
+
+  const handleUpgradeApproval = () => {
+    setIsUpgradeApprovalDialogOpen(true);
+  };
+
+  const handleUpgradeCorrection = () => {
+    const notes = window.prompt("Reason for returning for correction:");
+    if (notes) mentorshipUpgradeMutation.mutate({ action: "Reject", notes });
+  };
 
   if (isLoading) {
     return (
@@ -539,8 +583,108 @@ export default function Review({ params }: PageProps) {
               Full Application <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </Link>
+          {app.mentorship?.status === "Pending_Admin_Review" && (role === "Admin" || role === "Approver") && (
+            <>
+              <Button
+                size="sm"
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                onClick={handleUpgradeApproval}
+                disabled={mentorshipUpgradeMutation.isPending || awardAssociateMutation.isPending}
+              >
+                <Check className="mr-2 h-4 w-4" />
+                {app.mentorship.apcReadiness === "Ready" ? "Approve & Move to APC" : "Approve & Award Associate"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-950/30"
+                onClick={handleUpgradeCorrection}
+                disabled={mentorshipUpgradeMutation.isPending}
+              >
+                <X className="mr-2 h-4 w-4" /> Flag for Correction
+              </Button>
+            </>
+          )}
+          {role === "Head_Reviewer" && app.mentorship?.apcReadiness === "Ready" && app.mentorship?.status === "Pending_Reviewer_Board" && (app.mentorshipReviews?.length || 0) >= 3 && (
+            <Button
+              size="sm"
+              className="bg-navy text-white hover:bg-navy/90"
+              onClick={() => setIsForwardPeriodDialogOpen(true)}
+            >
+              Forward to Approver <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
+
+      <Dialog open={isForwardPeriodDialogOpen} onOpenChange={setIsForwardPeriodDialogOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Forward mentorship upgrade</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Set the final agreed assessment period before sending this case to the Approver.
+            </p>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>Final agreed assessment period</Label>
+              <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <MonthYearPicker value={agreedReviewPeriodStart} monthOnly placeholder="Start month" onChange={setAgreedReviewPeriodStart} />
+                <MonthYearPicker value={agreedReviewPeriodEnd} monthOnly placeholder="End month (optional)" onChange={setAgreedReviewPeriodEnd} />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Select one month for a single-month period, or add an end month for a range.
+              </p>
+            </div>
+            <div>
+              <Label>Forwarding note <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Textarea className="mt-2" value={boardNotes} onChange={(e) => setBoardNotes(e.target.value)} placeholder="Add a final summary for the Approver..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsForwardPeriodDialogOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-navy text-white hover:bg-navy/90"
+              disabled={!agreedReviewPeriodStart || Boolean(agreedReviewPeriodEnd && agreedReviewPeriodEnd < agreedReviewPeriodStart) || forwardMentorshipMutation.isPending}
+              onClick={() => forwardMentorshipMutation.mutate()}
+            >
+              {forwardMentorshipMutation.isPending ? "Forwarding…" : "Confirm & Forward"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isUpgradeApprovalDialogOpen} onOpenChange={setIsUpgradeApprovalDialogOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>
+              {app.mentorship?.apcReadiness === "Ready" ? "Confirm mentorship approval" : "Confirm Associate award"}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {app.mentorship?.apcReadiness === "Ready"
+                ? "This will approve the mentorship upgrade and move the applicant to the APC assessment queue."
+                : "This will approve the mentorship upgrade and award the Associate class to this applicant. A new membership class and membership ID will be issued."}
+            </p>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUpgradeApprovalDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+              disabled={mentorshipUpgradeMutation.isPending || awardAssociateMutation.isPending}
+              onClick={() => {
+                setIsUpgradeApprovalDialogOpen(false);
+                executeUpgradeApproval();
+              }}
+            >
+              {mentorshipUpgradeMutation.isPending || awardAssociateMutation.isPending
+                ? "Processing…"
+                : app.mentorship?.apcReadiness === "Ready" ? "Confirm approval" : "Confirm & Award Associate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start mt-6">
           <div className="lg:col-span-1 space-y-6">
@@ -578,6 +722,17 @@ export default function Review({ params }: PageProps) {
                         ) : "Pending"}
                       </div>
                     </div>
+                    {app.mentorship.mentorNotes && (
+                      <div className="col-span-2 rounded-md border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                        <h4 className="font-semibold text-[10px] text-emerald-800 dark:text-emerald-300 uppercase tracking-wider mb-1">Mentor Recommendation Note</h4>
+                        <p className="text-xs whitespace-pre-wrap text-emerald-900 dark:text-emerald-200">{app.mentorship.mentorNotes}</p>
+                      </div>
+                    )}
+                    {app.mentorship.agreedReviewPeriodStart && (
+                      <div className="col-span-2 text-xs text-muted-foreground">
+                        Final agreed assessment period: <span className="font-semibold text-navy dark:text-zinc-200">{new Date(app.mentorship.agreedReviewPeriodStart).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}{app.mentorship.agreedReviewPeriodEnd ? ` – ${new Date(app.mentorship.agreedReviewPeriodEnd).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}` : ""}</span>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -591,16 +746,14 @@ export default function Review({ params }: PageProps) {
                   </CardHeader>
                   <CardContent className="p-4 space-y-3">
                     {app.mentorshipReviews.map((review: any) => {
-                      const suggestedDate = review.proposedAssessmentDate || review.proposed_assessment_date;
                       return (
                         <div key={review.id} className="rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/40 p-3 text-xs">
                           <div className="font-semibold text-navy dark:text-zinc-100">
                             {review.reviewer?.fullName || "Reviewer"}
                           </div>
-                          {suggestedDate && (
-
+                          {review.reviewPeriodStart && (
                             <div className="mt-1 text-muted-foreground">
-                              Suggested assessment: {new Date(suggestedDate).toLocaleString()}
+                              Recommended assessment period: <span className="font-medium text-zinc-700 dark:text-zinc-300">{new Date(review.reviewPeriodStart).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}{review.reviewPeriodEnd ? ` – ${new Date(review.reviewPeriodEnd).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}` : ""}</span>
                             </div>
                           )}
                           {review.notes && (
@@ -615,12 +768,12 @@ export default function Review({ params }: PageProps) {
                 </Card>
               )}
 
-              {app.mentorship.status === "Pending_Reviewer_Board" && (role === "Reviewer" || role === "Head_Reviewer") && (
+              {app.mentorship.status === "Pending_Reviewer_Board" && app.mentorship.apcReadiness === "Ready" && (role === "Reviewer" || role === "Head_Reviewer") && !hasSubmittedBoardReview && (
                 <div className="bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-900/50 rounded-xl p-5 shadow-sm space-y-4">
                   <div>
                     <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">Reviewer Board</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Submit your recommendation{app.mentorship.apcReadiness === "Ready" ? " and proposed APC date/time" : ""}. Three board reviews are required before the Head Reviewer forwards this case.
+                      Submit your recommendation and a suggested assessment period (one month, or a range of months). Three board reviews are required before the Head Reviewer forwards this case.
                     </p>
                   </div>
                   <div className="text-xs font-medium text-blue-800 dark:text-blue-300">
@@ -632,31 +785,23 @@ export default function Review({ params }: PageProps) {
                     </div>
                   )}
                   <Textarea value={boardNotes} onChange={(e) => setBoardNotes(e.target.value)} disabled={!canEditForwardingNote} placeholder={role === "Head_Reviewer" ? "Board summary or forwarding note" : "Your review recommendation"} />
-                  {app.mentorship.apcReadiness === "Ready" && (
-                    <div>
-                      <Label className="text-xs">Proposed assessment date & time</Label>
-                      <Input className="mt-1" type="datetime-local" value={proposedAssessmentDate} disabled={hasSubmittedBoardReview} onChange={(e) => setProposedAssessmentDate(e.target.value)} />
+                  <div>
+                    <Label className="text-xs">Your recommended assessment period</Label>
+                    <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <MonthYearPicker value={reviewPeriodStart} monthOnly placeholder="Start month" onChange={setReviewPeriodStart} />
+                      <MonthYearPicker value={reviewPeriodEnd} monthOnly placeholder="End month (optional)" onChange={setReviewPeriodEnd} />
                     </div>
-                  )}
+                    <p className="mt-1 text-[11px] text-muted-foreground">Choose one month for a single-month period, or add an end month for a range.</p>
+                  </div>
                   <div className="flex flex-col gap-2">
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={hasSubmittedBoardReview || !boardNotes.trim() || (app.mentorship.apcReadiness === "Ready" && !proposedAssessmentDate) || mentorshipBoardReviewMutation.isPending}
+                      disabled={hasSubmittedBoardReview || !boardNotes.trim() || !reviewPeriodStart || Boolean(reviewPeriodEnd && reviewPeriodEnd < reviewPeriodStart) || mentorshipBoardReviewMutation.isPending}
                       onClick={() => mentorshipBoardReviewMutation.mutate()}
                     >
                       {hasSubmittedBoardReview ? "Review Submitted" : mentorshipBoardReviewMutation.isPending ? "Saving…" : "Submit Board Review"}
                     </Button>
-                    {role === "Head_Reviewer" && (
-                      <Button
-                        size="sm"
-                        className="bg-navy text-white hover:bg-navy/90"
-                        disabled={(app.mentorshipReviews?.length || 0) < 3 || forwardMentorshipMutation.isPending}
-                        onClick={() => forwardMentorshipMutation.mutate()}
-                      >
-                        {forwardMentorshipMutation.isPending ? "Forwarding…" : "Forward to Admin / Approver"}
-                      </Button>
-                    )}
                   </div>
                 </div>
               )}
@@ -670,37 +815,6 @@ export default function Review({ params }: PageProps) {
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     The candidate has completed mentorship and {app.mentorship.apcReadiness === "Ready" ? <strong>requested to sit for the APC.</strong> : <strong>elected NOT to sit for the APC (Associate Route).</strong>}
                   </p>
-                  <div className="pt-2 flex flex-col gap-2.5">
-                    <Button 
-                      size="sm" 
-                      className="w-full h-10 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all"
-                      onClick={() => {
-                        if (app.mentorship.apcReadiness !== "Ready") {
-                          mentorshipUpgradeMutation.mutateAsync({ action: "Approve" }).then(() => {
-                            awardAssociateMutation.mutate();
-                          });
-                        } else {
-                          mentorshipUpgradeMutation.mutate({ action: "Approve" });
-                        }
-                      }}
-                      disabled={mentorshipUpgradeMutation.isPending || awardAssociateMutation.isPending}
-                    >
-                      <Check className="h-4 w-4 mr-2" /> 
-                      {app.mentorship.apcReadiness === "Ready" ? "Approve & Move to APC" : "Approve & Award Associate"}
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="w-full h-10 text-xs border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-950/30 transition-all"
-                      onClick={() => {
-                         const notes = window.prompt("Reason for returning for correction:");
-                         if(notes) mentorshipUpgradeMutation.mutate({ action: "Reject", notes });
-                      }}
-                      disabled={mentorshipUpgradeMutation.isPending}
-                    >
-                      <X className="h-4 w-4 mr-2" /> Flag for Correction
-                    </Button>
-                  </div>
                 </div>
               )}
             </motion.div>

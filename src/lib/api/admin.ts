@@ -217,15 +217,19 @@ export async function getApcForApplication(applicationId: string): Promise<any> 
 
 export async function scheduleApc(payload: {
   applicationId: string;
-  assessmentDate: string;
-  panelChair?: string;
-  panelChairEmail?: string;
-  examiner1?: string;
-  examiner1Email?: string;
-  examiner2?: string;
-  examiner2Email?: string;
+  assessmentPeriodStart: string;
+  assessmentPeriodEnd?: string;
 }): Promise<any> {
   const { data } = await axiosClient.post(`/progression/apc/register`, payload);
+  return data;
+}
+
+export async function bulkScheduleApc(payload: {
+  applicationIds: string[];
+  assessmentPeriodStart: string;
+  assessmentPeriodEnd?: string;
+}): Promise<any> {
+  const { data } = await axiosClient.post(`/progression/apc/bulk-schedule`, payload);
   return data;
 }
 
@@ -331,15 +335,16 @@ export async function flagMentorshipForCorrection(applicationId: string, notes: 
 export async function submitMentorshipReview(payload: {
   applicationId: string;
   notes: string;
-  proposedAssessmentDate?: string;
+  reviewPeriodStart: string;
+  reviewPeriodEnd?: string;
   recommendation?: string;
 }): Promise<any> {
   const { data } = await axiosClient.post('/admin/mentorship/review', payload);
   return data;
 }
 
-export async function forwardMentorshipToApprover(applicationId: string, notes: string): Promise<any> {
-  const { data } = await axiosClient.post('/admin/mentorship/forward', { applicationId, notes });
+export async function forwardMentorshipToApprover(applicationId: string, notes: string, agreedReviewPeriodStart: string, agreedReviewPeriodEnd?: string): Promise<any> {
+  const { data } = await axiosClient.post('/admin/mentorship/forward', { applicationId, notes, agreedReviewPeriodStart, agreedReviewPeriodEnd });
   return data;
 }
 
@@ -395,5 +400,15 @@ export async function changeMembershipCategory(id: string, newCategoryId: string
 
 export async function updateMemberHonors(id: string, honors: string[]): Promise<{ message: string; member: any }> {
   const { data } = await axiosClient.post(`/admin/members/${id}/honors`, { honors });
+  return data;
+}
+
+export async function getProfileEditRequests(status?: string, page = 1, limit = 20): Promise<{ requests: any[]; total: number }> {
+  const { data } = await axiosClient.get('/admin/profile-edit-requests', { params: { status, page, limit } });
+  return data;
+}
+
+export async function reviewProfileEditRequest(id: string, decision: "Approve" | "Reject", reviewNotes?: string): Promise<{ message: string }> {
+  const { data } = await axiosClient.post(`/admin/profile-edit-requests/${id}/decision`, { decision, reviewNotes });
   return data;
 }

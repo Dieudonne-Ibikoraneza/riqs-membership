@@ -129,6 +129,7 @@ const PDFViewer = ({ src, fileName = "document.pdf", thumbnailMode = false, clas
                         <div key={pageNum} className="relative">
                             <canvas
                                 id={`${instanceIdRef.current}-page-${pageNum}`}
+                                data-page-num={pageNum}
                                 className={`shadow-sm bg-white ${thumbnailMode ? 'mx-auto' : ''}`}
                             />
                             {!thumbnailMode && (
@@ -256,33 +257,51 @@ const PDFViewer = ({ src, fileName = "document.pdf", thumbnailMode = false, clas
         }
     }, [scale, rotation]);
 
-    // Track current page based on scroll position
+    // Track current page based on which page canvas is most visible.
+    // IntersectionObserver measures visibility against the nearest
+    // scrollable ancestor (or the browser viewport) automatically — unlike
+    // a manual 'scroll' listener on scrollContainerRef, this keeps working
+    // even when an ancestor of the viewer (not the viewer's own internal
+    // div) is the element that actually scrolls.
     useEffect(() => {
-        const scrollContainer = scrollContainerRef.current;
-        if (!scrollContainer || totalPages === 0) return;
+        if (totalPages === 0) return;
 
-        const handleScroll = () => {
-            const containerHeight = scrollContainer.clientHeight;
+        const visibility = new Map<number, number>();
+        let attachTimeout: ReturnType<typeof setTimeout>;
 
-            // Find which page is most visible
-            for (let i = 1; i <= totalPages; i++) {
-                const canvas = document.getElementById(`${instanceIdRef.current}-page-${i}`) as HTMLCanvasElement;
-                if (canvas) {
-                    const rect = canvas.getBoundingClientRect();
-                    const containerRect = scrollContainer.getBoundingClientRect();
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                const pageNum = Number((entry.target as HTMLElement).dataset.pageNum);
+                if (!pageNum) return;
+                visibility.set(pageNum, entry.intersectionRatio);
+            });
 
-                    // Check if page is in the middle of viewport
-                    if (rect.top <= containerRect.top + containerHeight / 2 &&
-                        rect.bottom >= containerRect.top + containerHeight / 2) {
-                        setCurrentPage(i);
-                        break;
-                    }
+            let bestPage = currentPage;
+            let bestRatio = 0;
+            visibility.forEach((ratio, pageNum) => {
+                if (ratio > bestRatio) {
+                    bestRatio = ratio;
+                    bestPage = pageNum;
                 }
+            });
+            if (bestRatio > 0) setCurrentPage(bestPage);
+        }, { threshold: [0, 0.25, 0.5, 0.75, 1] });
+
+        const attach = () => {
+            for (let i = 1; i <= totalPages; i++) {
+                const canvas = document.getElementById(`${instanceIdRef.current}-page-${i}`);
+                if (canvas) observer.observe(canvas);
             }
         };
 
-        scrollContainer.addEventListener('scroll', handleScroll);
-        return () => scrollContainer.removeEventListener('scroll', handleScroll);
+        // Canvases render asynchronously after this effect attaches, so
+        // give them a moment to land in the DOM before observing.
+        attachTimeout = setTimeout(attach, 150);
+
+        return () => {
+            clearTimeout(attachTimeout);
+            observer.disconnect();
+        };
     }, [totalPages]);
 
     const zoomIn = () => {

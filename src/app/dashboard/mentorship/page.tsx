@@ -197,6 +197,13 @@ export default function Mentorship() {
     (a: any) => a.status === "Requested" || a.status === "Scheduled"
   );
 
+  // The logbook/report progress query only starts once the profile query
+  // resolves and hands it an applicationId — treat the page as still
+  // loading until that chained fetch completes too, otherwise the report
+  // and logbook sections briefly render as "not submitted yet" before the
+  // real data arrives.
+  const isPageLoading = isProfileLoading || (!!profileData?.application?.id && isLogbookLoading);
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <input 
@@ -221,9 +228,10 @@ export default function Mentorship() {
         </p>
       </div>
 
-      {isProfileLoading ? (
+      {isPageLoading ? (
         <div className="grid gap-4 animate-pulse">
           <Card className="h-24 bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800" />
+          <Card className="h-40 bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800" />
           <Card className="h-56 bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800" />
         </div>
       ) : (
@@ -803,17 +811,20 @@ export default function Mentorship() {
                       {apc.status === "No_Show" && <span className="text-xs font-semibold px-2 py-0.5 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 rounded-full">No Show</span>}
                     </div>
                     <div className="text-xs text-muted-foreground font-sans flex items-center gap-1.5">
-                      <Calendar className="h-3.5 w-3.5" /> 
-                      {apc.assessmentDate ? new Date(apc.assessmentDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "Pending Schedule"}
+                      <Calendar className="h-3.5 w-3.5" />
+                      {apc.assessmentPeriodStart ? (() => {
+                        const start = new Date(apc.assessmentPeriodStart).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+                        if (apc.assessmentPeriodEnd) {
+                          const end = new Date(apc.assessmentPeriodEnd).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+                          return `${start} – ${end}`;
+                        }
+                        return start;
+                      })() : "Pending Schedule"}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-6">
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
-                      <div><span className="font-medium">Chair:</span> {apc.panelChairName || "Pending"}</div>
-                      <div><span className="font-medium">Examiners:</span> {apc.examiner1Name ? `${apc.examiner1Name}, ${apc.examiner2Name || 'Pending'}` : "Pending"}</div>
-                    </div>
-                    
+
                     {apc.status !== "Scheduled" && apc.status !== "Requested" && (
                       <div className="text-right">
                         <div className="text-lg font-bold text-navy dark:text-gold">{apc.scorePercentage ? `${apc.scorePercentage}%` : 'N/A'}</div>

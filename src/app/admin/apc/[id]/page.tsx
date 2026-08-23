@@ -212,7 +212,7 @@ export default function ApcDetailPage({ params }: PageProps) {
         scorePercentage: gradeForm.score ? Number(gradeForm.score) : undefined,
         assessmentNotes: gradeForm.notes,
       });
-      toast.success("APC results recorded. Candidate upgraded if applicable.");
+      toast.success("APC results recorded. If passed, the upgrade is pending the candidate's first-year fee payment.");
       setGradeDialog(false);
       await loadApc();
     } catch (err: any) {
@@ -244,7 +244,7 @@ export default function ApcDetailPage({ params }: PageProps) {
   const statusLabels: Record<string, string> = {
     Requested: "This candidate has requested an APC board assessment and is awaiting scheduling.",
     Scheduled: "The APC board is scheduled. Grade the result after the session.",
-    Passed: "Candidate passed their APC assessment. Membership has been automatically upgraded.",
+    Passed: "Candidate passed their APC assessment. The upgrade is approved, pending payment of the new class's first-year fee.",
     Failed: "Candidate did not pass. Review feedback below and consider scheduling a re-sit.",
     No_Show: "Candidate did not attend their scheduled board.",
     Attended: "Candidate attended — awaiting final result grading.",
@@ -556,7 +556,7 @@ export default function ApcDetailPage({ params }: PageProps) {
             </div>
             {gradeForm.status === "Passed" && (
               <p className="text-xs text-emerald-600 font-medium p-3 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg border border-emerald-200 dark:border-emerald-900/50">
-                ✓ Saving as "Passed" will automatically upgrade this candidate's membership class.
+                ✓ Saving as "Passed" will approve this candidate's upgrade. Their new membership ID is issued once they pay the new class's first-year fee.
               </p>
             )}
           </div>

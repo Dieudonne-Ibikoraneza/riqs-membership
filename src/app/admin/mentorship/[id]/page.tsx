@@ -382,16 +382,14 @@ export default function Review({ params }: PageProps) {
   const awardAssociateMutation = useMutation({
     mutationFn: () => import("@/lib/api/admin").then(m => m.awardAssociate(app?.id)),
     onSuccess: (data) => {
-      toast.success(data.message || "Associate class awarded successfully.");
+      toast.success(data.message || "Associate class approved. Membership ID will be issued once the first-year fee is paid.");
       setApp((prev: any) => ({
         ...prev,
         status: "Approved",
-        membership_class: data.memberClass,
-        membership_id: data.membershipId,
         mentorship: prev.mentorship ? { ...prev.mentorship, status: "Approved" } : prev.mentorship
       }));
     },
-    onError: (err: any) => toast.error(err.response?.data?.error || "Failed to award Associate class")
+    onError: (err: any) => toast.error(err.response?.data?.error || "Failed to approve Associate class")
   });
 
   const executeUpgradeApproval = () => {
@@ -663,7 +661,7 @@ export default function Review({ params }: PageProps) {
             <p className="text-sm text-muted-foreground">
               {app.mentorship?.apcReadiness === "Ready"
                 ? "This will approve the mentorship upgrade and move the applicant to the APC assessment queue."
-                : "This will approve the mentorship upgrade and award the Associate class to this applicant. A new membership class and membership ID will be issued."}
+                : "This will approve the mentorship upgrade to the Associate class for this applicant. Their new membership ID will only be issued once they pay the first-year fee for this class."}
             </p>
           </DialogHeader>
           <DialogFooter>

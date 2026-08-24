@@ -16,10 +16,10 @@ import { cn } from "@/lib/utils";
 // --- Status Badge Helper ---
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === "Cleared")
+  if (status === "Paid")
     return (
       <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none font-medium gap-1">
-        <CheckCircle2 className="h-3 w-3" /> Cleared
+        <CheckCircle2 className="h-3 w-3" /> Paid
       </Badge>
     );
   if (status === "Pending_Verification")
@@ -91,7 +91,7 @@ export default function Payments() {
   const unpaidTx = transactions.find((tx: any) => tx.status === "Failed") || transactions.find((tx: any) => tx.status === "Unpaid");
 
   const totalPaid = transactions
-    .filter((tx: any) => tx.status === "Cleared")
+    .filter((tx: any) => tx.status === "Paid")
     .reduce((acc: number, tx: any) => acc + Number(tx.amount), 0);
   const pendingCount = transactions.filter(
     (tx: any) => tx.status === "Pending_Verification"
@@ -532,7 +532,7 @@ export default function Payments() {
               </div>
               <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                {transactions.filter((tx: any) => tx.status === "Cleared").length} cleared transaction{transactions.filter((tx: any) => tx.status === "Cleared").length !== 1 ? "s" : ""}
+                {transactions.filter((tx: any) => tx.status === "Paid").length} paid transaction{transactions.filter((tx: any) => tx.status === "Paid").length !== 1 ? "s" : ""}
               </div>
               {pendingCount > 0 && (
                 <div className="mt-1 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">

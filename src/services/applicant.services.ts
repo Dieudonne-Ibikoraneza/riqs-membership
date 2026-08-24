@@ -22,6 +22,7 @@ export interface ApplicantProfileResponse {
     entityType: string;
     categoryId: string;
     category_name: string;
+    processing_fee?: string | number;
     submittedAt: string | null;
     approvedAt?: string | null;
     reviewerNotes?: string | null;
@@ -145,6 +146,25 @@ export const applicantServices = {
 
   submitApplication: async (applicationId: string): Promise<any> => {
     const response = await axiosClient.post('/applicants/submit', { applicationId });
+    return response.data;
+  },
+
+  initiateProcessingFeePayment: async (data: { applicationId: string; mobilephone: string }): Promise<{
+    status: string;
+    transactionId: string;
+    message: string;
+  }> => {
+    const response = await axiosClient.post('/payments/processing-fee/initiate', data);
+    return response.data;
+  },
+
+  getProcessingFeePaymentStatus: async (transactionId: string): Promise<{
+    status: string;
+    transactionId: string;
+    applicationId: string | null;
+    rejectionReason: string | null;
+  }> => {
+    const response = await axiosClient.get(`/payments/processing-fee/status/${transactionId}`);
     return response.data;
   },
 

@@ -176,7 +176,7 @@ export default function Mentorship() {
   const financialTransactions = profileData?.financialTransactions || [];
 
   const renewalCleared = financialTransactions.some(
-    (tx: any) => tx.txType === 'Annual_Renewal' && tx.status === 'Cleared'
+    (tx: any) => tx.txType === 'Annual_Renewal' && tx.status === 'Paid'
   );
 
   const monthsElapsed = approvedAt

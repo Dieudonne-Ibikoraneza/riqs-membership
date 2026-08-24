@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { authServices } from "@/services/auth.services";
 import { toast } from "sonner";
 
@@ -40,6 +41,7 @@ const KEY = "riqs.auth";
 const TOKEN_KEY = "riqs.auth.token";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [role, setRole] = useState<Role>(null);
   const [name, setName] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
@@ -62,20 +64,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearAuth = () => {
     setRole(null); setName(null); setEmail(null);
     setIsMentor(false); setIsTeacher(false); setIsStudent(false);
-    
+
     // Preserve UI theme preferences but wipe absolutely everything else (auth, tokens, drafts, etc.)
     const config = localStorage.getItem("riqs-config");
-    // Remove all user-scoped draft keys (riqs_app_draft_<email>, riqs_app_step_<email>, etc.)
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && (k.startsWith("riqs_app_draft") || k.startsWith("riqs_app_step") || k.startsWith("riqs_app_last_correction"))) {
-        keysToRemove.push(k);
-      }
-    }
-    keysToRemove.forEach(k => localStorage.removeItem(k));
     localStorage.clear();
     if (config) localStorage.setItem("riqs-config", config);
+
+    // React Query's cache lives in memory and survives a client-side navigation to
+    // /login — its query keys (e.g. queryKeys.applicant.profile()) aren't scoped by
+    // user, so without this the next account to log in would see the previous
+    // member's cached profile/application data until it happened to go stale.
+    queryClient.clear();
   };
 
   const startLogin = async (em: string, pw: string): Promise<boolean | "requirePasswordChange"> => {

@@ -139,7 +139,7 @@ export default function ReportsPage() {
   const fellowCount = members.filter(m => m.membershipClass === "Fellow" || m.isFellow).length;
   const honoraryCount = members.filter(m => m.isHonorary || (m.honors || []).length > 0).length;
   const rwandanCount = members.filter(m => m.practiceLocation !== "Non_Rwandan").length;
-  const clearedTx = transactions.filter((t: any) => t.status === "Cleared");
+  const clearedTx = transactions.filter((t: any) => t.status === "Paid");
   const totalRevenue = clearedTx.reduce((s: number, t: any) => s + Number(t.amount), 0);
   const apcPassed = apcs.filter((a: any) => a.status === "Passed").length;
 
@@ -183,8 +183,8 @@ export default function ReportsPage() {
             t.txType?.replace(/_/g, " ") || "", t.paymentMethod?.replace(/_/g, " ") || "",
             String(t.amount), t.currency || "RWF", t.status?.replace(/_/g, " ") || "", t.full_name || ""]);
         });
-        rows.push([], ["Total Revenue (Cleared):", `RWF ${totalRevenue.toLocaleString()}`],
-          ["Cleared Transactions:", String(clearedTx.length)],
+        rows.push([], ["Total Revenue (Paid):", `RWF ${totalRevenue.toLocaleString()}`],
+          ["Paid Transactions:", String(clearedTx.length)],
           ["Pending Transactions:", String(transactions.filter((t: any) => t.status === "Pending_Verification").length)]);
         await generateFormattedExcel(
           `RIQS_Financial_Summary_${date.replace(/ /g, "_")}.xlsx`,

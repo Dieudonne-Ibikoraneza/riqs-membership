@@ -65,7 +65,7 @@ const classBadgeColor: Record<string, string> = {
 };
 
 const txStatusColor: Record<string, string> = {
-  Cleared: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  Paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
   Unpaid: "bg-amber-50 text-amber-700 border-amber-200",
   Pending_Verification: "bg-blue-50 text-blue-700 border-blue-200",
   Failed: "bg-red-50 text-red-700 border-red-200",
@@ -243,7 +243,7 @@ export default function AdminMemberProfilePage() {
   const isFellow = member.membershipClass === "Fellow";
 
   const totalPaid = member.financialTransactions
-    ?.filter((t: any) => t.status === "Cleared")
+    ?.filter((t: any) => t.status === "Paid")
     .reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;
 
   const coverGradient = isFellow 
@@ -605,8 +605,8 @@ export default function AdminMemberProfilePage() {
                   {member.financialTransactions?.map((tx: any) => (
                     <div key={tx.id} className="bg-white rounded-lg p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
                       <div className="flex items-center gap-3">
-                        <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${tx.status === 'Cleared' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
-                          {tx.status === 'Cleared' ? <CheckCircle2 className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${tx.status === 'Paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                          {tx.status === 'Paid' ? <CheckCircle2 className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
                         </div>
                         <div>
                           <p className="font-display font-semibold text-sm text-slate-900">{tx.txType.replace(/_/g, " ")}</p>

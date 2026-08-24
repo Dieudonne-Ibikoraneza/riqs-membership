@@ -177,7 +177,7 @@ function CertificateContent() {
   );
   const hasMembershipId = Boolean((profileData?.profile as any)?.membershipId);
   // Preserve access for legacy/admin-created members that have no application fee transaction.
-  const isFirstYearFeeCleared = isAdminCreatedMember || (firstYearFeeTx ? firstYearFeeTx.status === "Cleared" : hasMembershipId);
+  const isFirstYearFeeCleared = isAdminCreatedMember || (firstYearFeeTx ? firstYearFeeTx.status === "Paid" : hasMembershipId);
   const isFullyActive = isApproved && hasMembershipId && isFirstYearFeeCleared;
 
   // Lazy-load passport photo if approved

@@ -272,14 +272,14 @@ export default function Review({ params }: PageProps) {
     loadData();
   }, [id, refreshKey]);
   const verifyPaymentMutation = useMutation({
-    mutationFn: ({ txId, action, rejectionReason }: { txId: string; action: "Cleared" | "Failed" | "Refunded", rejectionReason?: string }) =>
+    mutationFn: ({ txId, action, rejectionReason }: { txId: string; action: "Paid" | "Failed" | "Refunded", rejectionReason?: string }) =>
       verifyPayment(txId, action, rejectionReason),
     onSuccess: (_, variables) => {
       toast.success("Payment status updated successfully");
       // Update local state directly (data is not in useQuery cache)
       setApp((prev: any) => ({
         ...prev,
-        processingFeeCleared: variables.action === "Cleared",
+        processingFeeCleared: variables.action === "Paid",
         processingFeeStatus: variables.action,
       }));
     },
@@ -703,12 +703,12 @@ export default function Review({ params }: PageProps) {
                     )}
                     <Button 
                       size="sm" 
-                      onClick={() => verifyPaymentMutation.mutate({ txId: app.processingFeeTxId, action: "Cleared" })}
+                      onClick={() => verifyPaymentMutation.mutate({ txId: app.processingFeeTxId, action: "Paid" })}
                       disabled={verifyPaymentMutation.isPending}
                       className="h-8 min-w-0 flex-1 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-transparent sm:flex-none"
                     >
                       {verifyPaymentMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                      Mark as Cleared
+                      Mark as Paid
                     </Button>
                   </div>
                 )}

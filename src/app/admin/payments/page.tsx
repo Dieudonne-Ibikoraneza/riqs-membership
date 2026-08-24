@@ -43,9 +43,9 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function AdminPaymentsPage() {
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState("All");
+  const [status, setStatus] = useState("Paid");
   const [selectedTx, setSelectedTx] = useState<AdminPaymentTransaction | null>(null);
-  const [verifyAction, setVerifyAction] = useState<"Cleared" | "Failed">("Cleared");
+  const [verifyAction, setVerifyAction] = useState<"Paid" | "Failed">("Paid");
   const [rejectionReason, setRejectionReason] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewingCpd, setViewingCpd] = useState(false);
@@ -114,8 +114,8 @@ export default function AdminPaymentsPage() {
 
   const getStatusBadge = (s: string) => {
     switch (s) {
-      case "Cleared":
-        return <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400">Cleared</Badge>;
+      case "Paid":
+        return <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400">Paid</Badge>;
       case "Pending_Verification":
         return <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400">Pending</Badge>;
       case "Failed":
@@ -167,15 +167,18 @@ export default function AdminPaymentsPage() {
           </Button>
           <div className="flex items-center gap-2">
             {getStatusBadge(selectedTx.status)}
-            {selectedTx.status === "Pending_Verification" && (
+            {selectedTx.status === "Pending_Verification" && !selectedTx.providerTransactionId && (
               <>
                 <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20" onClick={() => { setVerifyAction("Failed"); setIsDialogOpen(true); }}>
                   <XCircle className="mr-1.5 h-3.5 w-3.5" /> Fail
                 </Button>
-                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald" onClick={() => { setVerifyAction("Cleared"); setIsDialogOpen(true); }}>
-                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Clear
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald" onClick={() => { setVerifyAction("Paid"); setIsDialogOpen(true); }}>
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Mark Paid
                 </Button>
               </>
+            )}
+            {selectedTx.status === "Pending_Verification" && selectedTx.providerTransactionId && (
+              <span className="text-xs text-muted-foreground italic">Verified automatically by the payment gateway</span>
             )}
           </div>
         </div>
@@ -278,12 +281,12 @@ export default function AdminPaymentsPage() {
               <DialogTitle>Confirm Action</DialogTitle>
               <DialogDescription>
                 You are about to mark this transaction as <strong>{verifyAction}</strong>.
-                {verifyAction !== "Cleared" && " Please provide a reason below."}
+                {verifyAction !== "Paid" && " Please provide a reason below."}
               </DialogDescription>
             </DialogHeader>
 
             <div className="grid gap-4 py-4">
-              {verifyAction !== "Cleared" && (
+              {verifyAction !== "Paid" && (
                 <div className="grid gap-2">
                   <Label htmlFor="dialog-reason">Reason (Required)</Label>
                   <Textarea
@@ -304,8 +307,8 @@ export default function AdminPaymentsPage() {
               </Button>
               <Button 
                 onClick={() => handleVerify()} 
-                disabled={isVerifying || (verifyAction !== "Cleared" && !rejectionReason.trim())}
-                variant={verifyAction === "Cleared" ? "default" : "destructive"}
+                disabled={isVerifying || (verifyAction !== "Paid" && !rejectionReason.trim())}
+                variant={verifyAction === "Paid" ? "default" : "destructive"}
               >
                 {isVerifying && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
                 Confirm
@@ -373,7 +376,7 @@ function Avatar({ name, url }: { name: string; url?: string }) {
               <SelectContent>
                 <SelectItem value="All">All Transactions</SelectItem>
                 <SelectItem value="Pending_Verification">Pending Verification</SelectItem>
-                <SelectItem value="Cleared">Cleared</SelectItem>
+                <SelectItem value="Paid">Paid</SelectItem>
                 <SelectItem value="Failed">Failed</SelectItem>
                 <SelectItem value="Unpaid">Unpaid</SelectItem>
               </SelectContent>

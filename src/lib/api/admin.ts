@@ -167,6 +167,7 @@ export interface AdminPaymentTransaction {
   txType: string;
   paymentMethod: string;
   transactionReference: string;
+  providerTransactionId?: string | null;
   status: string;
   createdAt: string;
   receiptUrl?: string;
@@ -197,7 +198,7 @@ export async function getPendingPayments(
 
 export async function verifyPayment(
   transactionId: string,
-  action: "Cleared" | "Failed" | "Refunded",
+  action: "Paid" | "Failed" | "Refunded",
   rejectionReason?: string
 ): Promise<any> {
   const { data } = await axiosClient.post(`/payments/verify`, {

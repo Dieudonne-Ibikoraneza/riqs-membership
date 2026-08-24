@@ -54,6 +54,7 @@ import { applicantServices } from "@/services/applicant.services";
 import { publicServices } from "@/services/public.services";
 import { logbookServices } from "@/services/logbook.services";
 import { DocumentTabsViewer } from "@/components/ui/document-tabs-viewer";
+import { MomoPaymentDialog } from "@/components/ui/momo-payment-dialog";
 import PDFViewer from "@/components/ui/pdf-viewer";
 import ImageViewer from "@/components/ui/image-viewer";
 import { axiosClient } from "@/lib/axiosClient";
@@ -234,6 +235,7 @@ export default function Application() {
     queryFn: () => publicServices.getCategories(),
   });
 
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [step, setStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -744,16 +746,28 @@ export default function Application() {
   });
 
   // ─── Submit mutation ───────────────────────────────────────────────────────
+  const handleApplicationSubmitted = async () => {
+    localStorage.removeItem('riqs_app_draft');
+    localStorage.removeItem('riqs_app_step');
+    localStorage.removeItem('riqs_app_last_correction');
+    // Await the refetch (not just invalidate) so profileData.application.status is
+    // already updated by the time the caller re-renders — otherwise the wizard can
+    // briefly still show "Submit final application" against stale Draft status and
+    // let a second click hit the backend's already-submitted guard.
+    await queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
+    toast.success("Application submitted successfully!");
+  };
+
   const submitMutation = useMutation({
     mutationFn: applicantServices.submitApplication,
-    onSuccess: () => {
-      localStorage.removeItem('riqs_app_draft');
-      localStorage.removeItem('riqs_app_step');
-      localStorage.removeItem('riqs_app_last_correction');
-      queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
-      toast.success("Application submitted successfully!");
+    onSuccess: handleApplicationSubmitted,
+    onError: (err: any) => {
+      if (err?.response?.data?.code === "PAYMENT_REQUIRED") {
+        setShowPaymentDialog(true);
+        return;
+      }
+      toast.error(err?.response?.data?.error || "Failed to submit application");
     },
-    onError: (err: any) => toast.error(err?.response?.data?.error || "Failed to submit application"),
   });
 
   // ─── Save & advance ────────────────────────────────────────────────────────
@@ -970,7 +984,7 @@ export default function Application() {
           status={appStatus}
           onRefresh={refetchProfile}
           isRefreshing={profileFetching}
-          firstYearFeeCleared={Boolean(profileData?.profile?.membershipId) || profileData?.financialTransactions?.some((tx: any) => tx.txType === "First_Year_Fee" && tx.status === "Cleared")}
+          firstYearFeeCleared={Boolean(profileData?.profile?.membershipId) || profileData?.financialTransactions?.some((tx: any) => tx.txType === "First_Year_Fee" && tx.status === "Paid")}
           firstYearFeeAmount={(profileData?.application as any)?.first_year_fee}
           membershipId={profileData?.profile?.membershipId}
         />
@@ -1015,6 +1029,7 @@ export default function Application() {
   }
 
   return (
+    <>
     <WizardContent competencies={competencies}
       profilePhotoUrl={(profileData?.profile as any)?.profilePhotoUrl || null}
       goToStep={setStep}
@@ -1047,6 +1062,22 @@ export default function Application() {
       documents={profileData?.documents || []}
       reviewerNotes={reviewerNotes}
     />
+    <MomoPaymentDialog
+      open={showPaymentDialog}
+      onOpenChange={setShowPaymentDialog}
+      title="Pay Processing Fee"
+      description="Your application category requires a processing fee before it can be submitted for review."
+      amount={Number(profileData?.application?.processing_fee || 0)}
+      defaultPhone={data.personal?.phone || profileData?.profile?.phoneNumber || ""}
+      initiate={(mobilephone) => applicantServices.initiateProcessingFeePayment({ applicationId: appId!, mobilephone })}
+      checkStatus={(transactionId) => applicantServices.getProcessingFeePaymentStatus(transactionId)}
+      onSuccess={async () => {
+        await handleApplicationSubmitted();
+        setShowPaymentDialog(false);
+      }}
+      successMessage="Payment confirmed — your application has been submitted!"
+    />
+    </>
   );
 }
 

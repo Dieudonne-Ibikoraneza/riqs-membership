@@ -279,14 +279,14 @@ export default function Review({ params }: PageProps) {
     loadData();
   }, [id]);
   const verifyPaymentMutation = useMutation({
-    mutationFn: ({ txId, action }: { txId: string; action: "Cleared" | "Failed" | "Refunded" }) =>
+    mutationFn: ({ txId, action }: { txId: string; action: "Paid" | "Failed" | "Refunded" }) =>
       verifyPayment(txId, action),
     onSuccess: (_, variables) => {
       toast.success("Payment status updated successfully");
       // Update local state directly (data is not in useQuery cache)
       setApp((prev: any) => ({
         ...prev,
-        processingFeeCleared: variables.action === "Cleared",
+        processingFeeCleared: variables.action === "Paid",
         processingFeeStatus: variables.action,
       }));
     },

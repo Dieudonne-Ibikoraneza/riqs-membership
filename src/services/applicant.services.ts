@@ -207,11 +207,12 @@ export const applicantServices = {
     return response.data;
   },
 
-  uploadDocument: async (data: FormData): Promise<any> => {
+  uploadDocument: async (data: FormData, onUploadProgress?: (progressEvent: any) => void): Promise<any> => {
     const response = await axiosClient.post('/files/upload', data, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      onUploadProgress,
     });
     return response.data;
   },

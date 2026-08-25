@@ -229,6 +229,13 @@ export default function Application() {
   const reviewerNotes = profileData?.application?.reviewerNotes;
   const isEditable = !appStatus || appStatus === "Draft" || appStatus === "Correction_Required";
 
+  // Most recent Processing Fee attempt that ended in Failed (gateway rejection, or an
+  // admin rejecting a manually-uploaded proof) — surfaced in the payment dialog so the
+  // member sees why their last attempt didn't go through instead of a blank method picker.
+  const latestFailedProcessingFee = (profileData?.financialTransactions || [])
+    .filter((tx: any) => tx.txType === "Processing_Fee" && tx.status === "Failed")
+    .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
   // Fetch categories
   const { data: categories } = useQuery({
     queryKey: queryKeys.public.categories(),
@@ -236,6 +243,21 @@ export default function Application() {
   });
 
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  // Tracks the id of the last Failed processing-fee transaction the member has already
+  // seen (dismissed the dialog for), so we don't keep forcing it back open every render —
+  // only a genuinely NEW failure (a different transaction id) re-triggers the auto-popup.
+  const [dismissedFailedTxId, setDismissedFailedTxId] = useState<string | null>(null);
+
+  // Surface a failed processing-fee payment as soon as the application page loads, rather
+  // than making the member click "Submit final application" again just to be told their
+  // last attempt failed — that extra click was confusing since nothing about the button
+  // itself hinted anything had gone wrong.
+  useEffect(() => {
+    if (!isEditable || !latestFailedProcessingFee || !appId) return;
+    if (latestFailedProcessingFee.id === dismissedFailedTxId) return;
+    setShowPaymentDialog(true);
+  }, [isEditable, latestFailedProcessingFee, appId, dismissedFailedTxId]);
+
   const [step, setStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -771,7 +793,7 @@ export default function Application() {
   });
 
   // ─── Save & advance ────────────────────────────────────────────────────────
-  const next = () => {
+  const next = async () => {
     if (data.entityType === "Firm" && currentStepName === "Personal Info") {
       if (appId) {
         applicantServices.saveShareholders(appId, data.personal.shareholders.map((s: any) => ({
@@ -837,9 +859,26 @@ export default function Application() {
       // Skip auto-save if no categoryId yet (steps 0-1)
     }
     if (data.categoryId) {
-      // Fire and forget, no await or loading state to ensure instant transition
       setSaveStatus("saving");
-      saveMutation.mutate(buildApplicationPayload(Math.min(STEPS.length - 1, step + 1)) as any);
+      if (!appId) {
+        // First time this application is being created: every later step (Education,
+        // Employment, Mentorship...) gates its own Save buttons on `appId` being set, so
+        // advancing before it exists leaves the user staring at a confusingly-disabled
+        // Save button with no explanation. Block the transition here — just this once —
+        // until the create request lands and the profile refetch reflects the new appId.
+        setIsSaving(true);
+        try {
+          await saveMutation.mutateAsync(buildApplicationPayload(Math.min(STEPS.length - 1, step + 1)) as any);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
+        } catch {
+          // saveMutation's own onError already surfaced a toast — still let the user proceed.
+        } finally {
+          setIsSaving(false);
+        }
+      } else {
+        // Application already exists — keep this instant, no need to block navigation.
+        saveMutation.mutate(buildApplicationPayload(Math.min(STEPS.length - 1, step + 1)) as any);
+      }
     }
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
   };
@@ -1064,11 +1103,17 @@ export default function Application() {
     />
     <MomoPaymentDialog
       open={showPaymentDialog}
-      onOpenChange={setShowPaymentDialog}
+      onOpenChange={(next) => {
+        setShowPaymentDialog(next);
+        if (!next && latestFailedProcessingFee) {
+          setDismissedFailedTxId(latestFailedProcessingFee.id);
+        }
+      }}
       title="Pay Processing Fee"
       description="Your application category requires a processing fee before it can be submitted for review."
       amount={Number(profileData?.application?.processing_fee || 0)}
       defaultPhone={data.personal?.phone || profileData?.profile?.phoneNumber || ""}
+      applicationId={appId!}
       initiate={(mobilephone) => applicantServices.initiateProcessingFeePayment({ applicationId: appId!, mobilephone })}
       checkStatus={(transactionId) => applicantServices.getProcessingFeePaymentStatus(transactionId)}
       onSuccess={async () => {
@@ -1076,6 +1121,7 @@ export default function Application() {
         setShowPaymentDialog(false);
       }}
       successMessage="Payment confirmed — your application has been submitted!"
+      priorFailureReason={latestFailedProcessingFee?.rejectionReason || null}
     />
     </>
   );

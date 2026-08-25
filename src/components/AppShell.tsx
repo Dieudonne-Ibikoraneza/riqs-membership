@@ -95,16 +95,19 @@ export function AppShell({
   useEffect(() => {
     if (!role) return; // Wait until auth is hydrated
 
-    if (kind === "admin" && !["Admin", "Admin_Assistant", "Reviewer", "Head_Reviewer", "Approver"].includes(role)) {
+    // Staff-ness is purely a function of systemRole — independent of isMentor/isStudent,
+    // which are derived from membershipClass and can be true for a staff account too (e.g.
+    // a seeded admin/reviewer account whose membershipClass happens to be "Professional").
+    // Gating this check on !isMentor/!isStudent let such staff accounts slip past the guard
+    // entirely and load the member portal (/dashboard/*) unredirected.
+    const isStaff = ["Admin", "Admin_Assistant", "Reviewer", "Head_Reviewer", "Approver"].includes(role);
+
+    if (kind === "admin" && !isStaff) {
       router.replace(isTeacher ? "/teacher" : "/dashboard");
     } else if (kind === "teacher" && !isTeacher) {
-      router.replace(["Admin", "Admin_Assistant", "Reviewer", "Head_Reviewer", "Approver"].includes(role) ? "/admin" : "/dashboard");
-    } else if (kind === "member" && !isStudent && !isMentor) {
-      if (isTeacher) {
-        router.replace("/teacher");
-      } else if (["Admin", "Admin_Assistant", "Reviewer", "Head_Reviewer", "Approver"].includes(role)) {
-        router.replace("/admin");
-      }
+      router.replace(isStaff ? "/admin" : "/dashboard");
+    } else if (kind === "member" && (isStaff || isTeacher)) {
+      router.replace(isTeacher ? "/teacher" : "/admin");
     }
 
     if (kind === "member") {

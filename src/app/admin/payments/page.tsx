@@ -43,7 +43,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function AdminPaymentsPage() {
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState("Paid");
+  const [status, setStatus] = useState("All");
   const [selectedTx, setSelectedTx] = useState<AdminPaymentTransaction | null>(null);
   const [verifyAction, setVerifyAction] = useState<"Paid" | "Failed">("Paid");
   const [rejectionReason, setRejectionReason] = useState("");

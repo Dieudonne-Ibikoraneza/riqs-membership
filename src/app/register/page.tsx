@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,10 +16,13 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { PasswordStrength } from "@/components/ui/PasswordStrength";
 import { Eye, EyeOff } from "lucide-react";
+import { isRouteAllowedForRole, isSafeRedirectTarget } from "@/lib/route-access";
 
-export default function Register() {
+function RegisterContent() {
   const { startSignup, verifyOtp, pending, cancelPending, resendOtp } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTarget = searchParams.get("redirect");
   const [form, setForm] = useState({ name: "", email: "", pw: "", pw2: "" });
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -95,7 +98,13 @@ export default function Register() {
     if (!success) return;
     
     toast.success("Account created — start your application");
-    router.push("/dashboard/application");
+    // A new member is never staff/teacher, so this only ever sends them somewhere under
+    // /dashboard — otherwise fall back to starting their application as usual.
+    if (isSafeRedirectTarget(redirectTarget) && isRouteAllowedForRole(redirectTarget, "Standard", false)) {
+      router.push(redirectTarget);
+    } else {
+      router.push("/dashboard/application");
+    }
   };
 
   return (
@@ -195,7 +204,7 @@ export default function Register() {
                 <div className="mt-6 text-center text-sm text-muted-foreground">
                   Already have an account?{" "}
                   <Link
-                    href="/login"
+                    href={isSafeRedirectTarget(redirectTarget) ? `/login?redirect=${encodeURIComponent(redirectTarget)}` : "/login"}
                     className="font-semibold text-navy hover:underline"
                   >
                     Sign in
@@ -292,5 +301,17 @@ export default function Register() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Register() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-navy border-t-transparent"></div>
+      </div>
+    }>
+      <RegisterContent />
+    </Suspense>
   );
 }

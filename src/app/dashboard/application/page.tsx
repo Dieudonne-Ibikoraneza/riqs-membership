@@ -772,11 +772,19 @@ export default function Application() {
     localStorage.removeItem('riqs_app_draft');
     localStorage.removeItem('riqs_app_step');
     localStorage.removeItem('riqs_app_last_correction');
-    // Await the refetch (not just invalidate) so profileData.application.status is
-    // already updated by the time the caller re-renders — otherwise the wizard can
-    // briefly still show "Submit final application" against stale Draft status and
-    // let a second click hit the backend's already-submitted guard.
-    await queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
+    // Explicitly refetch (rather than just invalidate) so profileData.application.status is
+    // guaranteed to already be updated by the time the caller re-renders — otherwise the wizard
+    // can briefly still show "Submit final application" against stale Draft status and let a
+    // second click hit the backend's already-submitted guard. invalidateQueries alone relies on
+    // the query being considered "active" and can silently no-op if that observer bookkeeping
+    // gets out of sync (e.g. right as this dialog is about to unmount its subtree), so call
+    // refetch() directly — it always issues the request regardless of that bookkeeping.
+    try {
+      await refetchProfile();
+    } catch {
+      // refetch() surfaces its own error state on the query; the member can use "Refresh
+      // Status" to retry manually if this particular attempt failed.
+    }
     toast.success("Application submitted successfully!");
   };
 

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,10 +16,13 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import Image from "next/image";
 import { Eye, EyeOff } from "lucide-react";
+import { getDefaultRouteForRole, isRouteAllowedForRole, isSafeRedirectTarget } from "@/lib/route-access";
 
-export default function Login() {
+function LoginContent() {
   const { startLogin, verifyOtp, pending, cancelPending, resendOtp } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTarget = searchParams.get("redirect");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [otp, setOtp] = useState("");
@@ -63,7 +66,9 @@ export default function Login() {
     
     if (success === "requirePasswordChange") {
       toast.info("Please change your temporary password to continue.");
-      router.push("/forgot-password?reason=first-login");
+      const params = new URLSearchParams({ reason: "first-login" });
+      if (isSafeRedirectTarget(redirectTarget)) params.set("redirect", redirectTarget);
+      router.push(`/forgot-password?${params.toString()}`);
     } else if (success) {
       toast.success(`We sent a 6-digit code to ${email}`);
     }
@@ -91,12 +96,13 @@ export default function Login() {
       } catch (e) {}
     }
 
-    if (storedRole && ["Admin", "Admin_Assistant", "Reviewer", "Head_Reviewer", "Approver"].includes(storedRole)) {
-      router.push("/admin");
-    } else if (storedIsTeacher) {
-      router.push("/teacher");
+    // Send the member back to whatever route they originally tried to visit before being
+    // asked to sign in — but only if their role is actually allowed there; otherwise fall
+    // back to their normal workspace landing page.
+    if (isSafeRedirectTarget(redirectTarget) && isRouteAllowedForRole(redirectTarget, storedRole, storedIsTeacher)) {
+      router.push(redirectTarget);
     } else {
-      router.push("/dashboard");
+      router.push(getDefaultRouteForRole(storedRole, storedIsTeacher));
     }
   };
 
@@ -183,7 +189,7 @@ export default function Login() {
                 <div className="mt-6 text-center text-sm text-muted-foreground">
                   No account?{" "}
                   <Link
-                    href="/register"
+                    href={isSafeRedirectTarget(redirectTarget) ? `/register?redirect=${encodeURIComponent(redirectTarget)}` : "/register"}
                     className="font-semibold text-navy hover:underline"
                   >
                     Register
@@ -255,5 +261,17 @@ export default function Login() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-navy border-t-transparent"></div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }

@@ -123,6 +123,20 @@ export function AppShell({
     }
   }, [role, kind, isTeacher, isStudent, isMentor, router, pathname, profileData]);
 
+  // Auto-redirect a signed-out visitor to the login page after a short grace period —
+  // long enough that a visitor whose auth is still hydrating from localStorage (role
+  // briefly null on first paint) doesn't get bounced before they're actually logged out,
+  // but short enough that they aren't left staring at the "Please sign in" screen forever.
+  // The screen itself stays up throughout so there's always something on screen rather
+  // than a blank page while this timer runs.
+  useEffect(() => {
+    if (role) return;
+    const timer = window.setTimeout(() => {
+      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [role, pathname, router]);
+
   const actualIsMentor = isMentor || (profileData?.profile as any)?.systemRole === "Mentor";
   const isProfessional = profileData?.profile?.membershipClass?.includes("Professional");
   const needsMentorship = !isFirm && !isProfessional;
@@ -210,11 +224,18 @@ export function AppShell({
           <p className="mt-1 text-sm text-muted-foreground">
             You need to be logged in to view this area.
           </p>
-          <Link href="/login" passHref>
-            <Button className="mt-4 bg-gold text-[#1a1a1a] hover:bg-gold/90 transition-transform hover:scale-[1.02] active:scale-[0.98]">
-              Sign in
-            </Button>
-          </Link>
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <Link href={`/login?redirect=${encodeURIComponent(pathname)}`} passHref>
+              <Button className="bg-gold text-[#1a1a1a] hover:bg-gold/90 transition-transform hover:scale-[1.02] active:scale-[0.98]">
+                Sign in
+              </Button>
+            </Link>
+            <Link href={`/register?redirect=${encodeURIComponent(pathname)}`} passHref>
+              <Button variant="outline">
+                Register
+              </Button>
+            </Link>
+          </div>
         </motion.div>
       </div>
     );

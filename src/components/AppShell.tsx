@@ -168,7 +168,7 @@ export function AppShell({
     ...(["Admin", "Admin_Assistant"].includes(role || "") ? [{ href: "/admin/profile-requests", label: "Profile Requests", icon: UserCog }] : []),
     ...(role === "Admin" || role === "Admin_Assistant" ? [{ href: "/admin/payments", label: "Finance & Payments", icon: Wallet }] : []),
     ...(!isAdminAssistant ? [{ href: "/admin/members", label: "Members", icon: Users }] : []),
-    ...(!isAdminAssistant ? [{ href: "/admin/email", label: "Email System", icon: Send }] : []),
+    { href: "/admin/email", label: "Email System", icon: Send },
     ...(["Admin", "Approver"].includes(role || "")
       ? [
           { href: "/admin/staff", label: "Staff Management", icon: Shield },

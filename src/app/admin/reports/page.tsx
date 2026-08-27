@@ -105,6 +105,27 @@ function csvDownload(filename: string, rows: string[][]) {
 
 const now = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
 
+// The Period selector (All Time / a year / a quarter) previously only changed the cosmetic
+// "Period: ..." label printed on the PDF — every report still included every record
+// regardless of which period was picked. This actually filters by the assessment's own date.
+function matchesPeriod(dateValue: string | Date | null | undefined, period: string): boolean {
+  if (period === "all") return true;
+  if (!dateValue) return false;
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return false;
+
+  const quarterMatch = period.match(/^Q([1-4]) (\d{4})$/);
+  if (quarterMatch) {
+    const quarter = Number(quarterMatch[1]);
+    const year = Number(quarterMatch[2]);
+    return d.getFullYear() === year && Math.floor(d.getMonth() / 3) + 1 === quarter;
+  }
+  if (/^\d{4}$/.test(period)) {
+    return d.getFullYear() === Number(period);
+  }
+  return true;
+}
+
 // ─── Page ───────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
   const [selected, setSelected] = useState<ReportId | null>(null);
@@ -138,7 +159,6 @@ export default function ReportsPage() {
   const totalMembers = members.length;
   const fellowCount = members.filter(m => m.membershipClass === "Fellow" || m.isFellow).length;
   const honoraryCount = members.filter(m => m.isHonorary || (m.honors || []).length > 0).length;
-  const rwandanCount = members.filter(m => m.practiceLocation !== "Non_Rwandan").length;
   const clearedTx = transactions.filter((t: any) => t.status === "Paid");
   const totalRevenue = clearedTx.reduce((s: number, t: any) => s + Number(t.amount), 0);
   const apcPassed = apcs.filter((a: any) => a.status === "Passed").length;
@@ -152,7 +172,8 @@ export default function ReportsPage() {
       const date = now();
 
       if (selected === "membership_assessment") {
-        await generateMembershipAssessmentPDF(members, period);
+        const periodApcs = apcs.filter((a: any) => matchesPeriod(a.assessmentDate || a.createdAt, period));
+        await generateMembershipAssessmentPDF(periodApcs, period);
       } else if (selected === "member_registry") {
         const filtered = members.filter(m => {
           if (location !== "all" && m.practiceLocation !== location) return false;
@@ -177,15 +198,18 @@ export default function ReportsPage() {
           rows
         );
       } else if (selected === "financial_summary") {
+        const periodTx = transactions.filter((t: any) => matchesPeriod(t.createdAt, period));
+        const periodPaidTx = periodTx.filter((t: any) => t.status === "Paid");
+        const periodRevenue = periodPaidTx.reduce((s: number, t: any) => s + Number(t.amount), 0);
         const rows: string[][] = [];
-        transactions.forEach(t => {
+        periodTx.forEach(t => {
           rows.push([t.transactionReference || "", new Date(t.createdAt).toLocaleDateString(),
             t.txType?.replace(/_/g, " ") || "", t.paymentMethod?.replace(/_/g, " ") || "",
             String(t.amount), t.currency || "RWF", t.status?.replace(/_/g, " ") || "", t.full_name || ""]);
         });
-        rows.push([], ["Total Revenue (Paid):", `RWF ${totalRevenue.toLocaleString()}`],
-          ["Paid Transactions:", String(clearedTx.length)],
-          ["Pending Transactions:", String(transactions.filter((t: any) => t.status === "Pending_Verification").length)]);
+        rows.push([], ["Total Revenue (Paid):", `RWF ${periodRevenue.toLocaleString()}`],
+          ["Paid Transactions:", String(periodPaidTx.length)],
+          ["Pending Transactions:", String(periodTx.filter((t: any) => t.status === "Pending_Verification").length)]);
         await generateFormattedExcel(
           `RIQS_Financial_Summary_${date.replace(/ /g, "_")}.xlsx`,
           "RIQS — Financial Summary Report",
@@ -193,7 +217,8 @@ export default function ReportsPage() {
           rows
         );
       } else if (selected === "apc_assessments") {
-        await generateApcAssessmentPDF(apcs);
+        const periodApcs = apcs.filter((a: any) => matchesPeriod(a.assessmentDate || a.createdAt, period));
+        await generateApcAssessmentPDF(periodApcs);
       } else if (selected === "honorary_mentions") {
         const honMembers = members.filter(m =>
           m.isFellow || m.isHonorary || (m.honors || []).length > 0 || m.membershipClass === "Fellow"
@@ -318,23 +343,28 @@ export default function ReportsPage() {
                 </div>
               ) : (
                 <>
-                  {/* Period filter */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Period</label>
-                    <Select value={period} onValueChange={setPeriod}>
-                      <SelectTrigger className="h-9 text-sm border-zinc-200">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Time</SelectItem>
-                        <SelectItem value="2026">Year 2026</SelectItem>
-                        <SelectItem value="2025">Year 2025</SelectItem>
-                        <SelectItem value="2024">Year 2024</SelectItem>
-                        <SelectItem value="Q1 2026">Q1 2026</SelectItem>
-                        <SelectItem value="Q2 2026">Q2 2026</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* Period filter — only for reports whose records carry their own date
+                      (assessments, transactions). Member Registry / Honorary Mentions are
+                      point-in-time snapshots of current members, not date-ranged records, so
+                      the selector is hidden rather than shown as a control that does nothing. */}
+                  {["membership_assessment", "financial_summary", "apc_assessments"].includes(selected) && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Period</label>
+                      <Select value={period} onValueChange={setPeriod}>
+                        <SelectTrigger className="h-9 text-sm border-zinc-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Time</SelectItem>
+                          <SelectItem value="2026">Year 2026</SelectItem>
+                          <SelectItem value="2025">Year 2025</SelectItem>
+                          <SelectItem value="2024">Year 2024</SelectItem>
+                          <SelectItem value="Q1 2026">Q1 2026</SelectItem>
+                          <SelectItem value="Q2 2026">Q2 2026</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   {/* Location filter — only for member reports */}
                   {["membership_assessment", "member_registry"].includes(selected) && (
@@ -374,9 +404,18 @@ export default function ReportsPage() {
                   {/* Data summary */}
                   <div className="rounded-lg bg-zinc-50 border border-zinc-100 p-3 text-xs space-y-1.5">
                     <p className="font-semibold text-zinc-600 uppercase tracking-wider text-[10px]">Preview</p>
-                    {selected === "membership_assessment" && (
-                      <><p className="text-zinc-700"><span className="font-bold text-navy">{totalMembers}</span> total members across <span className="font-bold text-navy">{[...new Set(members.map(m => m.category))].filter(Boolean).length}</span> categories</p><p className="text-zinc-500">Rwandan: {rwandanCount} · Non-Rwandan: {totalMembers - rwandanCount}</p></>
-                    )}
+                    {selected === "membership_assessment" && (() => {
+                      const periodApcs = apcs.filter((a: any) => matchesPeriod(a.assessmentDate || a.createdAt, period));
+                      const passed = periodApcs.filter((a: any) => a.status === "Passed").length;
+                      const failed = periodApcs.filter((a: any) => a.status === "Failed").length;
+                      const absent = periodApcs.filter((a: any) => a.status === "No_Show").length;
+                      return (
+                        <>
+                          <p className="text-zinc-700"><span className="font-bold text-navy">{periodApcs.length}</span> assessment{periodApcs.length === 1 ? "" : "s"} in this period</p>
+                          <p className="text-zinc-500">Passed: {passed} · Failed: {failed} · Absent: {absent}</p>
+                        </>
+                      );
+                    })()}
                     {selected === "member_registry" && (
                       <p className="text-zinc-700"><span className="font-bold text-navy">{members.filter(m => {
                         if (location !== "all" && m.practiceLocation !== location) return false;
@@ -384,12 +423,25 @@ export default function ReportsPage() {
                         return true;
                       }).length}</span> members match filters</p>
                     )}
-                    {selected === "financial_summary" && (
-                      <><p className="text-zinc-700"><span className="font-bold text-navy">{transactions.length}</span> total transactions</p><p className="text-zinc-500">Revenue: RWF {totalRevenue.toLocaleString()}</p></>
-                    )}
-                    {selected === "apc_assessments" && (
-                      <><p className="text-zinc-700"><span className="font-bold text-navy">{apcs.length}</span> APC records</p><p className="text-zinc-500">Passed: {apcPassed} · Failed: {apcs.filter((a: any) => a.status === "Failed").length}</p></>
-                    )}
+                    {selected === "financial_summary" && (() => {
+                      const periodTx = transactions.filter((t: any) => matchesPeriod(t.createdAt, period));
+                      const periodRevenue = periodTx.filter((t: any) => t.status === "Paid").reduce((s: number, t: any) => s + Number(t.amount), 0);
+                      return (
+                        <>
+                          <p className="text-zinc-700"><span className="font-bold text-navy">{periodTx.length}</span> transaction{periodTx.length === 1 ? "" : "s"} in this period</p>
+                          <p className="text-zinc-500">Revenue: RWF {periodRevenue.toLocaleString()}</p>
+                        </>
+                      );
+                    })()}
+                    {selected === "apc_assessments" && (() => {
+                      const periodApcs = apcs.filter((a: any) => matchesPeriod(a.assessmentDate || a.createdAt, period));
+                      return (
+                        <>
+                          <p className="text-zinc-700"><span className="font-bold text-navy">{periodApcs.length}</span> APC record{periodApcs.length === 1 ? "" : "s"} in this period</p>
+                          <p className="text-zinc-500">Passed: {periodApcs.filter((a: any) => a.status === "Passed").length} · Failed: {periodApcs.filter((a: any) => a.status === "Failed").length}</p>
+                        </>
+                      );
+                    })()}
                     {selected === "honorary_mentions" && (
                       <><p className="text-zinc-700"><span className="font-bold text-navy">{members.filter(m => m.isFellow || m.isHonorary || (m.honors || []).length > 0 || m.membershipClass === "Fellow").length}</span> honoured members</p><p className="text-zinc-500">Fellows: {fellowCount} · Honorary: {members.filter(m => m.isHonorary).length}</p></>
                     )}

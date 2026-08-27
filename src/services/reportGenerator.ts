@@ -24,26 +24,28 @@ const loadImage = async (src: string): Promise<string> => {
   });
 };
 
-function formatMemberClass(cls: string) {
-  const map: Record<string, string> = {
-    Fellow: "Fellow", Professional: "Professional", Technologist: "Technologist",
-    Graduate: "Graduate", Associate: "Associate", Student: "Student",
-    Visiting_Member: "Visiting Member",
-    Firm_Local_Small: "Rwandan Small Firm", Firm_Local_Medium: "Rwandan Medium Firm",
-    Firm_Local_Large: "Rwandan Large Firm", Firm_Foreign_Small: "Foreign Small Firm",
-    Firm_Foreign_Medium: "Foreign Medium Firm", Firm_Foreign_Large: "Foreign Large Firm",
-  };
-  return map[cls] || cls || "N/A";
-}
-
 // ─── Report Generators ───────────────────────────────────────────────────────
 
+// Route 1 (Technologist track) category codes — same routing rule used server-side to decide
+// upgrade paths (progressionController.gradeApc / awardAssociate). A candidate's application
+// category can be either their pre-upgrade code (GrQST/AsQST) or, once their first-year fee
+// has cleared, the resulting post-upgrade code (TcQS/F-TcQS) — both ends of the route are
+// listed here so the classification is correct regardless of whether the report runs before
+// or after that fee clears. Anything not in this list (GrQS/AsQS/PrQS/F-PrQS, or an
+// unrecognized code) is treated as the Professional route, mirroring the original
+// pass/fail form this report has always used.
+const TECHNOLOGIST_ROUTE_CODES = ["GrQST", "AsQST", "TcQS", "F-TcQS"];
+
 /**
- * Generates the Membership Assessment Report To The Governing Council
+ * Generates the Membership Assessment Report To The Governing Council.
+ *
+ * Takes actual APC assessment records (not the member registry — a member's current
+ * membershipClass reflects whatever they were *last* upgraded to, not the outcome of a
+ * specific assessment, so it can never stand in for real Pass/Fail/Absent results).
  */
-export const generateMembershipAssessmentPDF = async (members: any[], period: string) => {
+export const generateMembershipAssessmentPDF = async (apcs: any[], period: string) => {
   const doc = new jsPDF();
-  
+
   let logoData = null;
   try {
     logoData = await loadImage("/riqs-logo-report.png");
@@ -51,30 +53,34 @@ export const generateMembershipAssessmentPDF = async (members: any[], period: st
     console.error("Failed to load logo", e);
   }
 
-  // Categorize members
+  // Categorize by the assessment's own final outcome — Requested/Scheduled/Attended are not
+  // final outcomes yet and are excluded from this results report entirely (tallied separately
+  // below) rather than being folded into "passed" or left unaccounted for.
   const profPassed: any[] = [];
   const techPassed: any[] = [];
   const reapply: any[] = [];
   const absent: any[] = [];
+  let pendingGrading = 0;
 
-  // For this generic export, we'll try to guess status or just list them all.
-  // In a real scenario, the backend would provide exact assessment outcomes.
-  members.forEach(m => {
-    // Basic heuristics for this template demonstration
-    if (m.status === "Suspended") {
-      reapply.push(m);
-    } else if (m.status === "Inactive") {
-      absent.push(m);
+  apcs.forEach(a => {
+    const code = a.application?.category?.categoryCode;
+    const isTechnologistRoute = code ? TECHNOLOGIST_ROUTE_CODES.includes(code) : false;
+
+    if (a.status === "Passed") {
+      if (isTechnologistRoute) techPassed.push(a);
+      else profPassed.push(a); // Professional route, or an unrecognized code defaults here
+    } else if (a.status === "Failed") {
+      reapply.push(a);
+    } else if (a.status === "No_Show") {
+      absent.push(a);
     } else {
-      const cat = formatMemberClass(m.membershipClass);
-      if (cat === "Professional") profPassed.push(m);
-      else if (cat === "Technologist") techPassed.push(m);
-      else profPassed.push(m); // default
+      pendingGrading++; // Requested / Scheduled / Attended
     }
   });
 
   const totalPassed = profPassed.length + techPassed.length;
-  
+  const totalFinalized = totalPassed + reapply.length + absent.length;
+
   let y = 20;
 
   if (logoData) {
@@ -126,18 +132,18 @@ export const generateMembershipAssessmentPDF = async (members: any[], period: st
   
   doc.text("Professional Category", 15, y); y += 6;
   doc.setFont("helvetica", "normal");
-  profPassed.forEach((m, i) => {
+  profPassed.forEach((a, i) => {
     if (y > 270) { doc.addPage(); y = 20; }
-    doc.text(`${i + 1}. QS ${m.fullName || m.full_name || "Unknown"}`, 20, y); y += 6;
+    doc.text(`${i + 1}. QS ${a.member?.fullName || a.member?.full_name || "Unknown"}`, 20, y); y += 6;
   });
   y += 4;
 
   doc.setFont("helvetica", "bold");
   doc.text("Technologist Category", 15, y); y += 6;
   doc.setFont("helvetica", "normal");
-  techPassed.forEach((m, i) => {
+  techPassed.forEach((a, i) => {
     if (y > 270) { doc.addPage(); y = 20; }
-    doc.text(`${i + 1}. ${m.fullName || m.full_name || "Unknown"}`, 20, y); y += 6;
+    doc.text(`${i + 1}. ${a.member?.fullName || a.member?.full_name || "Unknown"}`, 20, y); y += 6;
   });
   y += 10;
 
@@ -151,9 +157,9 @@ export const generateMembershipAssessmentPDF = async (members: any[], period: st
   const splitReapply = doc.splitTextToSize(reapplyText, 180);
   doc.text(splitReapply, 15, y); y += splitReapply.length * 6 + 4;
 
-  reapply.forEach((m, i) => {
+  reapply.forEach((a, i) => {
     if (y > 270) { doc.addPage(); y = 20; }
-    doc.text(`${i + 1}. ${m.fullName || m.full_name || "Unknown"}`, 20, y); y += 6;
+    doc.text(`${i + 1}. ${a.member?.fullName || a.member?.full_name || "Unknown"}`, 20, y); y += 6;
   });
   if (reapply.length === 0) {
     doc.text("None.", 20, y); y += 6;
@@ -164,9 +170,9 @@ export const generateMembershipAssessmentPDF = async (members: any[], period: st
   doc.setFont("helvetica", "bold");
   doc.text("ABSENT CANDIDATES:", 15, y); y += 8;
   doc.setFont("helvetica", "normal");
-  absent.forEach((m, i) => {
+  absent.forEach((a, i) => {
     if (y > 270) { doc.addPage(); y = 20; }
-    doc.text(`${i + 1}. ${m.fullName || m.full_name || "Unknown"}`, 20, y); y += 6;
+    doc.text(`${i + 1}. ${a.member?.fullName || a.member?.full_name || "Unknown"}`, 20, y); y += 6;
   });
   if (absent.length === 0) {
     doc.text("None.", 20, y); y += 6;
@@ -179,11 +185,18 @@ export const generateMembershipAssessmentPDF = async (members: any[], period: st
   doc.text("3. OBSERVATIONS", 15, y); y += 8;
   
   doc.setFont("helvetica", "normal");
-  const successRate = totalPassed > 0 ? Math.round((totalPassed / members.length) * 100) : 0;
-  const obs1 = `SUCCESS RATE: A total of ${profPassed.length} Professional candidates and ${techPassed.length} Technologist candidates successfully passed the assessments. Passing rate of ${successRate}% is reflecting a strong pool of potential professionals.`;
+  const successRate = totalFinalized > 0 ? Math.round((totalPassed / totalFinalized) * 100) : 0;
+  const obs1 = `SUCCESS RATE: A total of ${profPassed.length} Professional candidates and ${techPassed.length} Technologist candidates successfully passed the assessments, out of ${totalFinalized} finalized this period. Passing rate of ${successRate}% is reflecting a strong pool of potential professionals.`;
   const splitObs1 = doc.splitTextToSize(obs1, 175);
   doc.text("•", 15, y);
   doc.text(splitObs1, 20, y); y += splitObs1.length * 6 + 2;
+
+  if (pendingGrading > 0) {
+    const obsPending = `PENDING GRADING: ${pendingGrading} additional assessment${pendingGrading === 1 ? "" : "s"} scheduled or attended this period ${pendingGrading === 1 ? "has" : "have"} not yet been graded and ${pendingGrading === 1 ? "is" : "are"} excluded from the figures above.`;
+    const splitObsPending = doc.splitTextToSize(obsPending, 175);
+    doc.text("•", 15, y);
+    doc.text(splitObsPending, 20, y); y += splitObsPending.length * 6 + 2;
+  }
 
   const obs2 = `REAPPLICATION NEEDS: The candidates who did not pass need further development in understanding bidding documents, applying quantity surveying principles throughout the project lifecycle, and improving their case study presentations.`;
   const splitObs2 = doc.splitTextToSize(obs2, 175);

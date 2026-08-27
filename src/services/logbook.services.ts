@@ -56,13 +56,9 @@ export const logbookServices = {
       : payload;
     const { data } = await axiosClient.post(`/logbook/mentor-recommendation`, body);
     return data;
-  },
-
-  adminReviewUpgrade: async (applicationId: string, payload: {
-    status: "Approved" | "Rejected";
-    adminNotes?: string;
-  }): Promise<any> => {
-    const { data } = await axiosClient.put(`/logbook/upgrade/${applicationId}/admin-review`, payload);
-    return data;
   }
+
+  // adminReviewUpgrade was removed along with its backend route — it bypassed the
+  // reviewer board / Head Reviewer forwarding step entirely and was unused by any page.
+  // Use adminServices.approveMentorshipUpgrade / flagMentorshipForCorrection instead.
 };

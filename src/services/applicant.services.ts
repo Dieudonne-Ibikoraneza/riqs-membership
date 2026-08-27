@@ -168,6 +168,45 @@ export const applicantServices = {
     return response.data;
   },
 
+  initiateAnnualRenewalPayment: async (data: { mobilephone: string; cpdDocumentUrl: string }): Promise<{
+    status: string;
+    transactionId: string;
+    message: string;
+  }> => {
+    const response = await axiosClient.post('/payments/annual-renewal/initiate', data);
+    return response.data;
+  },
+
+  getAnnualRenewalPaymentStatus: async (transactionId: string): Promise<{
+    status: string;
+    transactionId: string;
+    rejectionReason: string | null;
+    // Payment cleared through the gateway, but an Admin/Admin Assistant still needs to
+    // review the CPD/Annual Report before the renewal is complete.
+    awaitingReview?: boolean;
+  }> => {
+    const response = await axiosClient.get(`/payments/annual-renewal/status/${transactionId}`);
+    return response.data;
+  },
+
+  initiateFirstYearFeePayment: async (data: { mobilephone: string }): Promise<{
+    status: string;
+    transactionId: string;
+    message: string;
+  }> => {
+    const response = await axiosClient.post('/payments/first-year-fee/initiate', data);
+    return response.data;
+  },
+
+  getFirstYearFeePaymentStatus: async (transactionId: string): Promise<{
+    status: string;
+    transactionId: string;
+    rejectionReason: string | null;
+  }> => {
+    const response = await axiosClient.get(`/payments/first-year-fee/status/${transactionId}`);
+    return response.data;
+  },
+
   saveShareholders: async (applicationId: string, shareholders: any[]): Promise<any> => {
     const response = await axiosClient.put('/applicants/shareholders', { applicationId, shareholders });
     return response.data;

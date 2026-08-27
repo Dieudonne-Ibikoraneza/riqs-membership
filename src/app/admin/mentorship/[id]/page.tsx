@@ -15,6 +15,7 @@ import PDFViewer from "@/components/ui/pdf-viewer";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { MonthYearPicker } from "@/components/ui/month-picker";
 import {
   ArrowLeft,
@@ -143,10 +144,12 @@ export default function Review({ params }: PageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [boardNotes, setBoardNotes] = useState("");
+  const [boardComplianceStatus, setBoardComplianceStatus] = useState<"Compliant" | "Non-compliant" | "">("");
   const [reviewPeriodStart, setReviewPeriodStart] = useState("");
   const [reviewPeriodEnd, setReviewPeriodEnd] = useState("");
   const [agreedReviewPeriodStart, setAgreedReviewPeriodStart] = useState("");
   const [agreedReviewPeriodEnd, setAgreedReviewPeriodEnd] = useState("");
+  const [forwardComplianceStatus, setForwardComplianceStatus] = useState<"Compliant" | "Non-compliant" | "">("");
   const [isForwardPeriodDialogOpen, setIsForwardPeriodDialogOpen] = useState(false);
   const [isUpgradeApprovalDialogOpen, setIsUpgradeApprovalDialogOpen] = useState(false);
 
@@ -248,7 +251,9 @@ export default function Review({ params }: PageProps) {
               mentorRecommended: mAssignment.mentorRecommended,
               mentorNotes: mAssignment.mentorNotes,
               agreedReviewPeriodStart: mAssignment.agreedReviewPeriodStart,
-              agreedReviewPeriodEnd: mAssignment.agreedReviewPeriodEnd
+              agreedReviewPeriodEnd: mAssignment.agreedReviewPeriodEnd,
+              finalComplianceStatus: mAssignment.finalComplianceStatus,
+              adminNotes: mAssignment.adminNotes
             };
           })() : null,
           shareholders: res.shareholders || [],
@@ -334,22 +339,32 @@ export default function Review({ params }: PageProps) {
     onError: (err: any) => toast.error(err.response?.data?.error || "Failed to review mentorship upgrade")
   });
 
+  const isApcRoute = app?.mentorship?.apcReadiness === "Ready";
+
   const mentorshipBoardReviewMutation = useMutation({
     mutationFn: () => submitMentorshipReview({
       applicationId: app.id,
-      notes: boardNotes,
-      reviewPeriodStart,
-      reviewPeriodEnd: reviewPeriodEnd || undefined,
+      notes: boardNotes || undefined,
+      ...(isApcRoute
+        ? {
+            reviewPeriodStart,
+            reviewPeriodEnd: reviewPeriodEnd || undefined,
+          }
+        : {
+            complianceStatus: boardComplianceStatus as "Compliant" | "Non-compliant",
+          }),
     }),
     onSuccess: (data) => {
       toast.success("Reviewer-board recommendation saved.");
       setBoardNotes("");
+      setBoardComplianceStatus("");
       setReviewPeriodStart("");
       setReviewPeriodEnd("");
       const newReview = {
         id: data.review.id,
         reviewerId: userId,
         reviewer: { fullName: data.review.reviewer?.fullName || "You" },
+        complianceStatus: data.review.complianceStatus,
         reviewPeriodStart: data.review.reviewPeriodStart,
         reviewPeriodEnd: data.review.reviewPeriodEnd,
         notes: data.review.notes
@@ -367,13 +382,23 @@ export default function Review({ params }: PageProps) {
     mutationFn: () => forwardMentorshipToApprover(
       app.id,
       boardNotes.trim() || "Forwarded by Head Reviewer after completion of the reviewer-board submissions.",
-      agreedReviewPeriodStart,
-      agreedReviewPeriodEnd || undefined
+      isApcRoute ? agreedReviewPeriodStart : undefined,
+      isApcRoute ? (agreedReviewPeriodEnd || undefined) : undefined,
+      isApcRoute ? undefined : (forwardComplianceStatus as "Compliant" | "Non-compliant")
     ),
     onSuccess: () => {
       toast.success("Mentorship upgrade forwarded to Admin/Approver.");
-      setApp((prev: any) => ({ ...prev, mentorship: { ...prev.mentorship, status: "Pending_Admin_Review" } }));
+      setApp((prev: any) => ({
+        ...prev,
+        mentorship: {
+          ...prev.mentorship,
+          status: "Pending_Admin_Review",
+          finalComplianceStatus: isApcRoute ? null : forwardComplianceStatus,
+          adminNotes: boardNotes.trim() || "Forwarded by Head Reviewer after completion of the reviewer-board submissions."
+        }
+      }));
       setBoardNotes("");
+      setForwardComplianceStatus("");
       setIsForwardPeriodDialogOpen(false);
     },
     onError: (err: any) => toast.error(err.response?.data?.error || "Unable to forward mentorship upgrade.")
@@ -603,7 +628,7 @@ export default function Review({ params }: PageProps) {
               </Button>
             </>
           )}
-          {role === "Head_Reviewer" && app.mentorship?.apcReadiness === "Ready" && app.mentorship?.status === "Pending_Reviewer_Board" && (app.mentorshipReviews?.length || 0) >= 3 && (
+          {role === "Head_Reviewer" && app.mentorship?.status === "Pending_Reviewer_Board" && (app.mentorshipReviews?.length || 0) >= 3 && (
             <Button
               size="sm"
               className="bg-navy text-white hover:bg-navy/90"
@@ -620,22 +645,50 @@ export default function Review({ params }: PageProps) {
           <DialogHeader>
             <DialogTitle>Forward mentorship upgrade</DialogTitle>
             <p className="text-sm text-muted-foreground">
-              Set the final agreed assessment period before sending this case to the Approver.
+              {isApcRoute
+                ? "Set the final agreed assessment period before sending this case to the Approver."
+                : "Send this Associate-route case to the Admin/Approver for the final decision."}
             </p>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div>
-              <Label>Final agreed assessment period</Label>
-              <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <MonthYearPicker value={agreedReviewPeriodStart} monthOnly placeholder="Start month" onChange={setAgreedReviewPeriodStart} />
-                <MonthYearPicker value={agreedReviewPeriodEnd} monthOnly placeholder="End month (optional)" onChange={setAgreedReviewPeriodEnd} />
+            {isApcRoute ? (
+              <div>
+                <Label>Final agreed assessment period</Label>
+                <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <MonthYearPicker value={agreedReviewPeriodStart} monthOnly placeholder="Start month" onChange={setAgreedReviewPeriodStart} />
+                  <MonthYearPicker value={agreedReviewPeriodEnd} monthOnly placeholder="End month (optional)" onChange={setAgreedReviewPeriodEnd} />
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Select one month for a single-month period, or add an end month for a range.
+                </p>
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Select one month for a single-month period, or add an end month for a range.
-              </p>
-            </div>
+            ) : (
+              <div>
+                <Label>
+                  Your final conclusion <span className="text-red-500">*</span>
+                </Label>
+                <RadioGroup
+                  value={forwardComplianceStatus}
+                  onValueChange={(value) => setForwardComplianceStatus(value as "Compliant" | "Non-compliant")}
+                  className="mt-2 grid gap-2 sm:grid-cols-2"
+                >
+                  <label className="flex cursor-pointer items-center gap-2 rounded border border-emerald-200 bg-white p-2.5 text-sm hover:bg-emerald-50 dark:bg-zinc-900 dark:hover:bg-emerald-950/20">
+                    <RadioGroupItem value="Compliant" />
+                    <span className="font-medium text-emerald-700 dark:text-emerald-300">Compliant</span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 rounded border border-red-200 bg-white p-2.5 text-sm hover:bg-red-50 dark:bg-zinc-900 dark:hover:bg-red-950/20">
+                    <RadioGroupItem value="Non-compliant" />
+                    <span className="font-medium text-red-700 dark:text-red-300">Non-compliant</span>
+                  </label>
+                </RadioGroup>
+              </div>
+            )}
             <div>
-              <Label>Forwarding note <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Label>
+                Forwarding note {!isApcRoute && forwardComplianceStatus === "Non-compliant"
+                  ? <span className="text-red-500">*</span>
+                  : <span className="font-normal text-muted-foreground">(optional)</span>}
+              </Label>
               <Textarea className="mt-2" value={boardNotes} onChange={(e) => setBoardNotes(e.target.value)} placeholder="Add a final summary for the Approver..." />
             </div>
           </div>
@@ -643,7 +696,12 @@ export default function Review({ params }: PageProps) {
             <Button variant="outline" onClick={() => setIsForwardPeriodDialogOpen(false)}>Cancel</Button>
             <Button
               className="bg-navy text-white hover:bg-navy/90"
-              disabled={!agreedReviewPeriodStart || Boolean(agreedReviewPeriodEnd && agreedReviewPeriodEnd < agreedReviewPeriodStart) || forwardMentorshipMutation.isPending}
+              disabled={
+                (isApcRoute
+                  ? (!agreedReviewPeriodStart || Boolean(agreedReviewPeriodEnd && agreedReviewPeriodEnd < agreedReviewPeriodStart))
+                  : (!forwardComplianceStatus || (forwardComplianceStatus === "Non-compliant" && !boardNotes.trim()))) ||
+                forwardMentorshipMutation.isPending
+              }
               onClick={() => forwardMentorshipMutation.mutate()}
             >
               {forwardMentorshipMutation.isPending ? "Forwarding…" : "Confirm & Forward"}
@@ -731,6 +789,32 @@ export default function Review({ params }: PageProps) {
                         Final agreed assessment period: <span className="font-semibold text-navy dark:text-zinc-200">{new Date(app.mentorship.agreedReviewPeriodStart).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}{app.mentorship.agreedReviewPeriodEnd ? ` – ${new Date(app.mentorship.agreedReviewPeriodEnd).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}` : ""}</span>
                       </div>
                     )}
+                    {app.mentorship.finalComplianceStatus && (
+                      <div className={`col-span-2 rounded-md border p-3 ${
+                        app.mentorship.finalComplianceStatus === "Compliant"
+                          ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/50 dark:bg-emerald-950/20"
+                          : "border-red-200 bg-red-50/70 dark:border-red-900/50 dark:bg-red-950/20"
+                      }`}>
+                        <h4 className={`font-semibold text-[10px] uppercase tracking-wider mb-1 ${
+                          app.mentorship.finalComplianceStatus === "Compliant"
+                            ? "text-emerald-800 dark:text-emerald-300"
+                            : "text-red-800 dark:text-red-300"
+                        }`}>
+                          Head Reviewer&apos;s Final Conclusion
+                        </h4>
+                        <Badge
+                          variant="outline"
+                          className={app.mentorship.finalComplianceStatus === "Compliant"
+                            ? "border-emerald-300 bg-emerald-100 text-emerald-800"
+                            : "border-red-300 bg-red-100 text-red-800"}
+                        >
+                          {app.mentorship.finalComplianceStatus}
+                        </Badge>
+                        {app.mentorship.adminNotes && (
+                          <p className="mt-2 text-xs whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">{app.mentorship.adminNotes}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -746,8 +830,20 @@ export default function Review({ params }: PageProps) {
                     {app.mentorshipReviews.map((review: any) => {
                       return (
                         <div key={review.id} className="rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/40 p-3 text-xs">
-                          <div className="font-semibold text-navy dark:text-zinc-100">
-                            {review.reviewer?.fullName || "Reviewer"}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="font-semibold text-navy dark:text-zinc-100">
+                              {review.reviewer?.fullName || "Reviewer"}
+                            </div>
+                            {review.complianceStatus && (
+                              <Badge
+                                variant="outline"
+                                className={review.complianceStatus === "Compliant"
+                                  ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                                  : "border-red-300 bg-red-50 text-red-700"}
+                              >
+                                {review.complianceStatus}
+                              </Badge>
+                            )}
                           </div>
                           {review.reviewPeriodStart && (
                             <div className="mt-1 text-muted-foreground">
@@ -766,12 +862,14 @@ export default function Review({ params }: PageProps) {
                 </Card>
               )}
 
-              {app.mentorship.status === "Pending_Reviewer_Board" && app.mentorship.apcReadiness === "Ready" && (role === "Reviewer" || role === "Head_Reviewer") && !hasSubmittedBoardReview && (
+              {app.mentorship.status === "Pending_Reviewer_Board" && (role === "Reviewer" || role === "Head_Reviewer") && !hasSubmittedBoardReview && (
                 <div className="bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-900/50 rounded-xl p-5 shadow-sm space-y-4">
                   <div>
                     <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">Reviewer Board</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Submit your recommendation and a suggested assessment period (one month, or a range of months). Three board reviews are required before the Head Reviewer forwards this case.
+                      {isApcRoute
+                        ? "Submit your recommended APC assessment period, and an optional note. Three board reviews are required before the Head Reviewer forwards this case."
+                        : "Record your Compliant / Non-compliant assessment of this Associate-route submission. Three board reviews are required before the Head Reviewer forwards this case."}
                     </p>
                   </div>
                   <div className="text-xs font-medium text-blue-800 dark:text-blue-300">
@@ -782,20 +880,62 @@ export default function Review({ params }: PageProps) {
                       You have already submitted your board recommendation for this mentorship upgrade.
                     </div>
                   )}
-                  <Textarea value={boardNotes} onChange={(e) => setBoardNotes(e.target.value)} disabled={!canEditForwardingNote} placeholder={role === "Head_Reviewer" ? "Board summary or forwarding note" : "Your review recommendation"} />
-                  <div>
-                    <Label className="text-xs">Your recommended assessment period</Label>
-                    <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <MonthYearPicker value={reviewPeriodStart} monthOnly placeholder="Start month" onChange={setReviewPeriodStart} />
-                      <MonthYearPicker value={reviewPeriodEnd} monthOnly placeholder="End month (optional)" onChange={setReviewPeriodEnd} />
+                  {!isApcRoute && (
+                    <div>
+                      <Label className="text-xs">
+                        Compliance assessment <span className="text-red-500">*</span>
+                      </Label>
+                      <RadioGroup
+                        value={boardComplianceStatus}
+                        onValueChange={(value) => setBoardComplianceStatus(value as "Compliant" | "Non-compliant")}
+                        className="mt-2 grid gap-2 sm:grid-cols-2"
+                      >
+                        <label className="flex cursor-pointer items-center gap-2 rounded border border-emerald-200 bg-white p-2.5 text-sm hover:bg-emerald-50 dark:bg-zinc-900 dark:hover:bg-emerald-950/20">
+                          <RadioGroupItem value="Compliant" />
+                          <span className="font-medium text-emerald-700 dark:text-emerald-300">Compliant</span>
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-2 rounded border border-red-200 bg-white p-2.5 text-sm hover:bg-red-50 dark:bg-zinc-900 dark:hover:bg-red-950/20">
+                          <RadioGroupItem value="Non-compliant" />
+                          <span className="font-medium text-red-700 dark:text-red-300">Non-compliant</span>
+                        </label>
+                      </RadioGroup>
                     </div>
-                    <p className="mt-1 text-[11px] text-muted-foreground">Choose one month for a single-month period, or add an end month for a range.</p>
+                  )}
+                  {isApcRoute && (
+                    <div>
+                      <Label className="text-xs">Your recommended assessment period <span className="text-red-500">*</span></Label>
+                      <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <MonthYearPicker value={reviewPeriodStart} monthOnly placeholder="Start month" onChange={setReviewPeriodStart} />
+                        <MonthYearPicker value={reviewPeriodEnd} monthOnly placeholder="End month (optional)" onChange={setReviewPeriodEnd} />
+                      </div>
+                      <p className="mt-1 text-[11px] text-muted-foreground">Choose one month for a single-month period, or add an end month for a range.</p>
+                    </div>
+                  )}
+                  <div>
+                    <Label className="text-xs">
+                      Notes {!isApcRoute && boardComplianceStatus === "Non-compliant"
+                        ? <span className="text-red-500">*</span>
+                        : <span className="font-normal text-muted-foreground">(optional)</span>}
+                    </Label>
+                    <Textarea
+                      className="mt-1"
+                      value={boardNotes}
+                      onChange={(e) => setBoardNotes(e.target.value)}
+                      disabled={!canEditForwardingNote}
+                      placeholder={role === "Head_Reviewer" ? "Board summary or forwarding note" : "Your review notes"}
+                    />
                   </div>
                   <div className="flex flex-col gap-2">
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={hasSubmittedBoardReview || !boardNotes.trim() || !reviewPeriodStart || Boolean(reviewPeriodEnd && reviewPeriodEnd < reviewPeriodStart) || mentorshipBoardReviewMutation.isPending}
+                      disabled={
+                        hasSubmittedBoardReview ||
+                        (isApcRoute
+                          ? (!reviewPeriodStart || Boolean(reviewPeriodEnd && reviewPeriodEnd < reviewPeriodStart))
+                          : (!boardComplianceStatus || (boardComplianceStatus === "Non-compliant" && !boardNotes.trim()))) ||
+                        mentorshipBoardReviewMutation.isPending
+                      }
                       onClick={() => mentorshipBoardReviewMutation.mutate()}
                     >
                       {hasSubmittedBoardReview ? "Review Submitted" : mentorshipBoardReviewMutation.isPending ? "Saving…" : "Submit Board Review"}

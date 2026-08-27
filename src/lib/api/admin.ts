@@ -170,6 +170,12 @@ export interface AdminPaymentTransaction {
   providerTransactionId?: string | null;
   status: string;
   createdAt: string;
+  // Set once the payment itself is confirmed — via the gateway (see applyGatewayFeeResult)
+  // or a manual verifyPayment action. An Annual_Renewal row can have this set while status is
+  // still Pending_Verification: the money cleared through the gateway, but the CPD/Annual
+  // Report still needs an Admin/Admin Assistant's review before the renewal is complete.
+  clearedAt?: string | null;
+  cpdDocumentUrl?: string | null;
   receiptUrl?: string;
   receiptFileName?: string;
   full_name?: string;
@@ -335,17 +341,29 @@ export async function flagMentorshipForCorrection(applicationId: string, notes: 
 
 export async function submitMentorshipReview(payload: {
   applicationId: string;
-  notes: string;
-  reviewPeriodStart: string;
+  notes?: string;
+  // Associate route only (apcReadiness "Not_Ready")
+  complianceStatus?: "Compliant" | "Non-compliant";
+  // Professional/Technologist APC route only (apcReadiness "Ready")
+  reviewPeriodStart?: string;
   reviewPeriodEnd?: string;
+  proposedAssessmentDate?: string;
   recommendation?: string;
 }): Promise<any> {
   const { data } = await axiosClient.post('/admin/mentorship/review', payload);
   return data;
 }
 
-export async function forwardMentorshipToApprover(applicationId: string, notes: string, agreedReviewPeriodStart: string, agreedReviewPeriodEnd?: string): Promise<any> {
-  const { data } = await axiosClient.post('/admin/mentorship/forward', { applicationId, notes, agreedReviewPeriodStart, agreedReviewPeriodEnd });
+export async function forwardMentorshipToApprover(
+  applicationId: string,
+  notes: string,
+  agreedReviewPeriodStart?: string,
+  agreedReviewPeriodEnd?: string,
+  // Required for the Associate route (apcReadiness "Not_Ready") — the Head Reviewer's
+  // own final conclusion for the Admin/Approver. Not applicable to the APC route.
+  complianceStatus?: "Compliant" | "Non-compliant"
+): Promise<any> {
+  const { data } = await axiosClient.post('/admin/mentorship/forward', { applicationId, notes, agreedReviewPeriodStart, agreedReviewPeriodEnd, complianceStatus });
   return data;
 }
 

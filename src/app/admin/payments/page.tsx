@@ -132,6 +132,13 @@ export default function AdminPaymentsPage() {
   };
 
   if (selectedTx) {
+    // An Annual_Renewal row can be Pending_Verification with a providerTransactionId AND a
+    // clearedAt set at the same time: the gateway already confirmed the payment, but RIQS
+    // policy still requires an Admin/Admin Assistant to review the member's CPD/Annual Report
+    // before the renewal is complete — see applyGatewayFeeResult on the backend. That's
+    // distinct from a genuinely still-pending gateway row (no clearedAt yet), which stays
+    // fully hands-off for staff.
+    const awaitingCpdReview = selectedTx.txType === "Annual_Renewal" && Boolean(selectedTx.clearedAt);
     const isReceiptImage = activeDocType ? activeDocType.startsWith("image/") : (selectedTx.receiptFileName?.match(/\.(jpeg|jpg|gif|png)$/i) != null || selectedTx.receiptUrl?.match(/\.(jpeg|jpg|gif|png)$/i) != null);
     const isCpdImage = cpdDocType ? cpdDocType.startsWith("image/") : false;
 
@@ -177,11 +184,27 @@ export default function AdminPaymentsPage() {
                 </Button>
               </>
             )}
-            {selectedTx.status === "Pending_Verification" && selectedTx.providerTransactionId && (
+            {selectedTx.status === "Pending_Verification" && selectedTx.providerTransactionId && awaitingCpdReview && (
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald" onClick={() => { setVerifyAction("Paid"); setIsDialogOpen(true); }}>
+                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Confirm CPD & Complete Renewal
+              </Button>
+            )}
+            {selectedTx.status === "Pending_Verification" && selectedTx.providerTransactionId && !awaitingCpdReview && (
               <span className="text-xs text-muted-foreground italic">Verified automatically by the payment gateway</span>
             )}
           </div>
         </div>
+
+        {awaitingCpdReview && (
+          <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              This member paid the annual renewal fee via Mobile Money — the gateway already confirmed the payment.
+              Review their <strong>CPD / Annual Report</strong> below before completing the renewal. Membership expiry
+              is only extended once you confirm.
+            </span>
+          </div>
+        )}
 
         <div className="grid gap-4 lg:grid-cols-5">
           {/* Left Column: Details & Actions */}
@@ -462,7 +485,16 @@ function Avatar({ name, url }: { name: string; url?: string }) {
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-sm">{formatTxType(tx.txType)}</td>
+                      <td className="px-5 py-4 text-sm">
+                        <div className="flex flex-col items-start gap-1">
+                          <span>{formatTxType(tx.txType)}</span>
+                          {tx.txType === "Annual_Renewal" && Boolean(tx.clearedAt) && tx.status === "Pending_Verification" && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-400">
+                              CPD review needed
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-5 py-4 text-right font-medium text-zinc-900 dark:text-zinc-100">{formatAmount(tx.amount, tx.currency)}</td>
                       <td className="px-5 py-4 text-xs text-zinc-650 dark:text-zinc-400 font-medium">
                         {format(new Date(tx.createdAt), "MMM d, yyyy")}

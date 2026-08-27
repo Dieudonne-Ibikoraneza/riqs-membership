@@ -58,8 +58,7 @@ type SortKey =
   | "id"
   | "submitted"
   | "status"
-  | "category"
-  | "reviewer";
+  | "category";
 
 export default function AdminApps() {
   const { role } = useAuth();
@@ -102,7 +101,6 @@ export default function AdminApps() {
           practiceLocation: a.location,
           submittedAt: new Date(a.submitted_at).toISOString().split('T')[0],
           status: a.status.replace("_", " "),
-          reviewer: a.reviewer || "Unassigned",
           photoId: a.photoId,
           profilePhotoUrl: a.profilePhotoUrl
         }));
@@ -190,8 +188,6 @@ export default function AdminApps() {
         comparison = a.status.localeCompare(b.status);
       } else if (sortKey === "category") {
         comparison = a.category.localeCompare(b.category);
-      } else if (sortKey === "reviewer") {
-        comparison = (a.reviewer ?? "").localeCompare(b.reviewer ?? "");
       }
       return sortDir === "asc" ? comparison : -comparison;
     });
@@ -400,9 +396,6 @@ export default function AdminApps() {
                     </SelectItem>
                     <SelectItem value="status-asc">Status</SelectItem>
                     <SelectItem value="category-asc">Category</SelectItem>
-                    {role === "Admin" && (
-                      <SelectItem value="reviewer-asc">Reviewer</SelectItem>
-                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -490,7 +483,6 @@ export default function AdminApps() {
                     "Category",
                     "Location",
                     "Submitted",
-                    ...(role === "Admin" ? ["Reviewer"] : []),
                     "Status",
                     "",
                   ].map((h, idx) => (
@@ -576,11 +568,6 @@ export default function AdminApps() {
                     <td className="px-5 py-4 text-xs text-zinc-650 dark:text-zinc-400">
                       {a.submittedAt}
                     </td>
-                    {role === "Admin" && (
-                      <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400 font-semibold">
-                        {a.reviewer}
-                      </td>
-                    )}
                     <td className="px-5 py-4">
                       <StatusBadge status={a.status} />
                     </td>

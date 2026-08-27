@@ -232,9 +232,18 @@ export default function Application() {
   // Most recent Processing Fee attempt that ended in Failed (gateway rejection, or an
   // admin rejecting a manually-uploaded proof) — surfaced in the payment dialog so the
   // member sees why their last attempt didn't go through instead of a blank method picker.
-  const latestFailedProcessingFee = (profileData?.financialTransactions || [])
-    .filter((tx: any) => tx.txType === "Processing_Fee" && tx.status === "Failed")
-    .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  // Skipped entirely once any Processing_Fee attempt has actually succeeded — e.g. a
+  // rejected manual receipt followed by a mobile-money retry that cleared — since that
+  // failed row is stale history at that point, not something still worth surfacing.
+  const processingFeeTransactions = profileData?.financialTransactions || [];
+  const hasClearedProcessingFee = processingFeeTransactions.some(
+    (tx: any) => tx.txType === "Processing_Fee" && tx.status === "Paid"
+  );
+  const latestFailedProcessingFee = hasClearedProcessingFee
+    ? undefined
+    : processingFeeTransactions
+        .filter((tx: any) => tx.txType === "Processing_Fee" && tx.status === "Failed")
+        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
   // Fetch categories
   const { data: categories } = useQuery({

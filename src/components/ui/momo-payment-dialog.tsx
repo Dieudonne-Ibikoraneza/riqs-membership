@@ -40,6 +40,7 @@ type Stage =
   | "form"
   | "pending"
   | "success"
+  | "awaiting_review"
   | "failed"
   | "manual"
   | "manual-submitted";
@@ -55,16 +56,27 @@ export interface MomoPaymentDialogProps {
   amount: number;
   currency?: string;
   defaultPhone?: string;
-  applicationId: string;
+  /** Required only when allowManual is true — the manual proof-upload path attaches it to the document. */
+  applicationId?: string;
   /** Starts the payment; must resolve to the transaction id to poll. */
   initiate: (mobilephone: string) => Promise<{ transactionId: string; message?: string }>;
   /** Polls a previously-initiated payment for its current status. */
-  checkStatus: (transactionId: string) => Promise<{ status: string; rejectionReason?: string | null }>;
+  checkStatus: (transactionId: string) => Promise<{ status: string; rejectionReason?: string | null; awaitingReview?: boolean }>;
   /** Called once the payment is confirmed Paid. */
   onSuccess: () => void;
   successMessage?: string;
+  /** Called when the gateway confirms payment but a further admin review still stands between
+   * this and completion (currently: Annual Renewal's CPD/Annual Report check). Omit if this
+   * fee type never has that extra step — awaitingReview from checkStatus is then never set. */
+  onAwaitingReview?: () => void;
+  awaitingReviewMessage?: string;
   /** Reason from a previous attempt that ended in Failed status, if any — shown immediately on open instead of the method picker. */
   priorFailureReason?: string | null;
+  /** Whether to offer the "Bank Transfer / Other Method" manual proof-upload path alongside Mobile
+   * Money. Defaults to true. Set false when the host page already has its own upload flow for
+   * this fee (e.g. one that also needs an extra supporting document) — the dialog then only
+   * handles the Mobile Money side and skips straight to the phone-number form. */
+  allowManual?: boolean;
 }
 
 export function MomoPaymentDialog({
@@ -80,7 +92,10 @@ export function MomoPaymentDialog({
   checkStatus,
   onSuccess,
   successMessage = "Payment confirmed.",
+  onAwaitingReview,
+  awaitingReviewMessage = "Payment received — awaiting administrative review.",
   priorFailureReason,
+  allowManual = true,
 }: MomoPaymentDialogProps) {
   const [stage, setStage] = useState<Stage>("method");
   const [phone, setPhone] = useState(defaultPhone || "");
@@ -112,6 +127,10 @@ export function MomoPaymentDialog({
       if (priorFailureReason) {
         setStage("failed");
         setError(priorFailureReason);
+      } else if (!allowManual) {
+        // Mobile Money is the only option — skip straight past the method picker.
+        setStage("form");
+        setError(null);
       } else {
         setStage("method");
         setError(null);
@@ -143,6 +162,10 @@ export function MomoPaymentDialog({
           stopPolling();
           setStage("success");
           setTimeout(() => onSuccess(), 1400);
+        } else if (res.awaitingReview) {
+          stopPolling();
+          setStage("awaiting_review");
+          if (onAwaitingReview) setTimeout(() => onAwaitingReview(), 1400);
         } else if (res.status === "Failed") {
           stopPolling();
           setError(res.rejectionReason || "The payment was not completed.");
@@ -193,6 +216,10 @@ export function MomoPaymentDialog({
   const handleUploadProof = async () => {
     if (!proofFile) {
       setError("Select a file to upload.");
+      return;
+    }
+    if (!applicationId) {
+      setError("Unable to submit this proof of payment — application reference is missing.");
       return;
     }
     setError(null);
@@ -261,20 +288,22 @@ export function MomoPaymentDialog({
                 <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-gold transition" />
               </button>
 
-              <button
-                type="button"
-                onClick={() => setStage("manual")}
-                className="group flex w-full items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 text-left transition hover:border-gold hover:bg-gold/5"
-              >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
-                  <Landmark className="h-5 w-5" />
-                </span>
-                <span className="flex-1">
-                  <span className="block font-semibold text-navy">Bank Transfer / Other Method</span>
-                  <span className="block text-xs text-muted-foreground">Upload your proof of payment for our team to verify.</span>
-                </span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-gold transition" />
-              </button>
+              {allowManual && (
+                <button
+                  type="button"
+                  onClick={() => setStage("manual")}
+                  className="group flex w-full items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 text-left transition hover:border-gold hover:bg-gold/5"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
+                    <Landmark className="h-5 w-5" />
+                  </span>
+                  <span className="flex-1">
+                    <span className="block font-semibold text-navy">Bank Transfer / Other Method</span>
+                    <span className="block text-xs text-muted-foreground">Upload your proof of payment for our team to verify.</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-gold transition" />
+                </button>
+              )}
             </motion.div>
           )}
 
@@ -286,13 +315,15 @@ export function MomoPaymentDialog({
               exit={{ opacity: 0, y: -8 }}
               className="space-y-4 pt-1"
             >
-              <button
-                type="button"
-                onClick={() => setStage("method")}
-                className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-navy transition"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" /> Choose a different method
-              </button>
+              {allowManual && (
+                <button
+                  type="button"
+                  onClick={() => setStage("method")}
+                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-navy transition"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> Choose a different method
+                </button>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="momo-phone">Mobile Money number</Label>
@@ -514,6 +545,24 @@ export function MomoPaymentDialog({
             </motion.div>
           )}
 
+          {stage === "awaiting_review" && (
+            <motion.div
+              key="awaiting_review"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex flex-col items-center gap-3 py-8 text-center"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 200, damping: 12 }}
+              >
+                <FileCheck2 className="h-16 w-16 text-amber-500" />
+              </motion.div>
+              <p className="font-semibold text-navy">{awaitingReviewMessage}</p>
+            </motion.div>
+          )}
+
           {stage === "failed" && (
             <motion.div
               key="failed"
@@ -528,7 +577,7 @@ export function MomoPaymentDialog({
                 <p className="text-sm text-muted-foreground max-w-xs">{error}</p>
               </div>
               <Button
-                onClick={() => { setStage("method"); setError(null); }}
+                onClick={() => { setStage(allowManual ? "method" : "form"); setError(null); }}
                 className="bg-gold text-[#1a1a1a] hover:bg-gold/90 font-bold"
               >
                 Try Again

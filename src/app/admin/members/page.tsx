@@ -53,6 +53,7 @@ import {
   Award,
   Medal,
   Star,
+  UserPlus,
 } from "lucide-react";
 import { MonthYearPicker } from "@/components/ui/month-picker";
 import { cn } from "@/lib/utils";
@@ -587,6 +588,15 @@ export default function AdminMembers() {
                               </Badge>
                             ));
                           })()}
+                          {m.systemRole === "Mentor" && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-2 py-0.5 shadow-sm bg-emerald-100 text-emerald-800 border-emerald-300 shadow-emerald-500/20 uppercase tracking-wider font-bold"
+                            >
+                              <UserPlus className="h-2.5 w-2.5 mr-1" />
+                              Mentor
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </td>

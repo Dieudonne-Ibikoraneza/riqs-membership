@@ -11,6 +11,7 @@ export const queryKeys = {
   mentorship: {
     progress: () => ['mentorship', 'progress'] as const,
     mentees: () => ['mentorship', 'mentees'] as const,
+    myMentorApplication: () => ['mentorship', 'my-mentor-application'] as const,
   },
   // Add other scopes here later (e.g., admin, member)
 };

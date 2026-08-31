@@ -125,6 +125,19 @@ export const applicantServices = {
     return response.data;
   },
 
+  // Being Technologist/Professional no longer grants the Mentor role automatically — this is
+  // the member-initiated path to it (reviewed by an Admin/Admin Assistant). The other path,
+  // an Admin/Approver promoting someone directly from their profile, needs no member action.
+  requestMentorStatus: async (motivation?: string): Promise<{ message: string; application: any }> => {
+    const response = await axiosClient.post('/members/mentor-application', { motivation });
+    return response.data;
+  },
+
+  getMyMentorApplication: async (): Promise<{ application: any | null }> => {
+    const response = await axiosClient.get('/members/mentor-application');
+    return response.data;
+  },
+
   saveApplication: async (data: {
     practiceLocation: string;
     entityType: string;

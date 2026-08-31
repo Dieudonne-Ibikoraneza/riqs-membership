@@ -21,7 +21,7 @@ import {
   CreditCard, FileText, Shield, Clock, AlertTriangle, CheckCircle2, MessageSquare,
   Ticket, TrendingUp, Award, ExternalLink, BadgeCheck, MoreVertical,
   Building2, Globe, IdCard, Activity, ChevronRight, Download, Send,
-  Maximize2, Minus, X, Loader2, Medal
+  Maximize2, Minus, X, Loader2, Medal, UserPlus, UserMinus
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -39,7 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { getMemberById, awardFellowStatus, revokeFellowStatus, changeMembershipCategory, sendAdminEmail, updateMemberHonors } from "@/lib/api/admin";
+import { getMemberById, awardFellowStatus, revokeFellowStatus, changeMembershipCategory, sendAdminEmail, updateMemberHonors, promoteToMentor, revokeMentorStatus } from "@/lib/api/admin";
 import { axiosClient } from "@/lib/axiosClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth";
@@ -93,7 +93,7 @@ export default function AdminMemberProfilePage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedHonors, setSelectedHonors] = useState<string[]>([]);
-  const [dialog, setDialog] = useState<null | "award-fellow" | "revoke-fellow" | "change-class" | "manage-honors">(null);
+  const [dialog, setDialog] = useState<null | "award-fellow" | "revoke-fellow" | "change-class" | "manage-honors" | "promote-mentor" | "revoke-mentor">(null);
   const [newCategoryId, setNewCategoryId] = useState<string>("");
   const [categories, setCategories] = useState<any[]>([]);
   const [auditPage, setAuditPage] = useState(1);
@@ -210,6 +210,34 @@ export default function AdminMemberProfilePage() {
     }
   };
 
+  const handlePromoteToMentor = async () => {
+    setActionLoading(true);
+    try {
+      const res = await promoteToMentor(id as string);
+      toast.success(res.message || "Mentor status granted.");
+      setDialog(null);
+      fetchMember();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || "Failed to grant mentor status.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRevokeMentor = async () => {
+    setActionLoading(true);
+    try {
+      const res = await revokeMentorStatus(id as string);
+      toast.success(res.message || "Mentor status revoked.");
+      setDialog(null);
+      fetchMember();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || "Failed to revoke mentor status.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleChangeCategory = async () => {
     if (!newCategoryId) return;
     setActionLoading(true);
@@ -279,6 +307,17 @@ export default function AdminMemberProfilePage() {
               <Button variant="outline" className="hidden sm:flex gap-2" onClick={() => router.push(`/admin/applications/${app.id}`)}>
                 <FileText className="h-4 w-4" /> View Application
               </Button>
+            )}
+            {canManageMemberStatus && ["Professional", "Technologist"].includes(member.membershipClass) && (
+              member.systemRole === "Mentor" ? (
+                <Button variant="outline" className="gap-2 hidden sm:flex border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:hover:bg-red-950/20" onClick={() => setDialog("revoke-mentor")}>
+                  <UserMinus className="h-4 w-4" /> Remove Mentor
+                </Button>
+              ) : (
+                <Button variant="outline" className="gap-2 hidden sm:flex border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900/50 dark:hover:bg-emerald-950/20" onClick={() => setDialog("promote-mentor")}>
+                  <UserPlus className="h-4 w-4" /> Make Mentor
+                </Button>
+              )
             )}
             {canManageMemberStatus && (
               <>
@@ -384,6 +423,15 @@ export default function AdminMemberProfilePage() {
                     >
                       {isFellow && <Star className="h-3 w-3 mr-1.5 fill-amber-600 text-amber-600" />}
                       {member.membershipClass}
+                    </Badge>
+                  )}
+                  {member.systemRole === "Mentor" && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs px-3 py-1 shadow-sm bg-emerald-100 text-emerald-800 border-emerald-300 shadow-emerald-500/20"
+                    >
+                      <UserPlus className="h-3 w-3 mr-1.5" />
+                      Mentor
                     </Badge>
                   )}
                 </div>
@@ -862,6 +910,44 @@ export default function AdminMemberProfilePage() {
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
               <Button variant="destructive" onClick={handleRevokeFellow} disabled={actionLoading}>
+                {actionLoading ? "Revoking..." : "Confirm Revoke"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialog === "promote-mentor"} onOpenChange={(o) => !o && setDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Make {member.fullName} a Mentor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <DialogDescription className="text-slate-600 text-base">
+              This grants <strong>{member.fullName}</strong> the Mentor role directly, without requiring them to submit an application. They may then be assigned Graduate members to supervise, and any pending mentor application of theirs will be automatically marked approved.
+            </DialogDescription>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handlePromoteToMentor} disabled={actionLoading}>
+                {actionLoading ? "Granting..." : "Confirm & Make Mentor"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialog === "revoke-mentor"} onOpenChange={(o) => !o && setDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remove Mentor Status</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <DialogDescription className="text-slate-600 text-base">
+              You are about to revoke Mentor status from <strong>{member.fullName}</strong>. Any Graduate members currently assigned to them will not be automatically reassigned — you&rsquo;ll need to handle that separately if needed.
+            </DialogDescription>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleRevokeMentor} disabled={actionLoading}>
                 {actionLoading ? "Revoking..." : "Confirm Revoke"}
               </Button>
             </div>

@@ -17,11 +17,15 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
+  ArrowUpDown,
+  X,
+  ExternalLink,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth";
 import { getMentorshipQueue } from "@/lib/api/admin";
@@ -77,6 +81,10 @@ export default function MentorshipQueuePage() {
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [status, setStatus] = useState("all");
+  const [apcReadiness, setApcReadiness] = useState("all");
+  const [location, setLocation] = useState("all");
+  const [category, setCategory] = useState("all");
+  const [sort, setSort] = useState<"recent" | "oldest">("recent");
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
@@ -93,13 +101,22 @@ export default function MentorshipQueuePage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQ, status]);
+  }, [debouncedQ, status, apcReadiness, location, category, sort]);
 
   useEffect(() => {
     async function load() {
       setIsLoading(true);
       try {
-        const res = await getMentorshipQueue(page, pageSize, debouncedQ || undefined, status);
+        const res = await getMentorshipQueue(
+          page,
+          pageSize,
+          debouncedQ || undefined,
+          status,
+          apcReadiness === "all" ? undefined : apcReadiness,
+          location === "all" ? undefined : location,
+          sort,
+          category === "all" ? undefined : category
+        );
         setQueue(res.queue);
         setTotalCount(res.pagination.total);
         setTotalPages(Math.max(1, Math.ceil(res.pagination.total / pageSize)));
@@ -110,7 +127,7 @@ export default function MentorshipQueuePage() {
       }
     }
     load();
-  }, [page, debouncedQ, status]);
+  }, [page, debouncedQ, status, apcReadiness, location, sort, category]);
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto pb-8 animate-fade-in">
@@ -145,6 +162,58 @@ export default function MentorshipQueuePage() {
                   }}
                   className="pl-10 h-11 border-zinc-200 dark:border-zinc-800 focus-visible:ring-gold"
                 />
+              </div>
+              <div className="flex flex-wrap gap-2.5">
+                <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
+                  <SelectTrigger className="h-11 w-[165px] border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Pending_Reviewer_Board">Reviewer board</SelectItem>
+                    <SelectItem value="Pending_Admin_Review">Admin review</SelectItem>
+                    <SelectItem value="Correction_Required">Correction required</SelectItem>
+                    <SelectItem value="Approved">Approved</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={category} onValueChange={(v) => { setCategory(v); setPage(1); }}>
+                  <SelectTrigger className="h-11 w-[165px] border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="Category" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All categories</SelectItem>
+                    <SelectItem value="Graduate">Graduate</SelectItem>
+                    <SelectItem value="Technologist">Technologist</SelectItem>
+                    <SelectItem value="Professional">Professional</SelectItem>
+                    <SelectItem value="Associate">Associate</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={apcReadiness} onValueChange={(v) => { setApcReadiness(v); setPage(1); }}>
+                  <SelectTrigger className="h-11 w-[165px] border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="APC route" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All APC routes</SelectItem>
+                    <SelectItem value="Ready">Ready for APC</SelectItem>
+                    <SelectItem value="Not_Ready">Associate route</SelectItem>
+                    <SelectItem value="Unknown">Route not set</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={location} onValueChange={(v) => { setLocation(v); setPage(1); }}>
+                  <SelectTrigger className="h-11 w-[165px] border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="Location" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Locations</SelectItem>
+                    <SelectItem value="Rwandan">Rwandan (Local)</SelectItem>
+                    <SelectItem value="Non_Rwandan">Non-Rwandan (Foreign)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={sort} onValueChange={(v) => { setSort(v as "recent" | "oldest"); setPage(1); }}>
+                  <SelectTrigger className="h-11 w-[220px] border-zinc-200 dark:border-zinc-800"><ArrowUpDown className="mr-2 h-4 w-4 text-gold shrink-0" /><SelectValue placeholder="Sort by" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="recent">Submitted date (newest)</SelectItem>
+                    <SelectItem value="oldest">Submitted date (oldest)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(category !== "all" || apcReadiness !== "all" || location !== "all" || status !== "all" || sort !== "recent" || q) && (
+                  <Button variant="ghost" className="h-11 gap-1.5 text-muted-foreground" onClick={() => { setQ(""); setStatus("all"); setCategory("all"); setApcReadiness("all"); setLocation("all"); setSort("recent"); setPage(1); }}>
+                    <X className="h-4 w-4" /> Reset
+                  </Button>
+                )}
               </div>
             </div>
             <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-sm pt-4 border-t border-zinc-100 dark:border-zinc-800/80">
@@ -215,9 +284,14 @@ export default function MentorshipQueuePage() {
                         <div className="flex items-center gap-3">
                           <Avatar name={a.full_name} url={(a as any).profilePhotoUrl || a.photoId} />
                           <div>
-                            <div className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+                            <Link
+                              href={`/admin/members/${a.member_id}`}
+                              className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug hover:text-navy dark:hover:text-gold hover:underline inline-flex items-center gap-1 group/profile"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               {a.full_name}
-                            </div>
+                              <ExternalLink className="h-3 w-3 text-zinc-400 opacity-0 group-hover/profile:opacity-100 transition-opacity" />
+                            </Link>
                             <div className="text-xs text-muted-foreground">
                               {a.email}
                             </div>

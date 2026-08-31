@@ -199,10 +199,6 @@ export default function ApcDetailPage({ params }: PageProps) {
         toast.error("Score percentage is required.");
         return;
       }
-      if (!gradeForm.notes || gradeForm.notes.trim() === "") {
-        toast.error("Panel feedback / notes are required.");
-        return;
-      }
     }
     setIsSubmitting(true);
     try {

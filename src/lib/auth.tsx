@@ -129,10 +129,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setEmail(member.email);
       
       // Determine capabilities from systemRole and membershipClass
-      const isMentor = member.systemRole === "Mentor" || 
-        member.membershipClass?.includes("Technologist") || 
-        member.membershipClass?.includes("Professional") || 
-        member.membershipClass?.includes("PQS");
+      // Being Technologist/Professional no longer implies mentor status by itself — a member
+      // must apply (reviewed by an Admin/Admin Assistant) or be promoted directly by an
+      // Admin/Approver. See mentorApplicationController on the backend.
+      const isMentor = member.systemRole === "Mentor";
       const isTeacher = member.systemRole === "Teacher";
       const isStudent = member.membershipClass === "Student" || member.systemRole === "Student";
       

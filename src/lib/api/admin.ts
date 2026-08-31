@@ -314,13 +314,22 @@ export async function getMentorshipQueue(
   page: number = 1,
   limit: number = 10,
   q?: string,
-  status?: string
+  status?: string,
+  apcReadiness?: string,
+  location?: string,
+  sort: "recent" | "oldest" = "recent",
+  category?: string
 ): Promise<MentorshipQueueResponse> {
   const params = new URLSearchParams();
   params.append("page", page.toString());
   params.append("limit", limit.toString());
   if (q) params.append("q", q);
   if (status) params.append("status", status);
+  if (apcReadiness) params.append("apcReadiness", apcReadiness);
+  if (location) params.append("location", location);
+  if (category) params.append("category", category);
+  params.append("sortKey", "submitted");
+  params.append("sortDir", sort === "oldest" ? "asc" : "desc");
   const { data } = await axiosClient.get<MentorshipQueueResponse>(`/admin/mentorship/queue?${params.toString()}`);
   return data;
 }
@@ -422,6 +431,18 @@ export async function updateMemberHonors(id: string, honors: string[]): Promise<
   return data;
 }
 
+// Directly grants/revokes the Mentor role from a member's profile — bypasses the
+// mentor-application flow entirely. Admin/Approver only.
+export async function promoteToMentor(memberId: string): Promise<{ message: string }> {
+  const { data } = await axiosClient.post(`/admin/members/${memberId}/promote-to-mentor`);
+  return data;
+}
+
+export async function revokeMentorStatus(memberId: string): Promise<{ message: string; activeMenteeCount: number }> {
+  const { data } = await axiosClient.post(`/admin/members/${memberId}/revoke-mentor`);
+  return data;
+}
+
 export async function getProfileEditRequests(status?: string, page = 1, limit = 20): Promise<{ requests: any[]; total: number }> {
   const { data } = await axiosClient.get('/admin/profile-edit-requests', { params: { status, page, limit } });
   return data;
@@ -429,5 +450,15 @@ export async function getProfileEditRequests(status?: string, page = 1, limit = 
 
 export async function reviewProfileEditRequest(id: string, decision: "Approve" | "Reject", reviewNotes?: string): Promise<{ message: string }> {
   const { data } = await axiosClient.post(`/admin/profile-edit-requests/${id}/decision`, { decision, reviewNotes });
+  return data;
+}
+
+export async function getMentorApplicationsQueue(status?: string, page = 1, limit = 20): Promise<{ applications: any[]; pagination: { total: number; page: number; limit: number } }> {
+  const { data } = await axiosClient.get('/admin/mentor-applications', { params: { status, page, limit } });
+  return data;
+}
+
+export async function reviewMentorApplication(id: string, decision: "Approve" | "Reject", reviewNotes?: string): Promise<{ message: string }> {
+  const { data } = await axiosClient.post(`/admin/mentor-applications/${id}/decision`, { decision, reviewNotes });
   return data;
 }

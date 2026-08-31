@@ -15,14 +15,20 @@ import {
   Calendar,
   Loader2,
   Users,
+  UserPlus,
+  Clock,
+  XCircle,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { axiosClient } from "@/lib/axiosClient";
 import { applicantServices } from "@/services/applicant.services";
 import { logbookServices } from "@/services/logbook.services";
 import { queryKeys } from "@/services/queryKeys";
 import { motion } from "framer-motion";
 import { MembershipCard } from "@/components/MembershipCard";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 export default function Overview() {
   const { data: profileData, isLoading } = useQuery({
@@ -39,7 +45,15 @@ export default function Overview() {
   const appStatus = rawStatus.replace(/_/g, " ");
   const isGraduate = membershipCategory.includes("Graduate");
   const isAssociate = membershipCategory.includes("Associate");
-  const isMentor = (profileData?.profile as any)?.systemRole === "Mentor" || membershipCategory.includes("Professional") || membershipCategory.includes("Fellow");
+  // Being Technologist/Professional no longer implies mentor status by itself — a member
+  // must apply (reviewed by an Admin/Admin Assistant) or be promoted directly by an
+  // Admin/Approver. Checked against the member's actual membershipClass, not
+  // `membershipCategory` above — that can be a category *name* like "Graduate Quantity
+  // Surveying Technologist", which contains the substring "Technologist" despite the member
+  // still being Graduate class.
+  const isMentor = (profileData?.profile as any)?.systemRole === "Mentor";
+  const actualMembershipClass = (profileData?.profile as any)?.membershipClass || "";
+  const isMentorEligible = actualMembershipClass === "Technologist" || actualMembershipClass === "Professional";
   
   const isRestrictedMember = (profileData?.profile as any)?.systemRole === "Student" || membershipCategory.includes("Student") || membershipCategory.includes("Visiting") || membershipCategory.includes("Honorary") || membershipCategory.includes("Life");
   const doesNotPay = membershipCategory.includes("Visiting") || membershipCategory.includes("Honorary") || membershipCategory.includes("Life");
@@ -60,6 +74,26 @@ export default function Overview() {
   });
   
   const activeMenteesCount = menteesData?.mentees?.length || 0;
+
+  const queryClient = useQueryClient();
+  const [mentorMotivation, setMentorMotivation] = useState("");
+
+  const { data: mentorApplicationData } = useQuery({
+    queryKey: queryKeys.mentorship.myMentorApplication(),
+    queryFn: applicantServices.getMyMentorApplication,
+    enabled: isMentorEligible && !isMentor,
+  });
+  const mentorApplication = mentorApplicationData?.application || null;
+
+  const requestMentorMutation = useMutation({
+    mutationFn: () => applicantServices.requestMentorStatus(mentorMotivation.trim() || undefined),
+    onSuccess: () => {
+      toast.success("Mentor application submitted for review.");
+      setMentorMotivation("");
+      queryClient.invalidateQueries({ queryKey: queryKeys.mentorship.myMentorApplication() });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error || "Failed to submit mentor application."),
+  });
 
   if (isLoading) return <div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-gold" /></div>;
 
@@ -222,6 +256,82 @@ export default function Overview() {
                     <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Manage Mentees</Button>
                   </Link>
                 </div>
+              </CardContent>
+            </Card>
+          ) : isMentorEligible ? (
+            <Card className="md:col-span-2 border-zinc-100 dark:border-zinc-800 flex flex-col h-full shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-navy dark:text-zinc-100">
+                  Mentorship
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col">
+                {mentorApplication?.status === "Pending" ? (
+                  <div className="flex-1 flex flex-col items-center justify-center py-8 text-center bg-amber-50/60 dark:bg-amber-950/10 rounded-md border border-dashed border-amber-200 dark:border-amber-900/40">
+                    <Clock className="h-8 w-8 text-amber-500 mb-2" />
+                    <div className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Application Under Review</div>
+                    <div className="text-[11px] text-muted-foreground mt-1 max-w-xs font-sans">
+                      Your request to become a mentor is awaiting review by the Secretariat. You&rsquo;ll be notified once it&rsquo;s decided.
+                    </div>
+                  </div>
+                ) : mentorApplication?.status === "Rejected" ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-col items-center justify-center py-6 text-center bg-red-50/60 dark:bg-red-950/10 rounded-md border border-dashed border-red-200 dark:border-red-900/40">
+                      <XCircle className="h-8 w-8 text-red-500 mb-2" />
+                      <div className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Application Not Approved</div>
+                      {mentorApplication.reviewNotes && (
+                        <div className="text-[11px] text-muted-foreground mt-1 max-w-xs font-sans">
+                          <span className="font-semibold text-red-700 dark:text-red-400">Reason: </span>
+                          {mentorApplication.reviewNotes}
+                        </div>
+                      )}
+                    </div>
+                    <Textarea
+                      placeholder="Optional — tell us why you'd like to mentor Graduate members (address the feedback above)"
+                      value={mentorMotivation}
+                      onChange={(e) => setMentorMotivation(e.target.value)}
+                      className="text-sm resize-none"
+                      rows={3}
+                    />
+                    <div className="flex justify-center">
+                      <Button
+                        size="sm"
+                        className="w-full max-w-[220px] bg-navy hover:bg-navy/90 text-white font-semibold"
+                        onClick={() => requestMentorMutation.mutate()}
+                        disabled={requestMentorMutation.isPending}
+                      >
+                        {requestMentorMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                        Apply Again
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex-1 flex flex-col items-center justify-center py-6 text-center bg-zinc-50 dark:bg-zinc-900/50 rounded-md border border-dashed border-zinc-200 dark:border-zinc-800">
+                      <UserPlus className="h-8 w-8 text-gold mb-2" />
+                      <div className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Become a Mentor</div>
+                      <div className="text-[11px] text-muted-foreground mt-1 max-w-xs font-sans">Supervise Graduate members through their mentorship period. Submit a request and the Secretariat will review it.</div>
+                    </div>
+                    <Textarea
+                      placeholder="Optional — tell us why you'd like to mentor Graduate members"
+                      value={mentorMotivation}
+                      onChange={(e) => setMentorMotivation(e.target.value)}
+                      className="text-sm resize-none"
+                      rows={3}
+                    />
+                    <div className="flex justify-center">
+                      <Button
+                        size="sm"
+                        className="w-full max-w-[220px] bg-navy hover:bg-navy/90 text-white font-semibold"
+                        onClick={() => requestMentorMutation.mutate()}
+                        disabled={requestMentorMutation.isPending}
+                      >
+                        {requestMentorMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                        Apply to Become a Mentor
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : null

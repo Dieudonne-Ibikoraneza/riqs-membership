@@ -35,6 +35,7 @@ import {
   MessageSquare,
   BarChart3,
   UserCog,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -166,8 +167,9 @@ export function AppShell({
     ...(!isAdminAssistant ? [{ href: "/admin/mentorship", label: "Mentorship", icon: BookOpen }] : []),
     ...(["Admin", "Approver", "Admin_Assistant"].includes(role || "") ? [{ href: "/admin/apc", label: "APC Assessments", icon: GraduationCap }] : []),
     ...(["Admin", "Admin_Assistant"].includes(role || "") ? [{ href: "/admin/profile-requests", label: "Profile Requests", icon: UserCog }] : []),
+    ...(["Admin", "Admin_Assistant"].includes(role || "") ? [{ href: "/admin/mentor-applications", label: "Mentor Applications", icon: UserPlus }] : []),
     ...(role === "Admin" || role === "Admin_Assistant" ? [{ href: "/admin/payments", label: "Finance & Payments", icon: Wallet }] : []),
-    ...(!isAdminAssistant ? [{ href: "/admin/members", label: "Members", icon: Users }] : []),
+    { href: "/admin/members", label: "Members", icon: Users },
     { href: "/admin/email", label: "Email System", icon: Send },
     ...(["Admin", "Approver"].includes(role || "")
       ? [

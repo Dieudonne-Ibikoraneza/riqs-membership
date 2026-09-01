@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { RotateCw, Globe, Mail, Phone, Loader2 } from "lucide-react";
 import { applicantServices } from "@/services/applicant.services";
+import { generateVerificationQrDataUrl } from "@/lib/verificationQr";
 
 type MemberData = {
   name: string;
@@ -16,6 +17,10 @@ type MemberData = {
   expiryDate: string;
   membershipNo: string;
   photoUrl?: string;
+  // Branded QR encoding this member's own /verify/{membershipId} page — generated once a
+  // real membershipId exists (see the useEffect in MembershipCard below). Undefined while
+  // generating or when there's no real ID yet (a pending applicant has nothing to verify).
+  qrDataUrl?: string;
 };
 
 const defaults: MemberData = {
@@ -31,7 +36,6 @@ const defaults: MemberData = {
 };
 
 const mark = "/riqs-logo.png";
-const qr = "/qrcode.png";
 const defaultPhoto = "/cert-photo.png"; // Fallback, doesn't really exist but we will handle loading state
 
 const NAVY = "#0b3363";
@@ -41,6 +45,8 @@ export function MembershipCard({ profileData }: { profileData?: any }) {
   const [flipped, setFlipped] = useState(false);
   const [passportUrl, setPassportUrl] = useState<string | null>(null);
   const [passportLoading, setPassportLoading] = useState(true);
+  const [qrDataUrl, setQrDataUrl] = useState<string | undefined>(undefined);
+  const [qrLoading, setQrLoading] = useState(true);
 
   // Map profileData to MemberData
   const m: MemberData = { ...defaults };
@@ -86,6 +92,26 @@ export function MembershipCard({ profileData }: { profileData?: any }) {
   }
 
   const isFirm = profileData?.application?.entityType === "Firm" || m.membershipGrade.includes("Firm");
+  const realMembershipId: string | undefined = profileData?.profile?.membershipId || undefined;
+  m.qrDataUrl = qrDataUrl;
+
+  // Generate this member's branded verification QR once — a pending applicant has no real
+  // membershipId yet (m.membershipNo falls back to the "RIQS/M/00000" placeholder), so there's
+  // nothing genuine to encode until one is assigned.
+  useEffect(() => {
+    if (!realMembershipId) {
+      setQrDataUrl(undefined);
+      setQrLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setQrLoading(true);
+    generateVerificationQrDataUrl(realMembershipId)
+      .then((url) => { if (!cancelled) setQrDataUrl(url); })
+      .catch((err) => console.error("Failed to generate membership card QR code:", err))
+      .finally(() => { if (!cancelled) setQrLoading(false); });
+    return () => { cancelled = true; };
+  }, [realMembershipId]);
 
   useEffect(() => {
     if (profileData?.profile?.profilePhotoUrl) {
@@ -151,10 +177,10 @@ export function MembershipCard({ profileData }: { profileData?: any }) {
       >
         <div className={`relative w-full h-full transition-transform duration-700`} style={{ transformStyle: "preserve-3d", transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)" }}>
           <div className="absolute w-full h-full backface-hidden" style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}>
-            <CardFront m={m} isLoading={passportLoading} />
+            <CardFront m={m} isLoading={passportLoading} qrLoading={qrLoading} />
           </div>
           <div className="absolute w-full h-full backface-hidden" style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
-            <CardBack m={m} />
+            <CardBack m={m} qrLoading={qrLoading} />
           </div>
         </div>
       </div>
@@ -186,7 +212,7 @@ function CardShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CardFront({ m, isLoading }: { m: MemberData, isLoading: boolean }) {
+function CardFront({ m, isLoading, qrLoading }: { m: MemberData, isLoading: boolean, qrLoading: boolean }) {
   const photoSrc = m.photoUrl;
 
   return (
@@ -263,8 +289,14 @@ function CardFront({ m, isLoading }: { m: MemberData, isLoading: boolean }) {
 
       {/* QR */}
       <div className="absolute flex flex-col items-center" style={{ right: "5.4%", top: "7.5%", width: "13.1%" }}>
-        <div className="bg-white p-[0.55cqw]" style={{ border: `.35cqw solid ${NAVY}`, borderRadius: "1cqw" }}>
-          <img src={qr} alt="QR" className="block w-full" />
+        <div className="bg-white p-[0.55cqw] aspect-square flex items-center justify-center" style={{ border: `.35cqw solid ${NAVY}`, borderRadius: "1cqw" }}>
+          {qrLoading ? (
+            <Loader2 className="w-[40%] h-[40%] animate-spin text-navy/40" />
+          ) : m.qrDataUrl ? (
+            <img src={m.qrDataUrl} alt="Scan to verify membership" className="block w-full" />
+          ) : (
+            <div className="w-full aspect-square" />
+          )}
         </div>
         <div style={{ color: NAVY, fontWeight: 800, fontSize: "1.18cqw", marginTop: ".72cqw", letterSpacing: ".03em" }}>
           SCAN TO VERIFY
@@ -364,7 +396,7 @@ function Row({
   );
 }
 
-function CardBack({ m }: { m: MemberData }) {
+function CardBack({ m, qrLoading }: { m: MemberData, qrLoading: boolean }) {
   return (
     <CardShell>
       {/* Back template geometry */}
@@ -487,8 +519,14 @@ function CardBack({ m }: { m: MemberData }) {
         <div style={{ color: NAVY, fontWeight: 800, fontSize: "1.62cqw", letterSpacing: "0", textAlign: "right", lineHeight: 1.08 }}>
           SCAN<br />TO VERIFY <span style={{ color: "#fff" }}>▶</span>
         </div>
-        <div className="bg-white p-[0.3cqw]">
-          <img src={qr} alt="QR" style={{ width: "9.2cqw", height: "9.2cqw", display: "block" }} />
+        <div className="bg-white p-[0.3cqw] flex items-center justify-center" style={{ width: "9.8cqw", height: "9.8cqw" }}>
+          {qrLoading ? (
+            <Loader2 className="w-[40%] h-[40%] animate-spin text-navy/40" />
+          ) : m.qrDataUrl ? (
+            <img src={m.qrDataUrl} alt="Scan to verify membership" style={{ width: "9.2cqw", height: "9.2cqw", display: "block" }} />
+          ) : (
+            <div style={{ width: "9.2cqw", height: "9.2cqw" }} />
+          )}
         </div>
       </div>
     </CardShell>

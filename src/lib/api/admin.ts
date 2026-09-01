@@ -415,6 +415,29 @@ export async function createHonorableMentionMember(payload: {
   return data;
 }
 
+export interface BulkImportRowResult {
+  rowIndex: number;
+  fullName: string;
+  email: string;
+  status: "created" | "skipped" | "failed";
+  membershipId?: string;
+  reason?: string;
+}
+
+export async function bulkImportMembers(rows: Array<{
+  sourceSheet: "PROF_TECH" | "GRADUATE";
+  fullName: string;
+  email: string;
+  phoneNumber?: string;
+  categoryCode: string;
+  membershipIdOverride?: string;
+  registrationYear: number;
+  membershipExpiresAt: string;
+}>): Promise<{ summary: { total: number; created: number; skipped: number; failed: number }; results: BulkImportRowResult[] }> {
+  const { data } = await axiosClient.post('/admin/members/bulk-import', { rows });
+  return data;
+}
+
 export async function getMemberById(id: string): Promise<any> {
   const { data } = await axiosClient.get(`/admin/members/${id}`);
   return data;

@@ -78,4 +78,40 @@ export const publicServices = {
     const response = await axiosClient.get(`/members/mentors/${membershipId}`);
     return response.data;
   },
+
+  // Public, unauthenticated — the destination of the QR code printed on membership cards and
+  // certificates. Returns 404 (found: false) when the membership ID doesn't exist.
+  verifyMember: async (membershipId: string): Promise<{
+    found: boolean;
+    error?: string;
+    fullName?: string;
+    email?: string;
+    phoneNumber?: string | null;
+    membershipId?: string;
+    membershipClass?: string;
+    categoryName?: string | null;
+    practiceLocation?: string | null;
+    countryOfOrigin?: string | null;
+    status?: "Active" | "Expired";
+    membershipExpiresAt?: string | null;
+    isFellow?: boolean;
+    isHonorary?: boolean;
+    honors?: string[];
+    hasPhoto?: boolean;
+  }> => {
+    try {
+      const response = await axiosClient.get(`/members/verify/${encodeURIComponent(membershipId)}`);
+      return response.data;
+    } catch (err: any) {
+      if (err?.response?.status === 404) return err.response.data;
+      throw err;
+    }
+  },
+
+  // Public URL for the streamed verification photo (see verifyMember's `hasPhoto` flag) —
+  // no auth token needed, unlike the member-portal's private file-download endpoints.
+  getVerifyPhotoUrl: (membershipId: string): string => {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+    return `${base}/members/verify/${encodeURIComponent(membershipId)}/photo`;
+  },
 };

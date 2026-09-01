@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
+import { generateVerificationQrDataUrl } from "@/lib/verificationQr";
 import Link from "next/link";
 
 const logo = "/riqs-logo.png";
@@ -23,6 +24,7 @@ const certBg = "/certificate-bg.png";
 
 const NAVY = "#0b3363";
 const GOLD = "#f1a500";
+const CERT_RED = "#8c1c1c";
 
 // Helper function to calculate a mathematically perfect, smooth scalloped circle path
 function getScallopedPath(points: number, innerR: number, outerR: number, cx = 100, cy = 100) {
@@ -52,7 +54,7 @@ function getScallopedPath(points: number, innerR: number, outerR: number, cx = 1
   return pathData;
 }
 
-function Seal({ year, isLifetime, isVisiting }: { year: number, isLifetime?: boolean, isVisiting?: boolean }) {
+function Seal({ year, isLifetime, isVisiting, membershipCertLabel }: { year: number, isLifetime?: boolean, isVisiting?: boolean, membershipCertLabel?: string }) {
   const points = 28;
   const innerR = 80;
   const outerR = 88;
@@ -111,6 +113,12 @@ function Seal({ year, isLifetime, isVisiting }: { year: number, isLifetime?: boo
           <text x="100" y="108" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">Member</text>
           <text x="100" y="142" textAnchor="middle" fill={GOLD} fontSize="28" fontWeight="800" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" letterSpacing="0.5">✓</text>
         </>
+      ) : membershipCertLabel ? (
+        <>
+          <text x="100" y="90" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">registered {membershipCertLabel}</text>
+          <text x="100" y="104" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">QS for the year</text>
+          <text x="100" y="142" textAnchor="middle" fill={GOLD} fontSize="28" fontWeight="800" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" letterSpacing="0.5">{year}</text>
+        </>
       ) : (
         <>
           <text x="100" y="90" textAnchor="middle" fill={GOLD} fontSize="8.5" fontWeight="600" fontFamily="var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif">registered Professional</text>
@@ -158,6 +166,12 @@ function CertificateContent() {
   const [passportUrl, setPassportUrl] = useState<string | null>(null);
   const [passportLoading, setPassportLoading] = useState(true);
   const [scale, setScale] = useState(1);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(true);
+  // Technologist/Professional/Fellow members progressed through the Graduate stage on their way
+  // here — this lets them switch back to view that (reconstructed) Graduate Membership
+  // Certificate alongside their current Practicing License.
+  const [showArchiveView, setShowArchiveView] = useState(false);
 
   // Fetch applicant profile
   const { data: profileData, isLoading } = useQuery({
@@ -167,6 +181,15 @@ function CertificateContent() {
 
   const membershipClass = (profileData?.profile as any)?.membershipClass || "";
   const isAdminCreatedMember = membershipClass.includes("Visiting") || membershipClass.includes("Honorary") || membershipClass.includes("Life");
+
+  // Graduate and Associate members are not yet licensed to practice independently — they get
+  // the Graduate/Associate Membership Certificate (explicitly marked "not a practicing
+  // certificate") instead of the Practicing License text. Everyone becomes a Graduate first, so
+  // once a member reaches Technologist/Professional/Fellow they can still look back at that
+  // certificate via the archive toggle below.
+  const isNonPractisingClass = membershipClass === "Graduate" || membershipClass === "Associate";
+  const canViewGraduateArchive = ["Technologist", "Professional", "Fellow"].includes(membershipClass);
+  const isMembershipCertMode = isNonPractisingClass || (canViewGraduateArchive && showArchiveView);
 
   const appStatus = profileData?.application?.status || (isAdminCreatedMember ? "Approved" : "None");
   const isApproved = appStatus === "Approved";
@@ -179,6 +202,24 @@ function CertificateContent() {
   // Preserve access for legacy/admin-created members that have no application fee transaction.
   const isFirstYearFeeCleared = isAdminCreatedMember || (firstYearFeeTx ? firstYearFeeTx.status === "Paid" : hasMembershipId);
   const isFullyActive = isApproved && hasMembershipId && isFirstYearFeeCleared;
+  const realMembershipId: string | undefined = (profileData?.profile as any)?.membershipId || undefined;
+
+  // Generate this member's branded verification QR once a real membershipId exists — nothing
+  // genuine to encode before then.
+  useEffect(() => {
+    if (!realMembershipId) {
+      setQrDataUrl(null);
+      setQrLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setQrLoading(true);
+    generateVerificationQrDataUrl(realMembershipId)
+      .then((url) => { if (!cancelled) setQrDataUrl(url); })
+      .catch((err) => console.error("Failed to generate certificate QR code:", err))
+      .finally(() => { if (!cancelled) setQrLoading(false); });
+    return () => { cancelled = true; };
+  }, [realMembershipId]);
 
   // Lazy-load passport photo if approved
   useEffect(() => {
@@ -258,7 +299,7 @@ function CertificateContent() {
     return () => {
       ro.disconnect();
     };
-  }, [isFullyActive, isLoading, passportLoading]);
+  }, [isFullyActive, isLoading, passportLoading, qrLoading]);
 
   const handleDownloadPDF = useCallback(async () => {
     if (!certRef.current || !profileData?.profile?.fullName) return;
@@ -297,23 +338,24 @@ function CertificateContent() {
 
       const imgData = canvas.toDataURL("image/png", 1.0);
       pdf.addImage(imgData, "PNG", 0, 0, pageWidth, pageHeight);
-      pdf.save(`RIQS_Practicing_License_${profileData.profile.fullName.replace(/\s+/g, "_")}_2026.pdf`);
+      const certFileLabel = isMembershipCertMode ? "Membership_Certificate" : "Practicing_License";
+      pdf.save(`RIQS_${certFileLabel}_${profileData.profile.fullName.replace(/\s+/g, "_")}_2026.pdf`);
 
-      toast.success("License PDF downloaded successfully!");
+      toast.success(`${isMembershipCertMode ? "Certificate" : "License"} PDF downloaded successfully!`);
     } catch (err) {
       console.error("PDF generation failed:", err);
       toast.error("Failed to generate PDF. Please try again.");
     } finally {
       setDownloading(false);
     }
-  }, [profileData]);
+  }, [profileData, isMembershipCertMode]);
 
   const handlePrint = useCallback(() => {
     window.print();
   }, []);
 
   // 1. Loading State Screen (waits for both profileData and passport image download if approved)
-  if (isLoading || (isFullyActive && passportLoading)) {
+  if (isLoading || (isFullyActive && (passportLoading || qrLoading))) {
     return (
       <div className="flex flex-col items-center justify-center h-80 gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-gold" />
@@ -422,9 +464,20 @@ function CertificateContent() {
   if (membershipClass.includes("Visiting")) certTitle = "Temporary Practicing License";
   else if (membershipClass.includes("Honorary")) certTitle = "Honorary Membership Certificate";
   else if (membershipClass.includes("Life")) certTitle = "Life Membership Certificate";
-  
+  else if (isMembershipCertMode) certTitle = "Membership Certificate";
+
   const isLifetime = membershipClass.includes("Life") || membershipClass.includes("Honorary");
   const isVisiting = membershipClass.includes("Visiting");
+
+  // RIQS runs two progression routes — Technologist (…QST) and Professional/QS (…PrQS) — and a
+  // member's current category name always carries that route (e.g. "Quantity Surveying
+  // Technologist" keeps the word "Technologist" all the way up). That lets us reconstruct what
+  // a Technologist/Professional/Fellow member's Graduate certificate said, even though the
+  // Application row's own category gets overwritten in place on each upgrade.
+  const isTechRoute = categoryName.toLowerCase().includes("technologist");
+  const archivedGraduateCategoryName = isTechRoute ? "Graduate Quantity Surveying Technologist" : "Graduate Quantity Surveyor";
+  const mentorRoleLabel = isTechRoute ? "Quantity Surveying Technologist" : "Professional Quantity Surveyor";
+  const membershipCertCategoryName = isNonPractisingClass ? categoryName : archivedGraduateCategoryName;
 
   const honorsList: string[] = [];
   if ((profileData?.profile as any)?.isFellow || membershipClass === "Fellow") {
@@ -487,9 +540,32 @@ function CertificateContent() {
       <div className="flex flex-wrap items-end justify-between gap-3 no-print">
         <div>
           <h1 className="text-2xl font-bold text-navy dark:text-zinc-150">{certTitle}</h1>
-          <p className="text-sm text-muted-foreground font-sans">Your official, digitally signed RIQS practicing license certificate.</p>
+          <p className="text-sm text-muted-foreground font-sans">
+            {isMembershipCertMode
+              ? "Your official, digitally signed RIQS membership certificate."
+              : "Your official, digitally signed RIQS practicing license certificate."}
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+          {canViewGraduateArchive && (
+            <div className="flex gap-1 rounded-lg border border-zinc-200 dark:border-zinc-800 p-1 bg-zinc-50 dark:bg-zinc-900">
+              <button
+                type="button"
+                onClick={() => setShowArchiveView(false)}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${!showArchiveView ? "bg-navy text-white shadow-sm" : "text-muted-foreground hover:text-navy dark:hover:text-white"}`}
+              >
+                Practicing License
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowArchiveView(true)}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${showArchiveView ? "bg-navy text-white shadow-sm" : "text-muted-foreground hover:text-navy dark:hover:text-white"}`}
+              >
+                Graduate Certificate
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2">
           <Button variant="outline" onClick={handlePrint} className="border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900">
             <Printer className="mr-2 h-4 w-4" />Print
           </Button>
@@ -505,6 +581,7 @@ function CertificateContent() {
             )}
             {downloading ? "Generating..." : "Download PDF"}
           </Button>
+          </div>
         </div>
       </div>
 
@@ -552,7 +629,12 @@ function CertificateContent() {
 
               {/* Seal top-right (inside frame, away from ribbon decoration) */}
               <div className="absolute right-[5.5%] top-[12%] h-[21%] w-[12.5%] z-10">
-                <Seal year={paymentYear} isLifetime={isLifetime} isVisiting={isVisiting} />
+                <Seal
+                  year={paymentYear}
+                  isLifetime={isLifetime}
+                  isVisiting={isVisiting}
+                  membershipCertLabel={isMembershipCertMode ? (membershipClass === "Associate" ? "Associate" : "Graduate") : undefined}
+                />
               </div>
 
               {/* Main content - perfectly static container coordinates with pb-[7%] to avoid bottom border overlap */}
@@ -566,7 +648,16 @@ function CertificateContent() {
                   {certTitle}
                 </div>
 
-                <div 
+                {isMembershipCertMode && (
+                  <div
+                    className="mt-[0.3%] text-[17px] font-extrabold uppercase"
+                    style={{ color: CERT_RED, letterSpacing: "0.08em" }}
+                  >
+                    This is not a practicing certificate
+                  </div>
+                )}
+
+                <div
                   className="mt-[0.5%] text-[24px] font-medium italic"
                   style={{ fontFamily: "var(--font-cormorant-garamond), 'Cormorant Garamond', serif" }}
                 >
@@ -583,6 +674,11 @@ function CertificateContent() {
                 {isAdminCreatedMember ? (
                   <p className="mt-[0.8%] max-w-[96%] text-[17px] italic leading-[1.45]">
                     Has been duly admitted as a <strong className="not-italic font-bold">{categoryName}</strong> of the Rwanda Institute of Quantity Surveyors with Registration
+                    No: <strong className="not-italic font-bold">{regNo}</strong> pursuant to the Law No: <strong className="not-italic font-bold">023/2025 of 01/09/2025</strong> Governing the profession of Quantity Surveying in Rwanda.
+                  </p>
+                ) : isMembershipCertMode ? (
+                  <p className="mt-[0.8%] max-w-[96%] text-[17px] italic leading-[1.45]">
+                    Has been duly registered as a <strong className="not-italic font-bold">{membershipCertCategoryName}</strong> with Registration
                     No: <strong className="not-italic font-bold">{regNo}</strong> pursuant to the Law No: <strong className="not-italic font-bold">023/2025 of 01/09/2025</strong> Governing the profession of Quantity Surveying in Rwanda.
                   </p>
                 ) : (
@@ -606,17 +702,30 @@ function CertificateContent() {
                   </p>
                 )}
 
+                {isMembershipCertMode && (
+                  <p className="mt-[0.5%] max-w-[92%] text-[16px] font-bold not-italic leading-[1.4]" style={{ color: NAVY }}>
+                    NB: The bearer may only practice under the mentorship of a certified {mentorRoleLabel}.
+                  </p>
+                )}
+
 
                 <div className="mt-auto h-[12.5%] w-[18%]">
                   <RegSeal regNo={regNo} />
                 </div>
+
+                {/* Verification QR, centered directly below the Reg No stamp. The page-level
+                    loading gate above already waits for qrLoading, so by the time this renders
+                    qrDataUrl is either the real QR or genuinely absent (no realMembershipId). */}
+                {qrDataUrl && (
+                  <img src={qrDataUrl} alt="Verification QR Code" className="mt-[0.6%] h-[70px] w-[70px] object-contain" />
+                )}
 
                 {/* Spacing above the signature lines matches professional layouts and prevents overlaps */}
                 <div className="mt-[1%] grid w-full grid-cols-3 items-end gap-6 px-[2%] text-[15px]" style={{ fontFamily: "var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" }}>
                   <div className="flex flex-col items-center justify-end">
                     <div className="w-[85%] border-t border-[#0b3363] pt-2 flex flex-col items-center">
                       <div className="font-bold not-italic">QS. David Louis Mugabe</div>
-                      <div 
+                      <div
                         className="italic text-[15px]"
                         style={{ fontFamily: "var(--font-cormorant-garamond), 'Cormorant Garamond', serif" }}
                       >
@@ -624,15 +733,13 @@ function CertificateContent() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div />
-                  
+
                   <div className="flex flex-col items-center relative">
-                    {/* QR Code placed at the top of the Chairman signature area with high padding bottom for better spacing */}
-                    <img src="/qrcode.png" alt="Verification QR Code" className="h-[90px] w-[90px] object-contain mb-6" />
                     <div className="w-[85%] border-t border-[#0b3363] pt-2 flex flex-col items-center">
                       <div className="font-bold not-italic">QS. Charles Lugira</div>
-                      <div 
+                      <div
                         className="italic text-[15px]"
                         style={{ fontFamily: "var(--font-cormorant-garamond), 'Cormorant Garamond', serif" }}
                       >

@@ -54,6 +54,7 @@ import {
   Medal,
   Star,
   UserPlus,
+  UploadCloud,
 } from "lucide-react";
 import { MonthYearPicker } from "@/components/ui/month-picker";
 import { cn } from "@/lib/utils";
@@ -282,6 +283,17 @@ export default function AdminMembers() {
           </p>
         </div>
         <div className="flex gap-2">
+          {["Admin", "Approver"].includes(role || "") && (
+            <Link href="/admin/members/import">
+              <Button
+                variant="outline"
+                className="border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all font-semibold"
+              >
+                <UploadCloud className="mr-2 h-4 w-4" />
+                Import Members
+              </Button>
+            </Link>
+          )}
           {canManageMemberStatus && (
             <Button
               onClick={() => setAddMemberDialogOpen(true)}

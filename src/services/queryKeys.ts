@@ -2,6 +2,7 @@ export const queryKeys = {
   public: {
     categories: (filters?: Record<string, any>) => ['public', 'categories', filters] as const,
     members: (filters?: Record<string, any>) => ['public', 'members', filters] as const,
+    verifyMember: (membershipId: string) => ['public', 'verify-member', membershipId] as const,
   },
   applicant: {
     profile: () => ['applicant', 'profile'] as const,

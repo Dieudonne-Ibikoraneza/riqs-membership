@@ -140,7 +140,7 @@ export default function Mentees() {
   const mentees = menteesData?.mentees || [];
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-navy dark:text-zinc-150">Mentor Dashboard</h1>
         <p className="text-sm text-muted-foreground font-sans font-normal mt-1">

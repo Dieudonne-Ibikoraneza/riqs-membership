@@ -121,6 +121,14 @@ export function AppShell({
       if (noPay && pathname.startsWith("/dashboard/payments")) {
         router.replace("/dashboard");
       }
+      // A Professional/Technologist who isn't an actual Mentor (systemRole !== "Mentor") has
+      // no mentees and the /mentees API correctly 403s them — without this guard they'd land
+      // on a broken "Failed to load Mentees" error page instead of just never seeing it
+      // (e.g. a stale bookmark, or a bulk-imported member whose nav hasn't re-rendered yet).
+      const actualIsMentorNow = isMentor || (profileData?.profile as any)?.systemRole === "Mentor";
+      if (!actualIsMentorNow && pathname.startsWith("/dashboard/mentees")) {
+        router.replace("/dashboard");
+      }
     }
   }, [role, kind, isTeacher, isStudent, isMentor, router, pathname, profileData]);
 

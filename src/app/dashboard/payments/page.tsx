@@ -339,7 +339,7 @@ export default function Payments() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-navy">Payments &amp; Renewals</h1>
         <p className="text-sm text-muted-foreground font-sans">

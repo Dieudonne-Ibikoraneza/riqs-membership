@@ -134,7 +134,7 @@ export default function ProfileRequestDetail({ params }: PageProps) {
   const isPending = request.status === "Pending";
 
   return (
-    <div className="space-y-4 font-sans max-w-[1400px] mx-auto">
+    <div className="space-y-4 font-sans max-w-7xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-zinc-100 dark:border-zinc-800">
         <div className="flex items-center gap-3">
           <Link href="/admin/profile-requests">
@@ -257,13 +257,20 @@ export default function ProfileRequestDetail({ params }: PageProps) {
               <CardTitle className="text-sm font-bold text-navy">Proposed Changes</CardTitle>
             </CardHeader>
             <CardContent className="p-4">
-              {!request.proposedFullName && !request.proposedResidencyAddress && !request.proposedWorkAddress ? (
+              {!request.proposedFullName && !request.proposedResidencyAddress && !request.proposedWorkAddress && !request.proposedNationalIdOrPassport && !request.proposedDateOfBirth && !request.proposedGender ? (
                 <p className="text-sm text-muted-foreground italic">No profile field changes — only new education/employment records were submitted.</p>
               ) : (
                 <>
                   <DiffRow label="Full Name" current={request.member?.fullName} proposed={request.proposedFullName} />
                   <DiffRow label="Residence Address" current={formatAddress(request.member?.residencyAddress)} proposed={formatAddress(request.proposedResidencyAddress)} />
                   <DiffRow label="Work Address" current={formatAddress(request.member?.workAddress)} proposed={formatAddress(request.proposedWorkAddress)} />
+                  <DiffRow label="National ID / Passport" current={request.member?.nationalIdOrPassport} proposed={request.proposedNationalIdOrPassport} />
+                  <DiffRow
+                    label="Date of Birth"
+                    current={request.member?.dateOfBirth ? new Date(request.member.dateOfBirth).toLocaleDateString() : undefined}
+                    proposed={request.proposedDateOfBirth ? new Date(request.proposedDateOfBirth).toLocaleDateString() : undefined}
+                  />
+                  <DiffRow label="Gender" current={request.member?.gender} proposed={request.proposedGender} />
                 </>
               )}
             </CardContent>

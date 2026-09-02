@@ -257,7 +257,7 @@ export default function ApcDetailPage({ params }: PageProps) {
 
   return (
     <>
-    <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 max-w-6xl mx-auto pb-10">
+    <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 max-w-7xl mx-auto pb-10">
       <div className="lg:col-span-3 space-y-6">
       {/* Back */}
       <Link href="/admin/apc">

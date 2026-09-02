@@ -1023,7 +1023,7 @@ export default function Application() {
 
   if (profileLoading) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6 animate-pulse">
+      <div className="max-w-7xl mx-auto space-y-6 animate-pulse">
         <div className="h-10 w-72 bg-zinc-200 dark:bg-zinc-800 rounded-md" />
         <div className="h-4 w-96 bg-zinc-200 dark:bg-zinc-800 rounded-md" />
         <div className="rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-8 space-y-6 h-48" />
@@ -1469,7 +1469,7 @@ function WizardContent({
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>

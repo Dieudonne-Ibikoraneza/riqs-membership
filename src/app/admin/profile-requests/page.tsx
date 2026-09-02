@@ -60,7 +60,7 @@ export default function ProfileRequestsPage() {
   const requests: any[] = data?.requests || [];
 
   return (
-    <div className="space-y-6 max-w-[1200px] mx-auto pb-10 animate-fade-in">
+    <div className="space-y-6 max-w-7xl mx-auto pb-10 animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold text-navy dark:text-white tracking-tight flex items-center gap-3">
           <UserCog className="h-8 w-8 text-gold" />

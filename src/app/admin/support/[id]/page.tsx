@@ -181,7 +181,7 @@ export default function AdminTicketDetailsPage() {
   if (!ticket) return null;
 
   return (
-    <div className="max-w-[1200px] mx-auto pb-8 animate-in fade-in duration-500 flex flex-col h-[calc(100vh-120px)]">
+    <div className="max-w-7xl mx-auto pb-8 animate-in fade-in duration-500 flex flex-col h-[calc(100vh-120px)]">
       <div className="flex items-center justify-between gap-4 mb-4 shrink-0">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">

@@ -187,7 +187,7 @@ export default function ApcPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-10 animate-fade-in">
+    <div className="space-y-6 max-w-7xl mx-auto pb-10 animate-fade-in">
       {/* Page Header */}
       <div>
         <h1 className="text-3xl font-bold text-navy dark:text-white tracking-tight flex items-center gap-3">

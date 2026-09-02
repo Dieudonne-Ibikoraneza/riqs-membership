@@ -70,7 +70,7 @@ export default function Audit() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-8">
+    <div className="space-y-6 max-w-7xl mx-auto pb-8">
       <div>
         <h1 className="text-2xl font-bold text-navy">Audit Log</h1>
         <p className="text-sm text-muted-foreground font-sans">

@@ -318,7 +318,7 @@ export default function SettingsPage() {
 
 
   return (
-    <div className="mx-auto min-w-0 w-full max-w-6xl space-y-6 animate-fade-in">
+    <div className="min-w-0 w-full max-w-7xl mx-auto space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-navy flex items-center gap-2">

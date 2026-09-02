@@ -123,6 +123,12 @@ export default function Profile() {
   const [residentAddressText, setResidentAddressText] = useState("");
   const [workAddress, setWorkAddress] = useState<Address>(emptyAddress);
   const [workAddressText, setWorkAddressText] = useState("");
+  // Identity fields a member created outside the normal application flow (e.g. bulk-imported
+  // from the legacy roster) never had a chance to submit — only proposable here while still
+  // empty on their record; once set, they show as a LockedField like email/phone always have.
+  const [nationalId, setNationalId] = useState("");
+  const [dob, setDob] = useState("");
+  const [gender, setGender] = useState("");
   const [memberNotes, setMemberNotes] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -138,7 +144,7 @@ export default function Profile() {
   const [empDraft, setEmpDraft] = useState<DraftEmployment>(emptyEmployment);
 
   // Baselines to diff against for "is this dirty" detection.
-  const [baseline, setBaseline] = useState<{ name: string; residentAddress: Address; residentAddressText: string; workAddress: Address; workAddressText: string } | null>(null);
+  const [baseline, setBaseline] = useState<{ name: string; residentAddress: Address; residentAddressText: string; workAddress: Address; workAddressText: string; nationalId: string; dob: string; gender: string } | null>(null);
 
   useEffect(() => {
     if (!data?.profile) return;
@@ -147,13 +153,20 @@ export default function Profile() {
     const resText = typeof m.residencyAddress === "string" ? m.residencyAddress : "";
     const workAddr = isAddressObject(m.workAddress) ? (m.workAddress as Address) : emptyAddress;
     const workText = typeof m.workAddress === "string" ? m.workAddress : "";
+    const dobValue = m.dateOfBirth ? new Date(m.dateOfBirth).toISOString().slice(0, 10) : "";
 
     setName(m.fullName || "");
     setResidentAddress(resAddr);
     setResidentAddressText(resText);
     setWorkAddress(workAddr);
     setWorkAddressText(workText);
-    setBaseline({ name: m.fullName || "", residentAddress: resAddr, residentAddressText: resText, workAddress: workAddr, workAddressText: workText });
+    setNationalId(m.nationalIdOrPassport || "");
+    setDob(dobValue);
+    setGender(m.gender || "");
+    setBaseline({
+      name: m.fullName || "", residentAddress: resAddr, residentAddressText: resText, workAddress: workAddr, workAddressText: workText,
+      nationalId: m.nationalIdOrPassport || "", dob: dobValue, gender: m.gender || "",
+    });
   }, [data]);
 
   // While a request is pending review, keep showing exactly what was
@@ -171,6 +184,9 @@ export default function Profile() {
       if (isAddressObject(restoreSource.proposedWorkAddress)) setWorkAddress(restoreSource.proposedWorkAddress as Address);
       else setWorkAddressText(restoreSource.proposedWorkAddress as string);
     }
+    if (restoreSource.proposedNationalIdOrPassport) setNationalId(restoreSource.proposedNationalIdOrPassport);
+    if (restoreSource.proposedDateOfBirth) setDob(new Date(restoreSource.proposedDateOfBirth).toISOString().slice(0, 10));
+    if (restoreSource.proposedGender) setGender(restoreSource.proposedGender);
     if (restoreSource.proposedProfilePhotoUrl) {
       const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
       const token = typeof window !== "undefined" ? localStorage.getItem("riqs.auth.token") : "";
@@ -230,13 +246,16 @@ export default function Profile() {
       residentAddressText !== baseline.residentAddressText ||
       JSON.stringify(workAddress) !== JSON.stringify(baseline.workAddress) ||
       workAddressText !== baseline.workAddressText ||
+      nationalId !== baseline.nationalId ||
+      dob !== baseline.dob ||
+      gender !== baseline.gender ||
       !!photoFile ||
       newEducation.length > 0 ||
       newEmployment.length > 0 ||
       isEducationDraftFilled(eduDraft) ||
       isEmploymentDraftFilled(empDraft)
     );
-  }, [name, residentAddress, residentAddressText, workAddress, workAddressText, photoFile, newEducation, newEmployment, eduDraft, empDraft, baseline]);
+  }, [name, residentAddress, residentAddressText, workAddress, workAddressText, nationalId, dob, gender, photoFile, newEducation, newEmployment, eduDraft, empDraft, baseline]);
 
   const submitMutation = useMutation({
     mutationFn: async () => {
@@ -258,6 +277,9 @@ export default function Profile() {
         fullName: name !== baseline?.name ? name : undefined,
         residencyAddress: JSON.stringify(finalResidentAddress) !== JSON.stringify(baselineResident) ? finalResidentAddress : undefined,
         workAddress: JSON.stringify(finalWorkAddress) !== JSON.stringify(baselineWork) ? finalWorkAddress : undefined,
+        nationalIdOrPassport: nationalId !== baseline?.nationalId ? nationalId : undefined,
+        dateOfBirth: dob !== baseline?.dob ? dob : undefined,
+        gender: gender !== baseline?.gender ? gender : undefined,
         memberNotes: memberNotes || undefined,
         education: allEducation.length > 0 ? allEducation.map(e => ({
           institution: e.institution, qualificationType: e.qualificationType, fieldOfStudy: e.fieldOfStudy,
@@ -335,7 +357,7 @@ export default function Profile() {
   const locked = !!pendingRequest;
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 max-w-7xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-navy">My Profile</h1>
         <p className="text-sm text-muted-foreground font-sans">Update your details below. Changes are reviewed by RIQS staff before they take effect.</p>
@@ -383,9 +405,36 @@ export default function Profile() {
               </div>
               <LockedField label="Primary Email Address" value={member.email || ""} />
               <LockedField label="Mobile Phone" value={member.phoneNumber || ""} />
-              <LockedField label="National ID / Passport" value={member.nationalIdOrPassport || ""} />
-              <LockedField label="Date of Birth" value={member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString() : ""} />
-              <LockedField label="Gender" value={member.gender || ""} />
+              {member.nationalIdOrPassport ? (
+                <LockedField label="National ID / Passport" value={member.nationalIdOrPassport} />
+              ) : (
+                <div className="space-y-1">
+                  <Label htmlFor="prof-national-id">National ID / Passport</Label>
+                  <Input id="prof-national-id" placeholder="Not on file — add yours" value={nationalId} disabled={locked} onChange={e => setNationalId(e.target.value)} />
+                </div>
+              )}
+              {member.dateOfBirth ? (
+                <LockedField label="Date of Birth" value={new Date(member.dateOfBirth).toLocaleDateString()} />
+              ) : (
+                <div className="space-y-1">
+                  <Label htmlFor="prof-dob">Date of Birth</Label>
+                  <Input id="prof-dob" type="date" value={dob} disabled={locked} onChange={e => setDob(e.target.value)} />
+                </div>
+              )}
+              {member.gender ? (
+                <LockedField label="Gender" value={member.gender} />
+              ) : (
+                <div className="space-y-1">
+                  <Label htmlFor="prof-gender">Gender</Label>
+                  <Select value={gender} disabled={locked} onValueChange={setGender}>
+                    <SelectTrigger id="prof-gender"><SelectValue placeholder="Not on file — select yours" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <LockedField label="Practice Category" value={data.application?.category_name || member.membershipClass || ""} />
             </div>
 

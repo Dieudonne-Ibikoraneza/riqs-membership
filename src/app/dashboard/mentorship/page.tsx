@@ -205,9 +205,9 @@ export default function Mentorship() {
   const isPageLoading = isProfileLoading || (!!profileData?.application?.id && isLogbookLoading);
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <input 
-        type="file" 
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <input
+        type="file"
         onChange={(e) => handleReportFileChange(e, "1")} 
         accept=".pdf,.png,.jpg,.jpeg" 
         id="report-upload-input-1" 

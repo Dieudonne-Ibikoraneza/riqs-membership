@@ -232,7 +232,7 @@ export default function Documents() {
   const isRestrictedMember = isStudent || membershipClass.includes("Student") || membershipClass.includes("Visiting");
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-navy">Documents</h1>
         <p className="text-sm text-muted-foreground font-sans">

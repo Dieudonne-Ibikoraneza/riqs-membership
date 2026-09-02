@@ -145,7 +145,7 @@ export default function ImportMembersPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-8">
+    <div className="space-y-6 max-w-7xl mx-auto pb-8">
       <div className="flex items-center gap-3">
         <Link href="/admin/members">
           <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>

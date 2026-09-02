@@ -168,7 +168,7 @@ export default function TicketDetailsPage() {
   const isResolved = ticket.status === 'Resolved' || ticket.status === 'Closed';
 
   return (
-    <div className="space-y-6 max-w-[1000px] mx-auto pb-8 animate-in fade-in duration-500 flex flex-col h-[calc(100vh-120px)]">
+    <div className="space-y-6 max-w-7xl mx-auto pb-8 animate-in fade-in duration-500 flex flex-col h-[calc(100vh-120px)]">
       <div className="flex items-center gap-4 shrink-0">
         <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
           <ArrowLeft className="h-5 w-5" />

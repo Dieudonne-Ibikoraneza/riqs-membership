@@ -95,6 +95,9 @@ export const applicantServices = {
     fullName?: string;
     residencyAddress?: string | Record<string, string>;
     workAddress?: string | Record<string, string>;
+    nationalIdOrPassport?: string;
+    dateOfBirth?: string;
+    gender?: string;
     memberNotes?: string;
     education?: Array<{ institution: string; qualificationType: string; fieldOfStudy: string; startDate: string; endDate: string }>;
     employment?: Array<{ companyName: string; jobTitle: string; startDate: string; endDate?: string; isCurrent?: boolean }>;
@@ -105,6 +108,9 @@ export const applicantServices = {
     if (payload.fullName) formData.append('fullName', payload.fullName);
     if (payload.residencyAddress) formData.append('residencyAddress', typeof payload.residencyAddress === 'string' ? payload.residencyAddress : JSON.stringify(payload.residencyAddress));
     if (payload.workAddress) formData.append('workAddress', typeof payload.workAddress === 'string' ? payload.workAddress : JSON.stringify(payload.workAddress));
+    if (payload.nationalIdOrPassport) formData.append('nationalIdOrPassport', payload.nationalIdOrPassport);
+    if (payload.dateOfBirth) formData.append('dateOfBirth', payload.dateOfBirth);
+    if (payload.gender) formData.append('gender', payload.gender);
     if (payload.memberNotes) formData.append('memberNotes', payload.memberNotes);
     if (payload.education) formData.append('education', JSON.stringify(payload.education));
     if (payload.employment) formData.append('employment', JSON.stringify(payload.employment));

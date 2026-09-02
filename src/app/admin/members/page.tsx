@@ -270,7 +270,7 @@ export default function AdminMembers() {
     (locFilter !== "all" ? 1 : 0);
 
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto pb-8">
+    <div className="space-y-6 max-w-7xl mx-auto pb-8">
       {/* Header section */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>

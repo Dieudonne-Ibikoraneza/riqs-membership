@@ -98,7 +98,7 @@ export default function Overview() {
   if (isLoading) return <div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-gold" /></div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto">
       {/* Brand Welcome Banner */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
@@ -200,7 +200,7 @@ export default function Overview() {
       </div>
 
       {/* Grid: CPD and Actions */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         {!isFirm ? (
           (isGraduate || isAssociate) ? (
             <Card className="md:col-span-2 border-zinc-100 dark:border-zinc-800 flex flex-col h-full shadow-sm">

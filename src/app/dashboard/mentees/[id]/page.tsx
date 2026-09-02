@@ -109,7 +109,7 @@ export default function MenteeDetail({ params }: PageProps) {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 font-sans max-w-[1400px] mx-auto animate-pulse">
+      <div className="space-y-4 font-sans max-w-7xl mx-auto animate-pulse">
         <div className="flex items-center justify-between gap-4 pb-3 border-b border-zinc-100 dark:border-zinc-800">
           <div className="flex items-center gap-3">
             <div className="h-8 w-20 rounded bg-zinc-100 dark:bg-zinc-800" />
@@ -197,7 +197,7 @@ export default function MenteeDetail({ params }: PageProps) {
   const safeActiveDoc = Math.min(activeDoc, Math.max(docs.length - 1, 0));
 
   return (
-    <div className="space-y-4 font-sans max-w-[1400px] mx-auto">
+    <div className="space-y-4 font-sans max-w-7xl mx-auto">
       {/* Back to mentees (mobile only) */}
       <div className="sm:hidden mb-2">
         <Link href="/dashboard/mentees">

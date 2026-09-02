@@ -101,21 +101,22 @@ export default function Payments() {
   const renewalDesc = isFirm ? "Company Annual Subscription" : "Annual Renewal";
 
   const transactions = paymentsData?.transactions || [];
-  // A fee obligation can have more than one transaction row — a rejected manual receipt
-  // upload alongside a mobile-money retry that later succeeded, for instance. Once any
-  // attempt for that *same obligation* is Paid, it's settled, so a Failed/Unpaid row for
-  // it is stale history, not the current state — otherwise the member keeps seeing
-  // "payment failed" for a fee they've already paid.
+  // Each retry of the *same* fee obligation reuses the same row — submitPayment (manual
+  // receipt) and the gateway-payment path both look up the existing Unpaid/Failed row for
+  // this memberId+applicationId+txType and update it in place rather than creating a new
+  // one. So there is never a stale Failed/Unpaid row sitting next to a Paid row for the
+  // same obligation — every distinct row here is a genuinely distinct, currently-live fee.
   //
-  // Key by txType + amount + currency, not just txType: a member can legitimately owe
-  // *two different* fees that happen to share a txType — e.g. the original Graduate
-  // First_Year_Fee (paid) and a brand new, differently-priced First_Year_Fee invoiced
-  // for an Associate-class upgrade (still unpaid). Keying on txType alone would wrongly
-  // treat the second as already covered by the first and hide a genuinely outstanding fee.
-  const obligationKey = (tx: any) => `${tx.txType}:${tx.amount}:${tx.currency}`;
-  const paidObligations = new Set(transactions.filter((tx: any) => tx.status === "Paid").map(obligationKey));
-  const unpaidTx = transactions.find((tx: any) => tx.status === "Failed" && !paidObligations.has(obligationKey(tx)))
-    || transactions.find((tx: any) => tx.status === "Unpaid" && !paidObligations.has(obligationKey(tx)));
+  // Previously this matched Paid vs. Unpaid rows by txType+amount+currency to guard against
+  // that (nonexistent) stale-duplicate case, but that heuristic backfires badly: two
+  // genuinely different fees for the same member routinely share both a txType and an
+  // amount (e.g. an Associate-class upgrade's First_Year_Fee can be the same RWF 50,000 as
+  // an earlier, already-paid First_Year_Fee from the original registration). That coincidence
+  // made the new unpaid fee look "already covered" and the page wrongly reported "All Fees Up
+  // to Date" while the ledger below still listed it as Unpaid. transactions is already
+  // newest-first (see getPaymentHistory), so just take the most recent open row.
+  const unpaidTx = transactions.find((tx: any) => tx.status === "Failed")
+    || transactions.find((tx: any) => tx.status === "Unpaid");
 
   const totalPaid = transactions
     .filter((tx: any) => tx.status === "Paid")

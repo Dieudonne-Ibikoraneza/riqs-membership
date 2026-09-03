@@ -324,9 +324,26 @@ export default function AdminMemberProfilePage() {
                 <Button variant="outline" className="gap-2 hidden sm:flex" onClick={handleOpenHonors}>
                   <Medal className="h-4 w-4" /> Manage Honors
                 </Button>
-                <Button className="bg-navy hover:bg-blue-800 text-white gap-2" onClick={() => setDialog("change-class")}>
-                  <TrendingUp className="h-4 w-4" /> Change Membership
-                </Button>
+                {member.ongoingChange ? (
+                  <Button
+                    variant="outline"
+                    className="gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-900/50 dark:text-amber-400 dark:hover:bg-amber-950/20"
+                    title={member.ongoingChange.label}
+                    onClick={() => router.push(
+                      member.ongoingChange.linkType === "apc"
+                        ? `/admin/apc/${member.ongoingChange.linkId}`
+                        : member.ongoingChange.linkType === "mentorship"
+                          ? `/admin/mentorship/${member.ongoingChange.linkId}`
+                          : `/admin/applications/${member.ongoingChange.linkId}`
+                    )}
+                  >
+                    <Clock className="h-4 w-4" /> Upgrade In Progress
+                  </Button>
+                ) : (
+                  <Button className="bg-navy hover:bg-blue-800 text-white gap-2" onClick={() => setDialog("change-class")}>
+                    <TrendingUp className="h-4 w-4" /> Change Membership
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -336,6 +353,19 @@ export default function AdminMemberProfilePage() {
       {/* MAIN CONTENT */}
       <div className="max-w-7xl mx-auto pb-12 px-2 sm:px-4 lg:px-8 relative pt-6">
 
+      {member.ongoingChange && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/50 px-4 py-3 text-sm text-amber-800 dark:text-amber-300"
+        >
+          <Clock className="h-4 w-4 mt-0.5 shrink-0" />
+          <div>
+            <span className="font-semibold">Membership change in progress:</span> {member.ongoingChange.label}.
+            "Change Membership" is locked until this is resolved.
+          </div>
+        </motion.div>
+      )}
 
       {/* FLOATING EMAIL ICON */}
       <motion.div

@@ -46,7 +46,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { MonthYearPicker } from "@/components/ui/month-picker";
-import { scheduleApc, gradeApc, getApplicationDetail } from "@/lib/api/admin";
+import { scheduleApc, gradeApc, approveApcGrade, getApplicationDetail } from "@/lib/api/admin";
 import { axiosClient } from "@/lib/axiosClient";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -63,6 +63,7 @@ function StatusIcon({ status }: { status: string }) {
     Failed: XCircle,
     No_Show: AlertCircle,
     Attended: ClipboardCheck,
+    Pending_Approval: Clock,
   };
   const Icon = map[status] || ClipboardCheck;
   const colors: Record<string, string> = {
@@ -72,6 +73,7 @@ function StatusIcon({ status }: { status: string }) {
     Failed: "text-red-500",
     No_Show: "text-zinc-400",
     Attended: "text-purple-500",
+    Pending_Approval: "text-amber-500",
   };
   return <Icon className={cn("h-8 w-8", colors[status] || "text-zinc-400")} />;
 }
@@ -102,6 +104,9 @@ export default function ApcDetailPage({ params }: PageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [scheduleForm, setScheduleForm] = useState({ periodStart: "", periodEnd: "" });
   const [gradeForm, setGradeForm] = useState({ status: "Passed", score: "", notes: "" });
+  const [approveDialog, setApproveDialog] = useState<null | "Approve" | "Reject">(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const canApprove = ["Admin", "Approver"].includes(role || "");
 
   const loadApc = async () => {
     try {
@@ -208,11 +213,35 @@ export default function ApcDetailPage({ params }: PageProps) {
         scorePercentage: gradeForm.score ? Number(gradeForm.score) : undefined,
         assessmentNotes: gradeForm.notes,
       });
-      toast.success("APC results recorded. If passed, the upgrade is pending the candidate's first-year fee payment.");
+      toast.success("Grade submitted — awaiting Admin/Approver confirmation before it takes effect.");
       setGradeDialog(false);
       await loadApc();
     } catch (err: any) {
       toast.error(err?.response?.data?.error || "Failed to record APC results.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleApproveDecision = async () => {
+    if (!approveDialog) return;
+    setIsSubmitting(true);
+    try {
+      await approveApcGrade({
+        assessmentId: apc.id,
+        decision: approveDialog,
+        rejectionReason: approveDialog === "Reject" ? rejectReason : undefined,
+      });
+      toast.success(
+        approveDialog === "Approve"
+          ? "Grade confirmed. If passed, the candidate has been invoiced and notified."
+          : "Grade rejected — sent back for re-grading."
+      );
+      setApproveDialog(null);
+      setRejectReason("");
+      await loadApc();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to record the decision.");
     } finally {
       setIsSubmitting(false);
     }
@@ -244,6 +273,7 @@ export default function ApcDetailPage({ params }: PageProps) {
     Failed: "Candidate did not pass. Review feedback below and consider scheduling a re-sit.",
     No_Show: "Candidate did not attend their scheduled board.",
     Attended: "Candidate attended — awaiting final result grading.",
+    Pending_Approval: `A grade of "${apc.proposedStatus?.replace("_", " ")}" has been staged by ${apc.gradedByEmail || "a grader"} and is awaiting Admin/Approver confirmation. Nothing is final — no fee, class change, or email — until it's confirmed.`,
   };
 
   const statusColors: Record<string, string> = {
@@ -253,6 +283,7 @@ export default function ApcDetailPage({ params }: PageProps) {
     Failed: "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-900/50",
     No_Show: "bg-zinc-100 border-zinc-200 dark:bg-zinc-800/30 dark:border-zinc-700",
     Attended: "bg-purple-50 border-purple-200 dark:bg-purple-950/20 dark:border-purple-900/50",
+    Pending_Approval: "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50",
   };
 
   return (
@@ -288,6 +319,16 @@ export default function ApcDetailPage({ params }: PageProps) {
               <Button size="sm" className="bg-navy text-white hover:bg-navy/90 border-none font-bold h-8 text-xs" onClick={() => setGradeDialog(true)}>
                 Grade Result
               </Button>
+            )}
+            {apc.status === "Pending_Approval" && canApprove && (
+              <>
+                <Button size="sm" className="bg-emerald-600 text-white hover:bg-emerald-700 border-none font-bold h-8 text-xs" onClick={() => setApproveDialog("Approve")}>
+                  <Check className="mr-1.5 h-3.5 w-3.5" /> Confirm Grade
+                </Button>
+                <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 font-bold h-8 text-xs" onClick={() => setApproveDialog("Reject")}>
+                  <XCircle className="mr-1.5 h-3.5 w-3.5" /> Reject
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -367,6 +408,44 @@ export default function ApcDetailPage({ params }: PageProps) {
               />
             </CardContent>
           </Card>
+        </motion.div>
+      )}
+
+      {/* Staged grade awaiting confirmation */}
+      {apc.status === "Pending_Approval" && (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}>
+          <Card className="border-amber-200 dark:border-amber-900/50">
+            <CardHeader className="pb-3 border-b border-amber-100 dark:border-amber-900/40">
+              <CardTitle className="text-sm font-bold text-navy flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-500" /> Staged Grade — Awaiting Confirmation
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-0">
+              <DetailRow label="Proposed Outcome" value={apc.proposedStatus?.replace("_", " ")} />
+              <DetailRow label="Proposed Score" value={apc.proposedScorePercentage ? `${apc.proposedScorePercentage}%` : "N/A"} />
+              <DetailRow label="Graded By" value={apc.gradedByEmail} />
+              <DetailRow label="Graded At" value={apc.gradedAt ? new Date(apc.gradedAt).toLocaleString() : undefined} />
+              {apc.proposedAssessmentNotes && (
+                <div className="pt-3 mt-2 border-t border-zinc-100 dark:border-zinc-800">
+                  <p className="text-xs text-muted-foreground mb-1.5">Panel Feedback</p>
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">{apc.proposedAssessmentNotes}</p>
+                </div>
+              )}
+              {!canApprove && (
+                <p className="text-xs text-muted-foreground pt-3 mt-2 border-t border-zinc-100 dark:border-zinc-800">
+                  An Admin or Approver needs to confirm this grade — no upgrade fee, class change, or results email happens until then.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {apc.gradingRejectionReason && apc.status !== "Pending_Approval" && (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}>
+          <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 p-3 text-xs text-red-700 dark:text-red-300">
+            <span className="font-semibold">Previous grade was rejected:</span> {apc.gradingRejectionReason}
+          </div>
         </motion.div>
       )}
 
@@ -520,10 +599,10 @@ export default function ApcDetailPage({ params }: PageProps) {
       {/* Grade Result Dialog */}
       <Dialog open={gradeDialog} onOpenChange={setGradeDialog}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Grade APC Assessment — {apc.member?.fullName}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Grade APC Assessment (Step 1 of 2) — {apc.member?.fullName}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-1">
             <div className="space-y-2">
-              <Label>Final Outcome</Label>
+              <Label>Proposed Outcome</Label>
               <select
                 className="flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy dark:border-zinc-800 dark:bg-zinc-950"
                 value={gradeForm.status}
@@ -550,16 +629,58 @@ export default function ApcDetailPage({ params }: PageProps) {
               <Label>Panel Feedback / Notes</Label>
               <Textarea rows={3} placeholder="Enter examiner feedback or rationale..." value={gradeForm.notes} onChange={(e) => setGradeForm({ ...gradeForm, notes: e.target.value })} />
             </div>
-            {gradeForm.status === "Passed" && (
-              <p className="text-xs text-emerald-600 font-medium p-3 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg border border-emerald-200 dark:border-emerald-900/50">
-                ✓ Saving as "Passed" will approve this candidate's upgrade. Their new membership ID is issued once they pay the new class's first-year fee.
-              </p>
-            )}
+            <p className="text-xs text-amber-700 font-medium p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-900/50">
+              This does not finalize anything yet — it stages the grade as "Pending Approval". An Admin or Approver still needs to confirm it
+              {gradeForm.status === "Passed"
+                ? " before the candidate's upgrade is approved, their first-year fee is invoiced, and they're emailed the results."
+                : gradeForm.status === "Failed" ? " before the candidate is emailed the results." : " before it takes effect."}
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setGradeDialog(false)} disabled={isSubmitting}>Cancel</Button>
             <Button onClick={handleGrade} disabled={isSubmitting} className="bg-navy hover:bg-navy/90 text-white">
-              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />} Save Results
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />} {role === "Admin_Assistant" ? "Forward for Approval" : "Submit for Approval"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm/Reject Staged Grade Dialog */}
+      <Dialog open={approveDialog !== null} onOpenChange={(o) => { if (!o) { setApproveDialog(null); setRejectReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {approveDialog === "Approve" ? "Confirm" : "Reject"} Staged Grade — {apc.member?.fullName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 p-3 text-sm">
+              <p><span className="text-muted-foreground">Proposed outcome:</span> <strong>{apc.proposedStatus?.replace("_", " ")}</strong></p>
+              {apc.proposedScorePercentage && <p><span className="text-muted-foreground">Score:</span> <strong>{apc.proposedScorePercentage}%</strong></p>}
+              <p><span className="text-muted-foreground">Graded by:</span> {apc.gradedByEmail}</p>
+            </div>
+            {approveDialog === "Approve" ? (
+              <p className="text-xs text-emerald-600 font-medium p-3 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg border border-emerald-200 dark:border-emerald-900/50">
+                {apc.proposedStatus === "Passed"
+                  ? "✓ Confirming will approve this candidate's upgrade, invoice their first-year fee, and email them the results now."
+                  : "✓ Confirming will finalize this result" + (["Passed", "Failed"].includes(apc.proposedStatus) ? " and email the candidate now." : ".")}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <Label>Reason (optional, sent to the record — not the candidate)</Label>
+                <Textarea rows={3} placeholder="Why is this grade being sent back?" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setApproveDialog(null); setRejectReason(""); }} disabled={isSubmitting}>Cancel</Button>
+            <Button
+              onClick={handleApproveDecision}
+              disabled={isSubmitting}
+              className={approveDialog === "Approve" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-red-600 hover:bg-red-700 text-white"}
+            >
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              {approveDialog === "Approve" ? "Confirm Grade" : "Reject Grade"}
             </Button>
           </DialogFooter>
         </DialogContent>

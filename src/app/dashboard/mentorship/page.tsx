@@ -809,6 +809,10 @@ export default function Mentorship() {
                       {apc.status === "Failed" && <span className="text-xs font-semibold px-2 py-0.5 bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded-full">Failed</span>}
                       {apc.status === "Scheduled" && <span className="text-xs font-semibold px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">Scheduled</span>}
                       {apc.status === "No_Show" && <span className="text-xs font-semibold px-2 py-0.5 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 rounded-full">No Show</span>}
+                      {/* Real outcome is intentionally withheld while a grade is staged but not
+                          yet confirmed — apc.status stays Pending_Approval and apc.scorePercentage
+                          is untouched until an Admin/Approver confirms it (see approveAPCGrade). */}
+                      {apc.status === "Pending_Approval" && <span className="text-xs font-semibold px-2 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 rounded-full">Under Review</span>}
                     </div>
                     <div className="text-xs text-muted-foreground font-sans flex items-center gap-1.5">
                       <Calendar className="h-3.5 w-3.5" />
@@ -825,7 +829,7 @@ export default function Mentorship() {
 
                   <div className="flex items-center gap-6">
 
-                    {apc.status !== "Scheduled" && apc.status !== "Requested" && (
+                    {apc.status !== "Scheduled" && apc.status !== "Requested" && apc.status !== "Pending_Approval" && (
                       <div className="text-right">
                         <div className="text-lg font-bold text-navy dark:text-gold">{apc.scorePercentage ? `${apc.scorePercentage}%` : 'N/A'}</div>
                         <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Final Score</div>

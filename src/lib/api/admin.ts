@@ -252,6 +252,15 @@ export async function gradeApc(payload: {
   return data;
 }
 
+export async function approveApcGrade(payload: {
+  assessmentId: string;
+  decision: "Approve" | "Reject";
+  rejectionReason?: string;
+}): Promise<any> {
+  const { data } = await axiosClient.post(`/progression/apc/grade/approve`, payload);
+  return data;
+}
+
 export async function getStaffRegistry() {
   const { data } = await axiosClient.get("/admin/staff");
   return data;

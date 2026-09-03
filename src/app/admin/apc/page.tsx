@@ -36,12 +36,13 @@ import { getAllApc, scheduleApc, gradeApc, bulkScheduleApc } from "@/lib/api/adm
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
-type TabId = "all" | "Requested" | "Scheduled" | "completed";
+type TabId = "all" | "Requested" | "Scheduled" | "Pending_Approval" | "completed";
 
 const TABS: { id: TabId; label: string; icon: any; statusFilter?: string }[] = [
   { id: "all", label: "All Assessments", icon: GraduationCap },
   { id: "Requested", label: "Awaiting Scheduling", icon: Clock, statusFilter: "Requested" },
   { id: "Scheduled", label: "Scheduled Boards", icon: Calendar, statusFilter: "Scheduled" },
+  { id: "Pending_Approval", label: "Awaiting Approval", icon: Clock, statusFilter: "Pending_Approval" },
   { id: "completed", label: "Completed", icon: ClipboardCheck, statusFilter: "Passed,Failed,No_Show,Attended" },
 ];
 
@@ -61,6 +62,7 @@ function StatusBadge({ status }: { status: string }) {
     Failed: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400",
     No_Show: "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400",
     Attended: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400",
+    Pending_Approval: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400",
   };
   const icons: Record<string, any> = {
     Requested: Clock,
@@ -69,6 +71,7 @@ function StatusBadge({ status }: { status: string }) {
     Failed: XCircle,
     No_Show: AlertCircle,
     Attended: ClipboardCheck,
+    Pending_Approval: Clock,
   };
   const Icon = icons[status] || ClipboardCheck;
   return (
@@ -175,7 +178,7 @@ export default function ApcPage() {
         scorePercentage: gradeForm.score ? Number(gradeForm.score) : undefined,
         assessmentNotes: gradeForm.notes,
       });
-      toast.success("APC results recorded successfully.");
+      toast.success("Grade submitted — awaiting Admin/Approver confirmation before it takes effect.");
       setGradeDialog(null);
       setGradeForm({ status: "Passed", score: "", notes: "" });
       queryClient.invalidateQueries({ queryKey: ["apcAll"] });
@@ -522,7 +525,7 @@ export default function ApcPage() {
       <Dialog open={!!gradeDialog} onOpenChange={(o) => !o && setGradeDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Grade APC Assessment</DialogTitle>
+            <DialogTitle>Grade APC Assessment (Step 1 of 2)</DialogTitle>
           </DialogHeader>
           {gradeDialog && (
             <div className="space-y-1 py-1 mb-2 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
@@ -541,7 +544,7 @@ export default function ApcPage() {
           )}
           <div className="space-y-4 py-1">
             <div className="space-y-2">
-              <Label>Final Outcome</Label>
+              <Label>Proposed Outcome</Label>
               <select
                 className="flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent dark:border-zinc-800 dark:bg-zinc-950"
                 value={gradeForm.status}
@@ -568,17 +571,18 @@ export default function ApcPage() {
               <Label>Panel Feedback / Notes</Label>
               <Textarea rows={3} placeholder="Enter examiner feedback or rationale for the outcome..." value={gradeForm.notes} onChange={(e) => setGradeForm({ ...gradeForm, notes: e.target.value })} />
             </div>
-            {gradeForm.status === "Passed" && (
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium p-3 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg border border-emerald-200 dark:border-emerald-900/50">
-                ✓ Saving as "Passed" will automatically upgrade this candidate's membership class in the system.
-              </p>
-            )}
+            <p className="text-xs text-amber-700 dark:text-amber-400 font-medium p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-900/50">
+              This does not finalize anything yet — it stages the grade as "Pending Approval". An Admin or Approver still needs to confirm it
+              {gradeForm.status === "Passed"
+                ? " before the candidate's upgrade is approved, their first-year fee is invoiced, and they're emailed the results."
+                : gradeForm.status === "Failed" ? " before the candidate is emailed the results." : " before it takes effect."}
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setGradeDialog(null)} disabled={isSubmitting}>Cancel</Button>
             <Button onClick={handleGrade} disabled={isSubmitting} className="bg-navy hover:bg-navy/90 text-white">
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-              Save Results
+              {role === "Admin_Assistant" ? "Forward for Approval" : "Submit for Approval"}
             </Button>
           </DialogFooter>
         </DialogContent>

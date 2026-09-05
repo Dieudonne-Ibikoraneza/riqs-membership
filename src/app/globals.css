@@ -83,6 +83,20 @@
   * {
     border-color: var(--color-border);
   }
+  /* Decorative absolutely-positioned blur "orbs" (bleeding past a section's edge on purpose)
+     and Framer Motion entrance animations that translate an element in from off its resting
+     position (initial x:-20/x:20 etc.) can transiently extend past the viewport's right edge —
+     the page settles back to its real width once the animation completes, but the momentary
+     overshoot still creates a horizontal scrollbar/jump while it's happening. Guarding at the
+     html/body level is the standard fix, rather than chasing down every offending element and
+     re-checking after each new animated section. Elements that need their own horizontal
+     scroll (e.g. wide tables in `overflow-x-auto` wrappers) are unaffected — this only stops
+     the *page* from growing wider than the viewport, not a specific element from scrolling.
+     */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);

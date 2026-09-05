@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -179,6 +180,21 @@ export default function Mentorship() {
     (tx: any) => tx.txType === 'Annual_Renewal' && tx.status === 'Paid'
   );
 
+  // Mentorship progression (logbook uploads, annual reports, upgrade requests) previously had
+  // no gate at all here — a member whose application was still under review, or whose
+  // approved-application first-year fee was Unpaid/Pending, could still fully drive the whole
+  // mentorship process without ever activating that membership class. Mirrors the same
+  // isFirstYearFeeCleared fallback used on the certificate page (and now also enforced
+  // server-side in logbookController.ts's assertMentorshipEligible): if no First_Year_Fee row
+  // exists at all (some categories carry a zero fee and never get one), fall back to trusting
+  // membershipId rather than treating "no row" as either paid or unpaid.
+  const appStatus = profileData?.application?.status;
+  const isApproved = appStatus === "Approved";
+  const firstYearFeeTx = financialTransactions.find((tx: any) => tx.txType === "First_Year_Fee");
+  const hasMembershipId = Boolean((profileData?.profile as any)?.membershipId);
+  const isFirstYearFeeCleared = firstYearFeeTx ? firstYearFeeTx.status === "Paid" : hasMembershipId;
+  const isMentorshipUnlocked = isApproved && isFirstYearFeeCleared;
+
   const monthsElapsed = approvedAt
     ? Math.floor((Date.now() - new Date(approvedAt).getTime()) / (1000 * 60 * 60 * 24 * 30.44))
     : 0;
@@ -234,6 +250,25 @@ export default function Mentorship() {
           <Card className="h-40 bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800" />
           <Card className="h-56 bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800" />
         </div>
+      ) : !isMentorshipUnlocked ? (
+        <Card className="border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/10">
+          <CardContent className="p-8 text-center space-y-3">
+            <Lock className="h-10 w-10 text-amber-500 mx-auto" />
+            <h2 className="text-lg font-bold text-navy dark:text-zinc-100">
+              {!isApproved ? "Application Not Yet Approved" : "First-Year Fee Required"}
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+              {!isApproved
+                ? "Mentorship progression — mentor assignment, logbook uploads, annual reports, and upgrade requests — opens once your application has been approved."
+                : "Your application has been approved, but your first-year membership fee hasn't cleared yet. Please pay it before continuing your mentorship progression."}
+            </p>
+            {isApproved && !isFirstYearFeeCleared && (
+              <Link href="/dashboard/payments">
+                <Button className="bg-gold text-[#1a1a1a] hover:bg-gold/90 font-bold mt-2">Go to Payments</Button>
+              </Link>
+            )}
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-6">
           {/* Top Banner: Assigned Mentor details */}
@@ -486,6 +521,11 @@ export default function Mentorship() {
         </div>
       )}
 
+      {/* Both sections below assume the member has actually activated this membership class —
+          gated the same as the mentor-card/logbook section above, just as a separate ternary
+          branch since these are siblings of it, not nested inside it. */}
+      {isMentorshipUnlocked && (
+      <>
       {/* ─── Annual Renewal Lock Banner ─── */}
       {isRenewalLocked && (
         <Card className="border-red-300 dark:border-red-900/50 bg-red-50/60 dark:bg-red-950/20 shadow-sm">
@@ -780,6 +820,8 @@ export default function Mentorship() {
           )}
         </CardContent>
       </Card>
+      </>
+      )}
 
       {/* APC Assessment History Panel */}
       <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm mt-8">

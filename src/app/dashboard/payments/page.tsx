@@ -551,6 +551,26 @@ export default function Payments() {
               </div>
             )}
 
+            {/* Processing Fee: previously manual-upload-only on this page — a member landing
+                here with a Failed/Unpaid Processing_Fee (e.g. sent back to Correction_Required
+                after a rejected proof) had no Mobile Money option at all, unlike the same fee's
+                own payment dialog on the application wizard page. Mirrors First-Year Fee: both
+                options always visible together, no CPD gate applies to this fee type either. */}
+            {canUpload && defaultTxType === "Processing_Fee" && data?.application?.id && (
+              <div className="mt-2 pt-5 border-t border-gold/20">
+                <Button
+                  type="button"
+                  onClick={() => setShowRenewalDialog(true)}
+                  className="w-full h-11 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold font-bold"
+                >
+                  <Wallet className="mr-2 h-4 w-4" /> Pay with Mobile Money
+                </Button>
+                <p className="mt-2 text-center text-xs text-muted-foreground">
+                  Instant — confirmed automatically on your phone. Or upload proof of payment manually below.
+                </p>
+              </div>
+            )}
+
             {/* First-Year Fee: unchanged — Mobile Money and the manual receipt uploader are
                 both always visible together, no CPD gate applies to this fee type. */}
             {canUpload && defaultTxType === "First_Year_Fee" && data?.application?.id && (
@@ -929,6 +949,33 @@ export default function Payments() {
           }}
           successMessage="Payment confirmed — your membership upgrade is now active!"
           priorFailureReason={unpaidTx?.status === "Failed" && unpaidTx?.txType === "First_Year_Fee" ? unpaidTx.rejectionReason : null}
+        />
+      )}
+
+      {/* Processing Fee: the application-submission fee. Manual upload is handled by the
+          generic uploader further up the page (allowManual=false here, same as First-Year
+          Fee), this dialog only covers the Mobile Money side. */}
+      {data?.application?.id && defaultTxType === "Processing_Fee" && (
+        <MomoPaymentDialog
+          open={showRenewalDialog}
+          onOpenChange={setShowRenewalDialog}
+          title="Pay Processing Fee"
+          description="Your application category requires a processing fee before it can be submitted for review."
+          amount={Number(defaultAmountNum) || 0}
+          currency={unpaidTx?.currency || (isRwandan ? "RWF" : "USD")}
+          defaultPhone={data?.profile?.phoneNumber || ""}
+          applicationId={data.application.id}
+          allowManual={false}
+          initiate={(mobilephone) => applicantServices.initiateProcessingFeePayment({ applicationId: data.application.id, mobilephone })}
+          checkStatus={(transactionId) => applicantServices.getProcessingFeePaymentStatus(transactionId)}
+          onSuccess={() => {
+            toast.success("Payment confirmed — your application has been submitted!");
+            queryClient.invalidateQueries({ queryKey: queryKeys.applicant.payments() });
+            queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
+            setShowRenewalDialog(false);
+          }}
+          successMessage="Payment confirmed — your application has been submitted!"
+          priorFailureReason={unpaidTx?.status === "Failed" && unpaidTx?.txType === "Processing_Fee" ? unpaidTx.rejectionReason : null}
         />
       )}
     </div>

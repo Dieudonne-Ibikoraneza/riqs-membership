@@ -541,14 +541,29 @@ export default function Review({ params }: PageProps) {
                 <AlertTriangle className="mr-2 h-4 w-4" />
                 Flag correction
               </Button>
-              <Button
-                className="bg-navy hover:bg-navy/90 text-white border-none"
-                onClick={() => setDialog("forward_to_reviewers")}
-                disabled={isSubmitting}
-              >
-                <Check className="mr-2 h-4 w-4" />
-                Forward to Reviewers
-              </Button>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={Boolean(app.processingFeeTxId) && !app.processingFeeCleared ? "cursor-not-allowed inline-block" : ""}>
+                      <Button
+                        className="bg-navy hover:bg-navy/90 text-white border-none"
+                        onClick={() => setDialog("forward_to_reviewers")}
+                        disabled={isSubmitting || (Boolean(app.processingFeeTxId) && !app.processingFeeCleared)}
+                        style={Boolean(app.processingFeeTxId) && !app.processingFeeCleared ? { pointerEvents: "none" } : undefined}
+                      >
+                        <Check className="mr-2 h-4 w-4" />
+                        Forward to Reviewers
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {Boolean(app.processingFeeTxId) && !app.processingFeeCleared && (
+                    <TooltipContent className="z-[70] flex items-center gap-2 bg-amber-500 text-white border-none shadow-md">
+                      <Info className="h-4 w-4" />
+                      <p className="font-medium">Please clear the processing fee payment before forwarding to reviewers.</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             </>
           )}
 
@@ -684,25 +699,29 @@ export default function Review({ params }: PageProps) {
                     {app.processingFeeStatus?.replace(/_/g, " ")}
                   </span>
                 </div>
-                {!app.processingFeeCleared && (
+                {/* Both actions only make sense while the transaction is still Pending_Verification
+                    — verifyPayment refuses to touch anything else (Failed is terminal for this
+                    row; the applicant must re-upload a fresh proof, which creates a brand new
+                    transaction). Previously only the "Failed" button checked this, so a
+                    already-Failed transaction still showed a "Mark as Paid" button that would
+                    just error against the backend ("Transaction not found or already verified"). */}
+                {!app.processingFeeCleared && app.processingFeeStatus !== 'Failed' && (
                   <div className="flex w-full flex-wrap items-center justify-end gap-2 border-t border-current/10 pt-3">
-                    {app.processingFeeStatus !== 'Failed' && (
-                      <Button 
-                        size="sm" 
-                        onClick={() => {
-                          setNote("");
-                          setDialog("failPayment");
-                        }}
-                        disabled={verifyPaymentMutation.isPending}
-                        variant="outline"
-                        className="h-8 min-w-0 flex-1 px-2.5 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30 sm:flex-none"
-                      >
-                        <X className="mr-1 h-3 w-3" />
-                        Failed
-                      </Button>
-                    )}
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setNote("");
+                        setDialog("failPayment");
+                      }}
+                      disabled={verifyPaymentMutation.isPending}
+                      variant="outline"
+                      className="h-8 min-w-0 flex-1 px-2.5 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30 sm:flex-none"
+                    >
+                      <X className="mr-1 h-3 w-3" />
+                      Failed
+                    </Button>
+                    <Button
+                      size="sm"
                       onClick={() => verifyPaymentMutation.mutate({ txId: app.processingFeeTxId, action: "Paid" })}
                       disabled={verifyPaymentMutation.isPending}
                       className="h-8 min-w-0 flex-1 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-transparent sm:flex-none"

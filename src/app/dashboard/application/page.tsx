@@ -232,14 +232,21 @@ export default function Application() {
   // Most recent Processing Fee attempt that ended in Failed (gateway rejection, or an
   // admin rejecting a manually-uploaded proof) — surfaced in the payment dialog so the
   // member sees why their last attempt didn't go through instead of a blank method picker.
-  // Skipped entirely once any Processing_Fee attempt has actually succeeded — e.g. a
-  // rejected manual receipt followed by a mobile-money retry that cleared — since that
-  // failed row is stale history at that point, not something still worth surfacing.
+  // Skipped entirely once a Processing_Fee attempt already covers this application — Paid,
+  // matching submitApplication's own gate (see applicantController.ts), which now also lets a
+  // Pending_Verification manual proof through. Without checking Pending_Verification too, a
+  // rejected manual receipt followed by a fresh manual re-upload would still show as "Failed"
+  // here (fileController.ts's upload only clears out old Pending_Verification rows, not Failed
+  // ones) and keep popping the payment modal back open even though the member already fixed it.
   const processingFeeTransactions = profileData?.financialTransactions || [];
-  const hasClearedProcessingFee = processingFeeTransactions.some(
-    (tx: any) => tx.txType === "Processing_Fee" && tx.status === "Paid"
+  const currentProcessingFeeAmount = Number(profileData?.application?.processing_fee || 0);
+  const hasUsableProcessingFeePayment = processingFeeTransactions.some(
+    (tx: any) =>
+      tx.txType === "Processing_Fee" &&
+      ["Paid", "Pending_Verification"].includes(tx.status) &&
+      Number(tx.amount) === currentProcessingFeeAmount
   );
-  const latestFailedProcessingFee = hasClearedProcessingFee
+  const latestFailedProcessingFee = hasUsableProcessingFeePayment
     ? undefined
     : processingFeeTransactions
         .filter((tx: any) => tx.txType === "Processing_Fee" && tx.status === "Failed")
@@ -1139,6 +1146,11 @@ export default function Application() {
       }}
       successMessage="Payment confirmed — your application has been submitted!"
       priorFailureReason={latestFailedProcessingFee?.rejectionReason || null}
+      // The manual bank-transfer proof can never become Paid on its own — only staff clearing
+      // it can do that — so retry submission right after upload rather than leaving the member
+      // stuck: submitApplication now accepts a Pending_Verification Processing Fee too (see
+      // applicantController.ts), so this succeeds immediately instead of erroring again.
+      onManualProofSubmitted={() => submitMutation.mutateAsync(appId!)}
     />
     </>
   );

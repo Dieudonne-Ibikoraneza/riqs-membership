@@ -10,23 +10,37 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Search, Download, Mail, Phone, MapPin, BadgeCheck, LayoutGrid, List,
-  ArrowUpDown, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Users, Star
+  ArrowUpDown, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Users, Star, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
 
 type SortKey = "name" | "id" | "category";
 type View = "cards" | "table";
 
+// One tab per compliant-member list — mirrors the segmented "Compliant Professional
+// Engineers / Technologists / Technicians / Firms" pattern other institutes use, in place of
+// the old category dropdown. `title` drives the page heading so it always names exactly the
+// list currently shown. Graduate intentionally has no separate "Technologist route" tab: both
+// GrQS and GrQST applicants land on the single `Graduate` MemberClass value once approved (the
+// route only ever affected which category/certificate they were assessed under), so there's
+// nothing to split here.
+// `noun` drives the "N compliant ___" line under the title — firms shouldn't be called
+// "members".
+const CATEGORY_TABS: { id: string; label: string; title: string; noun: string; exportName: string }[] = [
+  { id: "Professional", label: "Compliant Professional QS", title: "Compliant Professional Quantity Surveyors", noun: "members", exportName: "Professional Members" },
+  { id: "Technologist", label: "Compliant QS Technologist", title: "Compliant Quantity Surveying Technologists", noun: "members", exportName: "QS Technologist Members" },
+  { id: "Graduate", label: "Compliant Graduates", title: "Compliant Graduate Members", noun: "members", exportName: "Graduate Members" },
+  { id: "Associate", label: "Compliant Associates QS", title: "Compliant Associate Quantity Surveyors", noun: "members", exportName: "Associate Members" },
+  { id: "Firm", label: "Compliant Firms", title: "Compliant Firms", noun: "firms", exportName: "Firms" },
+];
+
 export default function MembersPage() {
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
-  const [primaryCat, setPrimaryCat] = useState<string>("all");
-  const [firmCat, setFirmCat] = useState<string>("all");
-  const [view, setView] = useState<View>("table");
+  const [activeTab, setActiveTab] = useState<string>(CATEGORY_TABS[0].id);
+  const [view, setView] = useState<View>("cards");
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
@@ -39,7 +53,9 @@ export default function MembersPage() {
     return () => clearTimeout(handler);
   }, [q]);
 
-  const activeCat = primaryCat === "Firm" ? (firmCat === "all" ? "Firm" : `Firm_${firmCat}`) : primaryCat;
+  const activeCat = activeTab;
+  const activeTabConfig = CATEGORY_TABS.find(t => t.id === activeTab) || CATEGORY_TABS[0];
+  const currentYear = new Date().getFullYear();
 
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.public.members({ search: debouncedQ, category: activeCat, page, limit: pageSize }),
@@ -52,58 +68,122 @@ export default function MembersPage() {
   const safePage = Math.min(page, totalPages);
   const totalCount = pagination?.totalCount || 0;
 
-  const exportCsv = () => {
-    // In a real app, this should either hit a dedicated export endpoint or we alert the user that export only covers the current page.
-    const rows = [["Membership ID", "Full Name", "Category", "Phone", "Email"]];
-    members.forEach(m => {
+  const [exporting, setExporting] = useState<null | "active" | "all">(null);
+
+  // This list changes over time (new approvals, lapsed renewals, etc.) — a plain "riqs-members.csv"
+  // gives no way to tell how stale a downloaded copy is, so both the file itself and its name
+  // carry a generated-on stamp.
+  const rowsToCsv = (rows: any[], reportTitle: string) => {
+    const csvRows: string[][] = [
+      [`${reportTitle}`],
+      [`Generated: ${new Date().toLocaleString()}`],
+      [],
+      ["Membership ID", "Full Name", "Category", "Phone", "Email"]
+    ];
+    rows.forEach(m => {
       const honorsSet = new Set<string>(m.honors || []);
       const honorsArray = Array.from(honorsSet);
-      
+
       const baseCategory = formatMembershipClass(m.membership_class);
-      const fullCategory = honorsArray.length > 0 
-        ? `${baseCategory}, ${honorsArray.join(", ")}` 
+      const fullCategory = honorsArray.length > 0
+        ? `${baseCategory}, ${honorsArray.join(", ")}`
         : baseCategory;
 
-      rows.push([m.membership_id || m.id, m.full_name, fullCategory, m.phone_number ? m.phone_number.replace(/^\+/, '') : "", m.email]);
+      csvRows.push([m.membership_id || m.id, m.full_name, fullCategory, m.phone_number ? m.phone_number.replace(/^\+/, '') : "", m.email]);
     });
-    const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "riqs-members.csv"; a.click();
+    return csvRows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
   };
 
-  const reset = () => { setQ(""); setPrimaryCat("all"); setFirmCat("all"); setPage(1); };
-  const activeFilters = (debouncedQ ? 1 : 0) + (activeCat !== "all" ? 1 : 0);
+  const downloadCsv = (csv: string, filename: string) => {
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Previously this only ever exported whatever page of results happened to be on screen (10
+  // rows at a time) — fetches the FULL list instead: "active" respects the current tab/search
+  // (whatever's actually being viewed), "all" ignores both entirely for a full-roster dump.
+  const exportCsv = async (scope: "active" | "all") => {
+    setExporting(scope);
+    try {
+      const res = await publicServices.getPublicMembers({
+        search: scope === "active" ? debouncedQ : undefined,
+        category: scope === "active" ? activeCat : "all",
+        page: 1,
+        limit: 100000,
+      });
+      const reportTitle = scope === "active" ? `RIQS Compliant ${activeTabConfig.exportName}` : "RIQS All Compliant Members";
+      const dateStamp = new Date().toISOString().split("T")[0];
+      downloadCsv(rowsToCsv(res?.members || [], reportTitle), `${reportTitle} - ${dateStamp}.csv`);
+    } catch (err) {
+      console.error("Export failed", err);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  // Category is now a mandatory tab selection rather than an optional filter, so only the
+  // search box counts as a dismissable "filter" here.
+  const reset = () => { setQ(""); setPage(1); };
+  const activeFilters = debouncedQ ? 1 : 0;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <PublicHeader />
       <main className="flex-1">
-        {/* Hero */}
-        <section className="relative overflow-hidden brand-gradient text-white">
-          {/* Subtle grid pattern background */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:24px_24px] animate-grid-fade" />
-          
-          <div className="absolute -left-32 -top-32 h-72 w-72 rounded-full bg-gold/20 blur-3xl" />
-          <div className="relative mx-auto max-w-7xl px-4 py-16 animate-fade-in z-10">
-            <Badge variant="outline" className="border-white/20 bg-white/10 text-white">
-              <BadgeCheck className="mr-1 h-3 w-3 text-gold fill-gold" /> Verified register
-            </Badge>
-            <h1 className="mt-4 text-4xl font-bold md:text-5xl leading-tight">Public Members Directory</h1>
-            <p className="mt-3 max-w-2xl text-white/80 leading-relaxed font-sans">
-              Search, filter and verify all <span className="font-semibold gold-text">approved</span> RIQS members.
-              Every record is publicly verifiable.
-            </p>
-            <div className="mt-6 flex items-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 gold-text" />
-                <span><span className="font-bold">{totalCount}</span> active members</span>
+        {/* Header + description */}
+        <section className="border-b border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+          <div className="mx-auto max-w-7xl px-4 pt-12 pb-8 flex flex-col lg:flex-row lg:items-start gap-8 animate-fade-in">
+            <div className="lg:w-1/2">
+              <Badge variant="outline" className="border-navy/20 bg-navy/5 text-navy dark:border-gold/30 dark:bg-gold/10 dark:text-gold">
+                <BadgeCheck className="mr-1 h-3 w-3 text-gold fill-gold" /> Verified register
+              </Badge>
+              <h1 className="mt-4 text-3xl md:text-4xl font-bold text-navy dark:text-white leading-tight">
+                {activeTabConfig.title} {currentYear}
+              </h1>
+              <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground font-sans">
+                <Users className="h-4 w-4 text-gold" />
+                <span><span className="font-bold text-navy dark:text-gold">{totalCount}</span> compliant {totalCount === 1 ? activeTabConfig.noun.replace(/s$/, "") : activeTabConfig.noun}</span>
               </div>
+            </div>
+            <div className="lg:w-1/2 lg:pl-8 lg:border-l lg:border-zinc-200 dark:lg:border-zinc-800">
+              <p className="text-sm text-muted-foreground leading-relaxed font-sans">
+                Compliant members are members of the institute who have paid their applicable membership fees for the current year and are authorized to practice the profession. Contact us at{" "}
+                <a href="mailto:info@riqs.rw" className="font-semibold text-navy dark:text-gold hover:underline">info@riqs.rw</a> or{" "}
+                <span className="font-semibold text-navy dark:text-gold">+250 788 000 000</span> in case you cannot find your name on the list while you have paid.
+              </p>
+            </div>
+          </div>
+
+          {/* Category tabs */}
+          <div className="mx-auto max-w-7xl px-4 pb-6">
+            <div className="flex flex-wrap gap-2.5">
+              {CATEGORY_TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => { setActiveTab(tab.id); setPage(1); }}
+                  className={cn(
+                    // Deliberately no transition on background/color/border here: .brand-gradient
+                    // sets the `background` shorthand (a gradient) while the inactive state is a
+                    // plain `background-color` utility, and animating between those two kinds of
+                    // background produces a washed-out gray flash mid-swap instead of a clean
+                    // fade — so that swap stays instant. transition-transform is unrelated to
+                    // background and animates safely, giving the tabs a tactile press/hover feel.
+                    "cursor-pointer rounded-md border px-3.5 py-2 text-xs font-semibold transition-transform duration-150 ease-out hover:scale-[1.03] active:scale-95",
+                    activeTab === tab.id
+                      ? "brand-gradient border-transparent text-white shadow-sm"
+                      : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-muted-foreground hover:text-navy dark:hover:text-gold hover:border-navy/30 dark:hover:border-gold/30"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 -mt-10 relative z-10 pb-16">
+        <section className="mx-auto max-w-7xl px-4 pt-8 pb-16">
           {/* Filter bar */}
           <Card className="shadow-navy border-0 animate-slide-up bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
             <CardContent className="p-5">
@@ -122,53 +202,27 @@ export default function MembersPage() {
                     </button>
                   )}
                 </div>
-                
+
                 <div className="flex flex-wrap gap-2 items-center">
-                  <Select value={primaryCat} onValueChange={v => {
-                    setPrimaryCat(v);
-                    if (v !== "Firm") setFirmCat("all");
-                    setPage(1);
-                  }}>
-                    <SelectTrigger className="h-11 w-[160px] border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-                      <SelectValue placeholder="Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All categories</SelectItem>
-                      <SelectItem value="Graduate">Graduate</SelectItem>
-                      <SelectItem value="Technologist">Technologist</SelectItem>
-                      <SelectItem value="Professional">Professional</SelectItem>
-                      <SelectItem value="Firm">Firm</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <AnimatePresence>
-                    {primaryCat === "Firm" && (
-                      <motion.div
-                        initial={{ opacity: 0, x: -10, width: 0 }}
-                        animate={{ opacity: 1, x: 0, width: "auto" }}
-                        exit={{ opacity: 0, x: -10, width: 0 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                      >
-                        <Select value={firmCat} onValueChange={v => { setFirmCat(v); setPage(1); }}>
-                          <SelectTrigger className="h-11 w-[240px] border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-                            <SelectValue placeholder="Firm Type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Firms</SelectItem>
-                            <SelectItem value="Local_Small">Rwandan Small Firm</SelectItem>
-                            <SelectItem value="Local_Medium">Rwandan Medium Firm</SelectItem>
-                            <SelectItem value="Local_Large">Rwandan Large Firm</SelectItem>
-                            <SelectItem value="Foreign_Small">Non-Rwandan Small Firm</SelectItem>
-                            <SelectItem value="Foreign_Medium">Non-Rwandan Medium Firm</SelectItem>
-                            <SelectItem value="Foreign_Large">Non-Rwandan Large Firm</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <Button onClick={exportCsv} variant="outline" className="h-11 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300">
-                    <Download className="mr-2 h-4 w-4 text-gold" /> Export
+                  <Button
+                    onClick={() => exportCsv("active")}
+                    disabled={exporting !== null}
+                    variant="outline"
+                    className="h-11 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300"
+                    title={`Export ${activeTabConfig.label}`}
+                  >
+                    {exporting === "active" ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-gold" /> : <Download className="mr-2 h-4 w-4 text-gold" />}
+                    Export List
+                  </Button>
+                  <Button
+                    onClick={() => exportCsv("all")}
+                    disabled={exporting !== null}
+                    variant="outline"
+                    className="h-11 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300"
+                    title="Export every member across all categories"
+                  >
+                    {exporting === "all" ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-gold" /> : <Download className="mr-2 h-4 w-4 text-gold" />}
+                    Export All Members
                   </Button>
                 </div>
               </div>

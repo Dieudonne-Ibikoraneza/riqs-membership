@@ -77,6 +77,14 @@ export interface MomoPaymentDialogProps {
    * this fee (e.g. one that also needs an extra supporting document) — the dialog then only
    * handles the Mobile Money side and skips straight to the phone-number form. */
   allowManual?: boolean;
+  /** Called right after a manual bank-transfer proof finishes uploading (still Pending_Verification
+   * — a manual proof can never become Paid on its own). Only meaningful for the initial
+   * application-submission flow: lets the host retry submitApplication immediately instead of
+   * leaving the member to come back later once staff clears the proof. Errors are swallowed —
+   * the upload itself already succeeded, this is a best-effort follow-up. Omit for callers where
+   * "submitting an application" isn't a concept (e.g. paying an existing Annual_Renewal/
+   * First_Year_Fee invoice) — the dialog's copy adjusts automatically based on whether this is set. */
+  onManualProofSubmitted?: () => void | Promise<void>;
 }
 
 export function MomoPaymentDialog({
@@ -96,6 +104,7 @@ export function MomoPaymentDialog({
   awaitingReviewMessage = "Payment received — awaiting administrative review.",
   priorFailureReason,
   allowManual = true,
+  onManualProofSubmitted,
 }: MomoPaymentDialogProps) {
   const [stage, setStage] = useState<Stage>("method");
   const [phone, setPhone] = useState(defaultPhone || "");
@@ -235,6 +244,14 @@ export function MomoPaymentDialog({
           setUploadProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
         }
       });
+      if (onManualProofSubmitted) {
+        try {
+          await onManualProofSubmitted();
+        } catch {
+          // The proof itself uploaded fine — this is just a best-effort follow-up (e.g. retrying
+          // submitApplication). If it fails, the member still sees the confirmation below.
+        }
+      }
       setStage("manual-submitted");
     } catch (err) {
       const response = (err as { response?: { data?: { error?: string } } })?.response;
@@ -478,7 +495,9 @@ export function MomoPaymentDialog({
               </motion.div>
               <p className="font-semibold text-navy">Proof of payment submitted</p>
               <p className="text-sm text-muted-foreground max-w-xs">
-                Our secretariat team will verify it shortly. Once approved, come back here to submit your application.
+                {onManualProofSubmitted
+                  ? "Your application has been submitted for review. Our secretariat team will verify your payment proof shortly."
+                  : "Our secretariat team will verify it shortly. Once approved, come back here to submit your application."}
               </p>
               <Button
                 onClick={() => onOpenChange(false)}

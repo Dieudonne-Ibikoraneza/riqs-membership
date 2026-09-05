@@ -7,23 +7,124 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowRight, ShieldCheck, Users, Award, FileCheck, BookOpen, Building2,
-  ChevronRight, Quote, Sparkles, TrendingUp, Globe2, Calendar,
+  ChevronRight, Quote, Sparkles, Globe2, Calendar, Briefcase,
+  Sprout, Crown, CheckCircle2, Landmark,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { publicServices } from "@/services/public.services";
 import { queryKeys } from "@/services/queryKeys";
 import { cn } from "@/lib/utils";
+import { isGraduateApplicationCategory } from "@/lib/application-categories";
+
+// The Graduate step genuinely forks into two different tracks (see
+// membershipUtils.ts/deriveMemberClass on the backend): Route 2 (GrQS) leads to Associate QS →
+// Professional QS → Fellow, while Route 1 (GrQST) leads to Associate QS Technologist → QS
+// Technologist. Everything before and after that fork is shared.
+const JOURNEY_ROUTES: Record<"Professional" | "Technologist", { i: any; t: string; d: string; color: string }[]> = {
+  Professional: [
+    { i: Sprout, t: "Graduate QS", d: "Build your knowledge and develop core competencies.", color: "#059669" },
+    { i: Users, t: "Associate QS", d: "Gain practical experience, strengthen your skills and advance your career.", color: "#f1a500" },
+    { i: Award, t: "Professional QS", d: "Achieve professional recognition through the APC assessment.", color: "#2563eb" },
+    { i: Crown, t: "Fellow / Leader", d: "Lead the profession and inspire the next generation.", color: "#9333ea" },
+  ],
+  Technologist: [
+    { i: Sprout, t: "Graduate QS Technologist", d: "Build your knowledge and develop core competencies.", color: "#059669" },
+    { i: Users, t: "Associate QS Technologist", d: "Gain practical experience, strengthen your skills and advance your career.", color: "#f1a500" },
+    { i: Award, t: "QS Technologist", d: "Achieve professional recognition through the APC assessment.", color: "#2563eb" },
+    { i: Crown, t: "Leader", d: "Lead the profession and inspire the next generation.", color: "#9333ea" },
+  ],
+};
 
 export default function Home() {
   const [location, setLocation] = useState<"Rwandan" | "Non_Rwandan">("Rwandan");
   const [entityType, setEntityType] = useState<"Individual" | "Firm">("Individual");
+  // The individual career path genuinely branches in two at Graduate — Route 2 (QS) leads to
+  // Professional QS / Fellow, Route 1 (QS Technologist) leads to QS Technologist — it was
+  // misleading to show one single fixed line as if every member follows the same steps.
+  const [journeyRoute, setJourneyRoute] = useState<"Professional" | "Technologist">("Professional");
+
+  // Live counts for the hero stats, instead of hardcoded placeholder numbers. Both come from
+  // the same public directory endpoint the Members Directory page itself uses
+  // (getPublicMembersDirectory), which already only ever returns members that are actually
+  // publicly visible (membershipId not null — i.e. approved — and excludes internal staff
+  // roles). "limit: 1" is enough since only pagination.totalCount is needed, not the rows.
+  // `memberCount`/`firmCount` hold the real fetched target; `displayMemberCount`/
+  // `displayFirmCount` are what's actually rendered, animated up from 0 to that target once it
+  // arrives (previously the number just popped in instantly with no animation at all).
+  const [memberCount, setMemberCount] = useState<number | null>(null);
+  const [firmCount, setFirmCount] = useState<number | null>(null);
+  const [displayMemberCount, setDisplayMemberCount] = useState(0);
+  const [displayFirmCount, setDisplayFirmCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [allRes, firmsRes] = await Promise.all([
+          publicServices.getPublicMembers({ category: "all", page: 1, limit: 1 }),
+          publicServices.getPublicMembers({ category: "Firm", page: 1, limit: 1 }),
+        ]);
+        if (!cancelled) {
+          setMemberCount(allRes?.pagination?.totalCount ?? 0);
+          setFirmCount(firmsRes?.pagination?.totalCount ?? 0);
+        }
+      } catch {
+        // Leave both null on failure — the stats simply render their loading skeleton
+        // indefinitely rather than showing a wrong/fabricated number.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Counts up from 0 to each target over ~1.2s (eased) once it's known, instead of the number
+  // just popping in instantly.
+  useEffect(() => {
+    if (memberCount === null) return;
+    let frame: number;
+    const start = performance.now();
+    const duration = 1200;
+    const tick = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayMemberCount(Math.round(eased * memberCount));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [memberCount]);
+
+  useEffect(() => {
+    if (firmCount === null) return;
+    let frame: number;
+    const start = performance.now();
+    const duration = 1200;
+    const tick = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayFirmCount(Math.round(eased * firmCount));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [firmCount]);
 
   const { data: categories, isLoading: isLoadingCategories } = useQuery({
     queryKey: queryKeys.public.categories({ location, entityType }),
     queryFn: () => publicServices.getCategories({ location, entityType }),
   });
+
+  // An individual can only ever self-apply as a Graduate (GrQS/GrQST) — every other
+  // individual class (Associate, Professional, Fellow, Student, Life/Honorary/Visiting) is
+  // reached later through mentorship progression, or is created directly by an Admin/Approver
+  // or Teacher, never by the applicant themselves. Firms have no such restriction — they apply
+  // directly at their own size tier. Same rule the application wizard itself enforces
+  // (isGraduateApplicationCategory, dashboard/application/page.tsx), reused here so the public
+  // homepage never advertises a category nobody can actually walk in and apply for.
+  const displayCategories = (categories || []).filter((c: any) =>
+    entityType !== "Individual" || isGraduateApplicationCategory(c)
+  );
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <PublicHeader />
@@ -47,10 +148,10 @@ export default function Home() {
                 <span className="h-2 w-2 rounded-full bg-gold animate-pulse" />
                 Official Membership Portal
               </div>
-              <h1 className="mt-6 text-4xl font-bold leading-tight md:text-6xl">
+              <h1 className="mt-6 text-3xl font-bold leading-tight md:text-4xl">
                 Rwanda Institute of <span className="gold-text">Quantity Surveyors</span>
               </h1>
-              <p className="mt-5 max-w-xl text-lg text-white/80 leading-relaxed font-sans">
+              <p className="mt-5 max-w-xl text-base text-white/80 leading-relaxed font-sans">
                 The regulatory home of Quantity Surveying in Rwanda. Apply for membership,
                 manage your professional record, and verify accredited QS professionals
                 across the country.
@@ -67,65 +168,49 @@ export default function Home() {
                   </Button>
                 </Link>
               </div>
-              <div className="mt-12 grid max-w-md grid-cols-3 gap-6 stagger">
+              <div className="mt-12 grid max-w-sm grid-cols-2 gap-6 stagger">
                 {[
-                  { n: "850+", l: "Registered Members" },
-                  { n: "120+", l: "Licensed Firms" },
-                  { n: "12", l: "Years Active" },
+                  { n: memberCount, display: displayMemberCount, l: "Registered Members" },
+                  { n: firmCount, display: displayFirmCount, l: "Licensed Firms" },
                 ].map(s => (
                   <div key={s.l}>
-                    <div className="text-3xl font-bold gold-text">{s.n}</div>
+                    <div className="text-3xl font-bold gold-text tabular-nums">
+                      {s.n === null ? (
+                        <span className="inline-block h-8 w-14 rounded bg-white/10 animate-pulse align-middle" />
+                      ) : (
+                        `${s.display}+`
+                      )}
+                    </div>
                     <div className="text-xs text-white/70 mt-1 font-sans">{s.l}</div>
                   </div>
                 ))}
               </div>
             </motion.div>
             
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, delay: 0.15 }}
-              className="relative hidden md:block"
-            >
-              <div className="absolute -right-10 -top-10 h-72 w-72 rounded-full bg-gold/20 blur-3xl" />
-              <Card className="relative border-white/10 bg-white/5 backdrop-blur-md text-white shadow-2xl">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center bg-gold text-[#1a1a1a] shadow-gold">
-                      <Award className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <div className="text-[10px] uppercase tracking-wider text-white/60 font-sans">Latest Certificate Issued</div>
-                      <div className="font-semibold text-sm">RIQS-2025-047</div>
-                    </div>
-                    <Badge className="ml-auto bg-emerald-500/20 text-emerald-200 border-emerald-400/30 font-semibold">
-                      Verified
-                    </Badge>
-                  </div>
-                  <div className="mt-6 space-y-3 text-sm">
-                    {[
-                      { i: ShieldCheck, t: "Verified by RIQS Council" },
-                      { i: FileCheck, t: "Digitally signed & QR-stamped" },
-                      { i: BookOpen, t: "Recognized across East Africa" },
-                    ].map((x, i) => (
-                      <div key={i} className="flex items-center gap-3 bg-white/5 px-3 py-2.5 transition-colors hover:bg-white/10 font-sans">
-                        <x.i className="h-4 w-4 gold-text shrink-0" />
-                        <span className="text-white/85">{x.t}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-6 border-t border-white/10 pt-4 text-xs text-white/60 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span>Issued on</span><span>14 May 2026</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Valid until</span><span>31 Dec 2026</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+            {/* Empty on purpose — just preserves this grid's second column width so the text
+                column doesn't stretch full-width. The actual hero image sits outside this grid
+                (see below), so it can reach the section's true bottom edge on desktop regardless
+                of how tall this row ends up. */}
+            <div className="hidden md:block" />
           </div>
+
+          {/* On small screens the image is just a normal block in flow, right after the text —
+              no absolute positioning, so it can never overlap the CTA buttons/stats above it.
+              At md and up it switches to being pinned against the section's own true bottom
+              edge instead (not just its grid column's height, which stretches to match the text
+              column and would otherwise leave the image floating short of the section's actual
+              bottom). aspect-video matches hero.png's real 2048×1152 (16:9) proportions exactly,
+              with only one dimension set and the other left auto — so the browser derives it
+              from that real ratio instead of a fixed w+h pair distorting the photo, and
+              object-contain is just a safety net rather than doing any actual cropping. */}
+          <motion.img
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, delay: 0.15 }}
+            src="/hero.png"
+            alt="A quantity surveying professional reviewing site plans on a tablet, on a construction site"
+            className="relative bottom-0 mt-10 w-full h-auto aspect-video object-contain md:absolute md:mt-0 md:right-0 md:z-0 md:w-auto md:h-[60%] md:max-h-[420px]"
+          />
         </section>
 
         {/* ───── Quick Actions ───── */}
@@ -161,7 +246,7 @@ export default function Home() {
             </Badge>
             <h2 className="mt-4 text-4xl font-bold text-navy dark:text-white">Find your category</h2>
             <p className="mt-3 text-muted-foreground font-sans leading-relaxed">
-              Whether you are a student, a graduate, or a registered firm — there is a place for you at RIQS.
+              Individuals join RIQS as Graduates and progress through mentorship to Associate and Professional status — or register your firm directly at its own tier.
             </p>
 
             {/* Filters */}
@@ -202,8 +287,8 @@ export default function Home() {
               Array.from({ length: 5 }).map((_, i) => (
                 <Card key={i} className="animate-pulse bg-zinc-100 dark:bg-zinc-800 border-none h-[180px]" />
               ))
-            ) : categories?.length ? (
-              categories.map(x => (
+            ) : displayCategories.length ? (
+              displayCategories.map(x => (
                 <Card key={x.id} className="group hover-lift text-center bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
                   <CardContent className="p-6">
                     <div className="mx-auto flex h-14 w-14 items-center justify-center bg-gold/15 text-navy dark:text-white transition-colors group-hover:bg-gold group-hover:text-[#1a1a1a] rounded-md">
@@ -223,59 +308,137 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ───── Why RIQS ───── */}
+        {/* ───── Why Join RIQS ───── */}
+        <section className="bg-navy/[0.02] dark:bg-zinc-900/10 border-t border-b border-zinc-50 dark:border-zinc-800/40 py-24">
+          <div className="mx-auto max-w-7xl px-6 md:px-12 xl:px-6">
+            <div className="mx-auto max-w-2xl text-center animate-slide-up">
+              <Badge variant="outline" className="border-navy/30 bg-navy/5 text-navy dark:border-zinc-700 dark:text-zinc-300 font-semibold">
+                Why RIQS
+              </Badge>
+              <h2 className="mt-4 text-4xl font-bold text-navy dark:text-white">Why Join RIQS?</h2>
+              <p className="mt-3 text-muted-foreground font-sans leading-relaxed">
+                RIQS upholds professional standards across the Rwandan construction industry — our portal makes membership verifiable, transparent and accessible.
+              </p>
+            </div>
+            <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger">
+              {[
+                { i: Award, t: "Professional Recognition", d: "Gain credibility and be recognised as a competent professional." },
+                { i: BookOpen, t: "Continuous Development", d: "Access CPD, training, mentorship and knowledge that grow your expertise." },
+                { i: Users, t: "Connect & Collaborate", d: "Network with professionals, employers, institutions and industry leaders." },
+                { i: Briefcase, t: "Career & Business Opportunities", d: "Increase your visibility and open doors to new opportunities." },
+                { i: Globe2, t: "Beyond Rwanda", d: "Be part of a profession aspiring to regional and international excellence." },
+                { i: Landmark, t: "Shape the Future", d: "Contribute to standards, innovation and the future of Quantity Surveying." },
+              ].map(x => (
+                <Card key={x.t} className="group hover-lift text-center bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
+                  <CardContent className="p-6">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center bg-gold/15 text-navy dark:text-white transition-colors group-hover:bg-gold group-hover:text-[#1a1a1a] rounded-md">
+                      <x.i className="h-6 w-6 text-gold group-hover:text-[#1a1a1a]" />
+                    </div>
+                    <h3 className="mt-4 font-bold text-navy dark:text-white text-sm uppercase tracking-wide">{x.t}</h3>
+                    <p className="mt-2 text-sm text-muted-foreground font-sans leading-relaxed">{x.d}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ───── Membership Journey ───── */}
+        <section className="mx-auto max-w-7xl px-6 md:px-12 xl:px-6 py-24">
+          <div className="mx-auto max-w-2xl text-center animate-slide-up">
+            <Badge variant="outline" className="border-gold/40 bg-gold/10 text-gold font-bold">Your growth path</Badge>
+            <h2 className="mt-4 text-4xl font-bold text-navy dark:text-white">Your Membership Journey</h2>
+            <p className="mt-3 text-muted-foreground font-sans leading-relaxed">
+              Every professional journey is unique — the path forks at Graduate level depending on your route. RIQS is here to support you every step of the way.
+            </p>
+            <div className="mt-6 inline-flex items-center gap-2 border border-zinc-200 dark:border-zinc-800 p-1 rounded-md bg-white dark:bg-zinc-950 shadow-sm">
+              <button
+                onClick={() => setJourneyRoute("Professional")}
+                className={cn("px-4 py-1.5 text-sm font-semibold transition-colors rounded", journeyRoute === "Professional" ? "bg-navy text-white shadow" : "text-muted-foreground hover:text-navy dark:hover:text-white")}
+              >
+                QS Route
+              </button>
+              <button
+                onClick={() => setJourneyRoute("Technologist")}
+                className={cn("px-4 py-1.5 text-sm font-semibold transition-colors rounded", journeyRoute === "Technologist" ? "bg-navy text-white shadow" : "text-muted-foreground hover:text-navy dark:hover:text-white")}
+              >
+                QS Technologist Route
+              </button>
+            </div>
+          </div>
+          <div className="mt-12 flex flex-wrap items-stretch justify-center gap-3 lg:flex-nowrap stagger">
+            {JOURNEY_ROUTES[journeyRoute].map((x, i, arr) => (
+              <div key={x.t} className="flex items-center gap-3">
+                <Card className="hover-lift text-center bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 w-[180px]">
+                  <CardContent className="p-5">
+                    <div
+                      className={cn("mx-auto flex h-14 w-14 items-center justify-center rounded-full shadow-sm", x.color === "#f1a500" ? "text-[#1a1a1a]" : "text-white")}
+                      style={{ backgroundColor: x.color }}
+                    >
+                      <x.i className="h-6 w-6" />
+                    </div>
+                    <h3 className="mt-3 font-bold text-navy dark:text-white text-sm uppercase tracking-wide">{x.t}</h3>
+                    <p className="mt-1.5 text-xs text-muted-foreground font-sans leading-relaxed">{x.d}</p>
+                  </CardContent>
+                </Card>
+                {i < arr.length - 1 && (
+                  <ChevronRight className="hidden lg:block h-5 w-5 text-gold shrink-0" />
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="mt-8 text-center text-xs text-muted-foreground font-sans">
+            Firms follow a separate track — they register directly at their own organizational tier rather than progressing through these individual stages.
+          </p>
+        </section>
+
+        {/* ───── Who Can Join ───── */}
         <section className="bg-navy/[0.02] dark:bg-zinc-900/10 border-t border-b border-zinc-50 dark:border-zinc-800/40 py-24">
           <div className="mx-auto max-w-7xl px-6 md:px-12 xl:px-6">
             <div className="grid gap-12 md:grid-cols-2 items-center">
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4 }}
+                className="relative overflow-hidden rounded-md aspect-[4/3] shadow-xl"
+              >
+                <img
+                  src="https://images.pexels.com/photos/4049519/pexels-photo-4049519.png?auto=compress&cs=tinysrgb&w=1200"
+                  alt="A modern glass office building exterior at dusk"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-navy/60 via-navy/5 to-transparent" />
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4 }}
               >
                 <Badge variant="outline" className="border-navy/30 bg-navy/5 text-navy dark:border-zinc-700 dark:text-zinc-300 font-semibold">
-                  Why RIQS
+                  Eligibility
                 </Badge>
-                <h2 className="mt-4 text-4xl font-bold text-navy dark:text-white leading-tight">A trusted, modern register of QS professionals</h2>
+                <h2 className="mt-4 text-4xl font-bold text-navy dark:text-white leading-tight">Who Can Join?</h2>
                 <p className="mt-4 text-muted-foreground font-sans leading-relaxed">
-                  RIQS upholds professional standards across the Rwandan construction industry —
-                  from pre-contract estimating to dispute resolution. Our portal makes membership
-                  verifiable, transparent and accessible.
+                  RIQS membership is open to individuals and organizations passionate about professional Quantity Surveying.
                 </p>
-                <div className="mt-8 space-y-4">
+                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
                   {[
-                    { i: ShieldCheck, t: "Verified credentials", d: "Every member is vetted by the RIQS Council." },
-                    { i: TrendingUp, t: "Career development", d: "Mentorship, CPD events and accreditation pathways." },
-                    { i: Globe2, t: "Regional recognition", d: "Membership recognized across the East African Community." },
+                    "Students", "Firms & Organizations",
+                    "Graduates", "Retired Professionals",
+                    "Associates", "Academics & Researchers",
+                    "Professional Quantity Surveyors",
                   ].map(x => (
-                    <div key={x.t} className="flex gap-4">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-gold text-[#1a1a1a] shadow-gold">
-                        <x.i className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-navy dark:text-gold text-base">{x.t}</div>
-                        <div className="text-sm text-muted-foreground font-sans leading-normal mt-0.5">{x.d}</div>
-                      </div>
+                    <div key={x} className="flex items-center gap-2.5">
+                      <CheckCircle2 className="h-4 w-4 text-gold shrink-0" />
+                      <span className="text-sm text-foreground/85 dark:text-zinc-300 font-sans">{x}</span>
                     </div>
                   ))}
                 </div>
               </motion.div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { n: "850+", l: "Active Members", c: "bg-navy text-white" },
-                  { n: "120+", l: "Licensed Firms", c: "bg-gold text-[#1a1a1a]" },
-                  { n: "40 hrs", l: "Annual CPD", c: "bg-white dark:bg-zinc-900 text-navy dark:text-gold border border-zinc-100 dark:border-zinc-800" },
-                  { n: "5–10 days", l: "Review Cycle", c: "bg-white dark:bg-zinc-900 text-navy dark:text-gold border border-zinc-100 dark:border-zinc-800" },
-                ].map(s => (
-                  <Card key={s.l} className={`${s.c} border-0 hover-lift shadow-sm`}>
-                    <CardContent className="p-6">
-                      <div className="text-3xl font-bold">{s.n}</div>
-                      <div className="mt-1 text-sm font-sans opacity-80">{s.l}</div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
             </div>
           </div>
         </section>

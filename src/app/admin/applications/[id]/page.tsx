@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
+import { formatPracticeLocation } from "@/lib/utils";
 
 function formatMonthYear(val?: string) {
   if (!val) return "";
@@ -837,7 +838,7 @@ export default function Review({ params }: PageProps) {
                 {app.entityType === "Firm" && app.firmAddress && <Row k="Firm Address" v={app.firmAddress} />}
                 {app.residencyAddress && [app.residencyAddress.district, app.residencyAddress.sector, app.residencyAddress.cell, app.residencyAddress.village].filter(Boolean).join(", ").length > 0 && <Row k="Residency Address" v={[app.residencyAddress.district, app.residencyAddress.sector, app.residencyAddress.cell, app.residencyAddress.village].filter(Boolean).join(", ")} />}
                 {app.workAddress && [app.workAddress.district, app.workAddress.sector, app.workAddress.cell, app.workAddress.village].filter(Boolean).join(", ").length > 0 && <Row k="Work Address" v={[app.workAddress.district, app.workAddress.sector, app.workAddress.cell, app.workAddress.village].filter(Boolean).join(", ")} />}
-                <Row k="Practice location" v={app.practiceLocation} />
+                <Row k="Practice location" v={formatPracticeLocation(app.practiceLocation)} />
               </CardContent>
             </Card>
           </motion.div>

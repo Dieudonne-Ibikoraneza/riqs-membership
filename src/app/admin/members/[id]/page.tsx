@@ -41,6 +41,7 @@ import {
 import { toast } from "sonner";
 import { getMemberById, awardFellowStatus, revokeFellowStatus, changeMembershipCategory, sendAdminEmail, updateMemberHonors, promoteToMentor, revokeMentorStatus } from "@/lib/api/admin";
 import { axiosClient } from "@/lib/axiosClient";
+import { formatPracticeLocation } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth";
 
@@ -585,7 +586,7 @@ export default function AdminMemberProfilePage() {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Practice Location</p>
-                      <p className="font-medium text-slate-900">{app.practiceLocation || "—"}</p>
+                      <p className="font-medium text-slate-900">{formatPracticeLocation(app.practiceLocation)}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Category & Focus</p>

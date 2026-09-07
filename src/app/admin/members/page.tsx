@@ -57,7 +57,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { MonthYearPicker } from "@/components/ui/month-picker";
-import { cn } from "@/lib/utils";
+import { cn, formatPracticeLocation } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -615,7 +615,7 @@ export default function AdminMembers() {
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-1.5 text-xs text-zinc-650 dark:text-zinc-350">
                         <MapPin className="h-3.5 w-3.5 text-gold shrink-0" />
-                        {formatLabel(m.practiceLocation)}
+                        {formatPracticeLocation(m.practiceLocation)}
                         {m.country &&
                           m.practiceLocation === "Non_Rwandan" &&
                           ` · ${m.country}`}

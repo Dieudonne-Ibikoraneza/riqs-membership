@@ -16,6 +16,7 @@ import {
   GraduationCap,
   ArrowUpCircle,
   ArrowRight,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -23,6 +24,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
 import { logbookServices } from "@/services/logbook.services";
+import { useAuth } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -131,9 +133,25 @@ function MenteeCard({ mentee }: { mentee: any }) {
 }
 
 export default function Mentees() {
+  const { isMentor } = useAuth();
+
+  const { data: profileData, isLoading: isProfileLoading } = useQuery({
+    queryKey: queryKeys.applicant.profile(),
+    queryFn: applicantServices.getProfile,
+  });
+
+  const appStatus = (profileData?.application as any)?.status;
+  const isApproved = appStatus === "Approved";
+  const actualIsMentor =
+    isMentor || (profileData?.profile as any)?.systemRole === "Mentor";
+  // A Technologist/Professional applicant still awaiting approval isn't a mentor yet — show
+  // a hold state instead of calling the mentees API (which would 403).
+  const showPendingHold = !actualIsMentor && !isApproved;
+
   const { data: menteesData, isLoading: isMenteesLoading, error: menteesError } = useQuery({
     queryKey: queryKeys.mentorship.mentees(),
     queryFn: applicantServices.getMentees,
+    enabled: actualIsMentor,
   });
 
   // ================= MENTOR DASHBOARD VIEW =================
@@ -148,7 +166,23 @@ export default function Mentees() {
         </p>
       </div>
 
-      {isMenteesLoading ? (
+      {isProfileLoading && !isMentor ? (
+        <div className="grid gap-4 animate-pulse">
+          <Card className="h-24 bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800" />
+          <Card className="h-56 bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800" />
+        </div>
+      ) : showPendingHold ? (
+        <Card className="border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/10">
+          <CardContent className="p-8 text-center space-y-3">
+            <Lock className="h-10 w-10 text-amber-500 mx-auto" />
+            <h2 className="text-lg font-bold text-navy dark:text-zinc-100">Application Not Yet Approved</h2>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+              Your mentor dashboard — assigned graduates, their logbook evidence, and upgrade
+              recommendations — opens once your Technologist / Professional application has been approved.
+            </p>
+          </CardContent>
+        </Card>
+      ) : isMenteesLoading ? (
         <div className="grid gap-4 md:grid-cols-3 animate-pulse">
           <Card className="h-44 bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800" />
           <Card className="md:col-span-2 h-72 bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800" />

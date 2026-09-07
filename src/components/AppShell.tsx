@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
+import { getMembershipTrack } from "@/lib/application-categories";
 import {
   Building2,
   LayoutDashboard,
@@ -86,11 +87,30 @@ export function AppShell({
     daysUntilExpiry = Math.ceil(diff / (1000 * 3600 * 24));
   }
 
-  const showExpiryBanner = 
-    kind === "member" && 
-    pathname !== "/dashboard/payments" && 
-    daysUntilExpiry !== null && 
+  const showExpiryBanner =
+    kind === "member" &&
+    pathname !== "/dashboard/payments" &&
+    daysUntilExpiry !== null &&
     daysUntilExpiry <= 30;
+
+  // While an application is still going through review (not yet Approved), the category
+  // the member APPLIED under decides which mentorship-side page they see — a Technologist /
+  // Professional applicant belongs on "My Mentees" (locked until approval), a Graduate /
+  // Associate applicant on "Mentorship". Once approved, the normal class/mentor-role checks
+  // below take over.
+  const appStatus = (profileData?.application as any)?.status;
+  const applicationPendingApproval =
+    !!profileData?.application && appStatus !== "Approved" && appStatus !== "Rejected";
+  const pendingTrack = applicationPendingApproval
+    ? getMembershipTrack({
+        categoryCode:
+          (profileData?.application as any)?.applied_category_code ||
+          (profileData?.application as any)?.category_code,
+        categoryName:
+          (profileData?.application as any)?.applied_category_name ||
+          profileData?.application?.category_name,
+      })
+    : null;
 
   // Route protection and workspace boundary enforcement
   useEffect(() => {
@@ -125,12 +145,20 @@ export function AppShell({
       // no mentees and the /mentees API correctly 403s them — without this guard they'd land
       // on a broken "Failed to load Mentees" error page instead of just never seeing it
       // (e.g. a stale bookmark, or a bulk-imported member whose nav hasn't re-rendered yet).
+      // Exception: an applicant still awaiting approval on the Technologist/Professional
+      // track is allowed onto /dashboard/mentees, where the page shows a "not yet approved"
+      // hold state instead of calling the mentees API.
       const actualIsMentorNow = isMentor || (profileData?.profile as any)?.systemRole === "Mentor";
-      if (!actualIsMentorNow && pathname.startsWith("/dashboard/mentees")) {
+      if (!actualIsMentorNow && pendingTrack !== "mentor" && pathname.startsWith("/dashboard/mentees")) {
         router.replace("/dashboard");
       }
+      // Mirror it for the mentee page: a Technologist/Professional applicant awaiting
+      // approval shouldn't be able to sit on the Graduate mentorship page.
+      if (pendingTrack === "mentor" && pathname.startsWith("/dashboard/mentorship")) {
+        router.replace("/dashboard/mentees");
+      }
     }
-  }, [role, kind, isTeacher, isStudent, isMentor, router, pathname, profileData]);
+  }, [role, kind, isTeacher, isStudent, isMentor, router, pathname, profileData, pendingTrack]);
 
   // Auto-redirect a signed-out visitor to the login page after a short grace period —
   // long enough that a visitor whose auth is still hydrating from localStorage (role
@@ -148,8 +176,14 @@ export function AppShell({
 
   const actualIsMentor = isMentor || (profileData?.profile as any)?.systemRole === "Mentor";
   const isProfessional = profileData?.profile?.membershipClass?.includes("Professional");
-  const needsMentorship = !isFirm && !isProfessional;
-  const canBeMentor = actualIsMentor;
+  // While pending approval the applied-for track wins; afterwards fall back to the
+  // member's activated class / mentor role.
+  const needsMentorship = pendingTrack
+    ? pendingTrack === "mentee"
+    : !isFirm && !isProfessional;
+  const canBeMentor = pendingTrack
+    ? pendingTrack === "mentor"
+    : actualIsMentor;
 
   const membershipClass = (profileData?.profile as any)?.membershipClass || "";
   const isRestrictedMember = isStudent || membershipClass.includes("Student") || membershipClass.includes("Visiting") || membershipClass.includes("Honorary") || membershipClass.includes("Life");

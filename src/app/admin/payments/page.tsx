@@ -44,6 +44,7 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function AdminPaymentsPage() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("All");
+  const [method, setMethod] = useState("All");
   const [selectedTx, setSelectedTx] = useState<AdminPaymentTransaction | null>(null);
   const [verifyAction, setVerifyAction] = useState<"Paid" | "Failed">("Paid");
   const [rejectionReason, setRejectionReason] = useState("");
@@ -83,8 +84,8 @@ export default function AdminPaymentsPage() {
   }, [cpdUrl]);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["adminPayments", page, status],
-    queryFn: () => getPendingPayments(page, 15, status),
+    queryKey: ["adminPayments", page, status, method],
+    queryFn: () => getPendingPayments(page, 15, status, method),
   });
 
   const { mutate: handleVerify, isPending: isVerifying } = useMutation({
@@ -126,7 +127,7 @@ export default function AdminPaymentsPage() {
   };
 
   const formatTxType = (t: string) => t.replace(/_/g, " ");
-  const formatMethod = (m: string) => m.replace(/_/g, " ");
+  const formatMethod = (m: string | null) => m ? m.replace(/_/g, " ") : "-";
   const formatAmount = (amt: number, curr: string) => {
     return new Intl.NumberFormat("en-US", { style: "currency", currency: curr }).format(amt);
   };
@@ -391,19 +392,33 @@ function Avatar({ name, url }: { name: string; url?: string }) {
             <CardTitle>Transactions Queue</CardTitle>
             <CardDescription>Review and verify submitted payments.</CardDescription>
           </div>
-          <div className="w-[200px]">
-            <Select value={status} onValueChange={(val) => { setStatus(val); setPage(1); }}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filter Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All">All Transactions</SelectItem>
-                <SelectItem value="Pending_Verification">Pending Verification</SelectItem>
-                <SelectItem value="Paid">Paid</SelectItem>
-                <SelectItem value="Failed">Failed</SelectItem>
-                <SelectItem value="Unpaid">Unpaid</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex gap-3">
+            <div className="w-[200px]">
+              <Select value={status} onValueChange={(val) => { setStatus(val); setPage(1); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Transactions</SelectItem>
+                  <SelectItem value="Pending_Verification">Pending Verification</SelectItem>
+                  <SelectItem value="Paid">Paid</SelectItem>
+                  <SelectItem value="Failed">Failed</SelectItem>
+                  <SelectItem value="Unpaid">Unpaid</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-[200px]">
+              <Select value={method} onValueChange={(val) => { setMethod(val); setPage(1); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter Method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Methods</SelectItem>
+                  <SelectItem value="Online">Online Payment</SelectItem>
+                  <SelectItem value="Offline">Offline Payment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -415,6 +430,7 @@ function Avatar({ name, url }: { name: string; url?: string }) {
                   <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Member</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Category</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Type</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Method</th>
                   <th className="px-5 py-3.5 text-right text-xs font-bold uppercase tracking-wider">Amount</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Date</th>
                   <th className="px-5 py-3.5 text-right text-xs font-bold uppercase tracking-wider">Status</th>
@@ -423,7 +439,7 @@ function Avatar({ name, url }: { name: string; url?: string }) {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="px-5 py-10 h-32 text-center text-muted-foreground">
+                    <td colSpan={8} className="px-5 py-10 h-32 text-center text-muted-foreground">
                       <div className="flex flex-col items-center justify-center">
                         <RefreshCw className="mb-2 h-6 w-6 animate-spin" />
                         Loading queue...
@@ -432,13 +448,13 @@ function Avatar({ name, url }: { name: string; url?: string }) {
                   </tr>
                 ) : isError ? (
                   <tr>
-                    <td colSpan={7} className="px-5 py-10 h-32 text-center text-red-500">
+                    <td colSpan={8} className="px-5 py-10 h-32 text-center text-red-500">
                       Failed to load transactions.
                     </td>
                   </tr>
                 ) : data?.transactions.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-5 py-10 h-32 text-center text-muted-foreground">
+                    <td colSpan={8} className="px-5 py-10 h-32 text-center text-muted-foreground">
                       No transactions found for this status.
                     </td>
                   </tr>
@@ -495,6 +511,7 @@ function Avatar({ name, url }: { name: string; url?: string }) {
                           )}
                         </div>
                       </td>
+                      <td className="px-5 py-4 text-sm text-zinc-700 dark:text-zinc-300">{formatMethod(tx.paymentMethod)}</td>
                       <td className="px-5 py-4 text-right font-medium text-zinc-900 dark:text-zinc-100">{formatAmount(tx.amount, tx.currency)}</td>
                       <td className="px-5 py-4 text-xs text-zinc-650 dark:text-zinc-400 font-medium">
                         {format(new Date(tx.createdAt), "MMM d, yyyy")}

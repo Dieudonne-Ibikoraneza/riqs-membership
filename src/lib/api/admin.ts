@@ -165,7 +165,8 @@ export interface AdminPaymentTransaction {
   amount: number;
   currency: string;
   txType: string;
-  paymentMethod: string;
+  // Null on a system-generated Unpaid invoice that nobody has attempted to pay yet.
+  paymentMethod: string | null;
   transactionReference: string;
   providerTransactionId?: string | null;
   status: string;
@@ -194,10 +195,11 @@ export interface AdminPaymentsResponse {
 export async function getPendingPayments(
   page: number = 1,
   limit: number = 20,
-  status: string = "Pending_Verification"
+  status: string = "Pending_Verification",
+  method: string = "All"
 ): Promise<AdminPaymentsResponse> {
   const { data } = await axiosClient.get<AdminPaymentsResponse>(
-    `/payments/queue?page=${page}&limit=${limit}&status=${status}`
+    `/payments/queue?page=${page}&limit=${limit}&status=${status}&method=${method}`
   );
   return data;
 }

@@ -84,7 +84,7 @@ export default function MembersPage() {
       const honorsSet = new Set<string>(m.honors || []);
       const honorsArray = Array.from(honorsSet);
 
-      const baseCategory = formatMembershipClass(m.membership_class);
+      const baseCategory = m.category_name || formatMembershipClass(m.membership_class);
       const fullCategory = honorsArray.length > 0
         ? `${baseCategory}, ${honorsArray.join(", ")}`
         : baseCategory;
@@ -345,24 +345,22 @@ export default function MembersPage() {
                         </td>
                         <td className="px-5 py-4 text-xs font-semibold text-navy dark:text-gold">{m.membership_id || m.id}</td>
                         <td className="px-5 py-4 max-w-[200px]">
-                          <div className="flex flex-col items-start gap-1">
-                            <Badge variant="outline" className="border-navy/20 bg-navy/5 text-navy dark:border-zinc-700 dark:text-zinc-300 font-semibold">{formatMembershipClass(m.membership_class)}</Badge>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {(() => {
-                                const honorsSet = new Set<string>(m.honors || []);
-                                
-                                return Array.from(honorsSet).map((honor: string) => (
-                                  <Badge 
-                                    key={honor} 
-                                    variant="outline" 
-                                    className="text-[10px] px-2 py-0.5 shadow-sm bg-amber-100 text-amber-800 border-amber-300 shadow-amber-500/20 uppercase tracking-wider font-bold"
-                                  >
-                                    <Star className="h-2.5 w-2.5 mr-1 fill-amber-600 text-amber-600" />
-                                    {honor}
-                                  </Badge>
-                                ));
-                              })()}
-                            </div>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <Badge variant="outline" className="border-navy/20 bg-navy/5 text-navy dark:border-zinc-700 dark:text-zinc-300 font-semibold">{m.category_name || formatMembershipClass(m.membership_class)}</Badge>
+                            {(() => {
+                              const honorsSet = new Set<string>(m.honors || []);
+
+                              return Array.from(honorsSet).map((honor: string) => (
+                                <Badge
+                                  key={honor}
+                                  variant="outline"
+                                  className="text-[10px] px-2 py-0.5 shadow-sm bg-amber-100 text-amber-800 border-amber-300 shadow-amber-500/20 uppercase tracking-wider font-bold"
+                                >
+                                  <Star className="h-2.5 w-2.5 mr-1 fill-amber-600 text-amber-600" />
+                                  {honor}
+                                </Badge>
+                              ));
+                            })()}
                           </div>
                         </td>
                         <td className="px-5 py-4 text-xs text-zinc-600 dark:text-zinc-400">{m.phone_number}</td>
@@ -468,24 +466,22 @@ function MemberCard({ m }: { m: any }) {
       <CardContent className="pt-10 pb-5 px-5">
         <div className="text-[10px] tracking-wider gold-text font-bold">{m.membership_id || m.id}</div>
         <div className="mt-1 text-base font-bold text-navy dark:text-white leading-tight">{m.full_name}</div>
-        <div className="mt-1.5 flex flex-col items-start gap-1">
-          <Badge variant="outline" className="border-navy/15 bg-navy/5 text-navy dark:border-zinc-800 dark:text-zinc-350 text-[10px] font-semibold">{formatMembershipClass(m.membership_class)}</Badge>
-          <div className="flex flex-wrap gap-1 mt-1">
-            {(() => {
-              const honorsSet = new Set<string>(m.honors || []);
-              
-              return Array.from(honorsSet).map((honor: string) => (
-                <Badge 
-                  key={honor} 
-                  variant="outline" 
-                  className="text-[10px] px-2 py-0.5 shadow-sm bg-amber-100 text-amber-800 border-amber-300 shadow-amber-500/20 uppercase tracking-wider font-bold"
-                >
-                  <Star className="h-2.5 w-2.5 mr-1 fill-amber-600 text-amber-600" />
-                  {honor}
-                </Badge>
-              ));
-            })()}
-          </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+          <Badge variant="outline" className="border-navy/15 bg-navy/5 text-navy dark:border-zinc-800 dark:text-zinc-350 text-[10px] font-semibold">{m.category_name || formatMembershipClass(m.membership_class)}</Badge>
+          {(() => {
+            const honorsSet = new Set<string>(m.honors || []);
+
+            return Array.from(honorsSet).map((honor: string) => (
+              <Badge
+                key={honor}
+                variant="outline"
+                className="text-[10px] px-2 py-0.5 shadow-sm bg-amber-100 text-amber-800 border-amber-300 shadow-amber-500/20 uppercase tracking-wider font-bold"
+              >
+                <Star className="h-2.5 w-2.5 mr-1 fill-amber-600 text-amber-600" />
+                {honor}
+              </Badge>
+            ));
+          })()}
         </div>
         <div className="mt-4 space-y-2 text-xs text-muted-foreground font-sans">
           <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-gold shrink-0" /> {m.phone_number}</div>

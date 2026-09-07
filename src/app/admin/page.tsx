@@ -12,6 +12,7 @@ import {
   ClipboardList, AlertTriangle, Clock, Users, Loader2
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { formatPracticeLocation } from "@/lib/utils";
 import {
   ResponsiveContainer, AreaChart, Area, Tooltip, Legend,
   CartesianGrid, XAxis, YAxis, RadialBarChart, RadialBar, PolarAngleAxis
@@ -435,7 +436,7 @@ export default function AdminOverview() {
                   <div className="min-w-0 w-full flex-1 sm:w-auto">
                     <div className="break-words text-[17px] font-semibold text-[#0b3363] mb-0.5" style={{ overflowWrap: "anywhere" }}>{a.applicantName}</div>
                     <div className="break-words text-[13px] text-muted-foreground" style={{ overflowWrap: "anywhere" }}>
-                      {a.id?.slice(0, 8)}… · {a.category} · {a.practiceLocation}
+                      {a.id?.slice(0, 8)}… · {a.category} · {formatPracticeLocation(a.practiceLocation)}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">

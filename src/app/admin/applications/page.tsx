@@ -40,7 +40,7 @@ import {
   Star
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatPracticeLocation } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -562,7 +562,7 @@ export default function AdminApps() {
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-1.5 text-xs text-zinc-650 dark:text-zinc-350">
                         <MapPin className="h-3.5 w-3.5 text-gold shrink-0" />
-                        {a.practiceLocation}
+                        {formatPracticeLocation(a.practiceLocation)}
                       </div>
                     </td>
                     <td className="px-5 py-4 text-xs text-zinc-650 dark:text-zinc-400">

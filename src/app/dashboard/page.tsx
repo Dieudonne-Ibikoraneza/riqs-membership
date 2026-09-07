@@ -43,6 +43,7 @@ export default function Overview() {
   const memberId = profileData?.profile?.membershipId || null;
   const rawStatus = profileData?.application?.status || "Pending";
   const appStatus = rawStatus.replace(/_/g, " ");
+  const isApplicationApproved = rawStatus === "Approved";
   const isGraduate = membershipCategory.includes("Graduate");
   const isAssociate = membershipCategory.includes("Associate");
   // Being Technologist/Professional no longer implies mentor status by itself — a member
@@ -139,8 +140,9 @@ export default function Overview() {
         </div>
       </motion.div>
 
-      {/* Membership Card */}
-      {!(isRestrictedMember || isGraduate) && (
+      {/* Membership Card — only once the application is approved and the member is
+          actually enrolled; a pending application has no real card to show. */}
+      {isApplicationApproved && !(isRestrictedMember || isGraduate) && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}

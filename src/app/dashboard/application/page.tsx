@@ -264,21 +264,15 @@ export default function Application() {
   // only a genuinely NEW failure (a different transaction id) re-triggers the auto-popup.
   const [dismissedFailedTxId, setDismissedFailedTxId] = useState<string | null>(null);
 
-  // Surface a failed processing-fee payment as soon as the application page loads, rather
-  // than making the member click "Submit final application" again just to be told their
-  // last attempt failed — that extra click was confusing since nothing about the button
-  // itself hinted anything had gone wrong.
-  useEffect(() => {
-    if (!isEditable || !latestFailedProcessingFee || !appId) return;
-    if (latestFailedProcessingFee.id === dismissedFailedTxId) return;
-    setShowPaymentDialog(true);
-  }, [isEditable, latestFailedProcessingFee, appId, dismissedFailedTxId]);
-
   const [step, setStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [hasLoaded, setHasLoaded] = useState(false);
   const getCacheKey = (loc: string, ent: string) => `${loc}-${ent}`;
+  // categoryId must be a real MembershipCategory UUID before we persist a draft.
+  // Placeholder ids from the offline fallback list would otherwise 500 the backend.
+  const isValidCategoryId = (v: any) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v || ""));
   const [cachedCategory, setCachedCategory] = useState<{ [key: string]: { id: string, name: string } }>({});
 
   const [data, setData] = useState<any>({
@@ -297,7 +291,7 @@ export default function Application() {
       yearsInProfession: "",
       countryOfOrigin: "Rwanda",
       gender: "",
-      nationality: "",
+      nationality: "Rwandan",
       firmName: "",
       firmAddress: "",
       firmContactRegistrationNumber: "",
@@ -322,6 +316,18 @@ export default function Application() {
     docs: {},
     dynamicTabs: [],
   });
+
+  // Surface a failed processing-fee payment as soon as the application page loads, rather
+  // than making the member click "Submit final application" again just to be told their
+  // last attempt failed — that extra click was confusing since nothing about the button
+  // itself hinted anything had gone wrong. Rwandan only — see the PAYMENT_REQUIRED handler
+  // below for why a non-Rwandan applicant never sees this dialog at all.
+  useEffect(() => {
+    if (!isEditable || !latestFailedProcessingFee || !appId) return;
+    if (data.practiceLocation !== "Rwandan") return;
+    if (latestFailedProcessingFee.id === dismissedFailedTxId) return;
+    setShowPaymentDialog(true);
+  }, [isEditable, latestFailedProcessingFee, appId, dismissedFailedTxId, data.practiceLocation]);
 
   // Pre-populate from backend data
   useEffect(() => {
@@ -354,9 +360,18 @@ export default function Application() {
     // Find the category name from the categories list
     const catName = savedLocal?.categoryName || application?.category_name || "";
 
+    const resolvedLocation = savedLocal?.practiceLocation || application?.practiceLocation || "Rwandan";
+    const isRwandan = resolvedLocation === "Rwandan";
+    // Rwandan applicants default to Rwandan nationality / Rwanda origin;
+    // non-Rwandan applicants start blank so they must enter their own.
+    const resolvedNationality =
+      savedLocal?.personal?.nationality || (profile as any)?.nationality || (isRwandan ? "Rwandan" : "");
+    const resolvedCountryOfOrigin =
+      savedLocal?.personal?.countryOfOrigin || (isRwandan ? "Rwanda" : "");
+
     setData((prev: any) => ({
       ...prev,
-      practiceLocation: savedLocal?.practiceLocation || application?.practiceLocation || "Rwandan",
+      practiceLocation: resolvedLocation,
       entityType: savedLocal?.entityType || application?.entityType || "Individual",
       categoryId: savedLocal?.categoryId || application?.categoryId || "",
       categoryName: catName,
@@ -368,9 +383,9 @@ export default function Application() {
         phone: savedLocal?.personal?.phone || profile?.phoneNumber || "",
         email: savedLocal?.personal?.email || profile?.email || "",
         yearsInProfession: savedLocal?.personal?.yearsInProfession || (application as any)?.yearsInProfession || "",
-        countryOfOrigin: savedLocal?.personal?.countryOfOrigin || "Rwanda",
+        countryOfOrigin: resolvedCountryOfOrigin,
         gender: savedLocal?.personal?.gender || (profile as any)?.gender || "",
-        nationality: savedLocal?.personal?.nationality || (profile as any)?.nationality || "",
+        nationality: resolvedNationality,
         residentAddress: savedLocal?.personal?.residentAddress || profile?.residencyAddress || prev.personal.residentAddress,
         workAddress: savedLocal?.personal?.workAddress || profile?.workAddress || prev.personal.workAddress,
         firmName: savedLocal?.personal?.firmName || (application as any)?.firmName || "",
@@ -505,11 +520,18 @@ export default function Application() {
   // Filtered categories based on location + entityType
   const filteredCategories = useMemo(() => {
     if (!categories) return [];
+    const isNonRwandanIndividual =
+      data.entityType === "Individual" && data.practiceLocation === "Non_Rwandan";
     return categories.filter(
       (c: any) =>
         c.location === data.practiceLocation &&
         (c.entityType || c.entity_type) === data.entityType &&
-        (data.entityType !== "Individual" || isGraduateApplicationCategory(c)) &&
+        // Rwandan individuals apply through the graduate routes; non-Rwandan
+        // individuals apply directly as Technologist or Professional.
+        (data.entityType !== "Individual" ||
+          (isNonRwandanIndividual
+            ? ["F-TcQS", "F-PrQS"].includes(c.category_code || c.categoryCode)
+            : isGraduateApplicationCategory(c))) &&
         (c.category_name?.toLowerCase().includes("student") ? data.categoryName?.toLowerCase().includes("student") : true)
     );
   }, [categories, data.practiceLocation, data.entityType, data.categoryName]);
@@ -519,11 +541,19 @@ export default function Application() {
     if (filteredCategories.length > 0) {
       return filteredCategories.map((c: any) => ({ id: c.id, name: getGraduateApplicationRoute(c)?.title || c.category_name }));
     }
-    // Fallback hardcoded
+    // Fallback hardcoded (used only while the categories query is still loading /
+    // unavailable — the ids here are placeholders and are never persisted; the
+    // auto-save is guarded to only send real category UUIDs).
     if (data.entityType === "Individual") {
+      if (data.practiceLocation === "Non_Rwandan") {
+        return [
+          { id: "", name: "Non-Rwandan Quantity Surveying Technologist", category_code: "F-TcQS" },
+          { id: "", name: "Non-Rwandan Professional Quantity Surveyor", category_code: "F-PrQS" },
+        ];
+      }
       return [
-        { id: "GradQST", name: "Graduate QS Technologist", category_code: "GradQST" },
-        { id: "GradQS", name: "Graduate QS", category_code: "GradQS" },
+        { id: "GrQST", name: "Graduate QS Technologist", category_code: "GrQST" },
+        { id: "GrQS", name: "Graduate QS", category_code: "GrQS" },
       ];
     } else {
       if (data.practiceLocation === "Rwandan") {
@@ -542,6 +572,29 @@ export default function Application() {
     }
   }, [filteredCategories, data.entityType, data.practiceLocation]);
 
+  // Reconcile a non-UUID categoryId (e.g. a placeholder code left over from the
+  // offline fallback list, or a poisoned localStorage draft from before this fix)
+  // against the real categories once they load, so drafts start auto-saving again.
+  useEffect(() => {
+    if (!hasLoaded || isValidCategoryId(data.categoryId)) return;
+    if (!filteredCategories.length) return;
+    const legacy = String(data.categoryId || "");
+    const match = filteredCategories.find(
+      (c: any) =>
+        c.category_code === legacy ||
+        c.categoryCode === legacy ||
+        c.category_name === data.categoryName ||
+        c.categoryName === data.categoryName
+    );
+    if (match?.id) {
+      setData((d: any) => ({
+        ...d,
+        categoryId: match.id,
+        categoryName: getGraduateApplicationRoute(match)?.title || match.category_name || d.categoryName,
+      }));
+    }
+  }, [hasLoaded, filteredCategories, data.categoryId, data.categoryName]);
+
   const selectedGraduateRoute = useMemo(
     () => getGraduateApplicationRoute(
       categories?.find((c: any) => c.id === data.categoryId) ||
@@ -557,7 +610,25 @@ export default function Application() {
     }));
     setData((d: any) => {
       const restored = cachedCategory[getCacheKey(loc, data.entityType)] || { id: "", name: "" };
-      return { ...d, practiceLocation: loc, categoryId: restored.id, categoryName: restored.name };
+      // Keep nationality / country of origin in step with the chosen location:
+      // Rwandan -> default to Rwandan / Rwanda when blank; Non-Rwandan -> drop the
+      // Rwandan auto-defaults so the applicant supplies their own.
+      let nationality = d.personal?.nationality || "";
+      let countryOfOrigin = d.personal?.countryOfOrigin || "";
+      if (loc === "Rwandan") {
+        if (!nationality) nationality = "Rwandan";
+        if (!countryOfOrigin) countryOfOrigin = "Rwanda";
+      } else {
+        if (nationality === "Rwandan") nationality = "";
+        if (countryOfOrigin === "Rwanda") countryOfOrigin = "";
+      }
+      return {
+        ...d,
+        practiceLocation: loc,
+        categoryId: restored.id,
+        categoryName: restored.name,
+        personal: { ...d.personal, nationality, countryOfOrigin },
+      };
     });
   };
 
@@ -625,7 +696,7 @@ export default function Application() {
   // Save edits after the user pauses briefly, rather than waiting for Next.
   // localStorage remains the immediate recovery fallback.
   useEffect(() => {
-    if (!hasLoaded || !data.categoryId || !isEditable) return;
+    if (!hasLoaded || !isValidCategoryId(data.categoryId) || !isEditable) return;
 
     setSaveStatus("idle");
     const timer = window.setTimeout(() => {
@@ -639,7 +710,7 @@ export default function Application() {
   // Attempt one last backend save when the user switches tabs or leaves the page.
   useEffect(() => {
     const saveBeforeLeaving = () => {
-      if (document.visibilityState === "hidden" && hasLoaded && data.categoryId && isEditable) {
+      if (document.visibilityState === "hidden" && hasLoaded && isValidCategoryId(data.categoryId) && isEditable) {
         setSaveStatus("saving");
         saveMutation.mutate(buildApplicationPayload(step) as any);
       }
@@ -652,7 +723,7 @@ export default function Application() {
   // Handle Save & Logout Event
   useEffect(() => {
     const handleSaveAndLogout = () => {
-      if (data.categoryId) {
+      if (isValidCategoryId(data.categoryId)) {
         saveMutation.mutate(buildApplicationPayload(step) as any, {
           onSuccess: () => {
             localStorage.removeItem('riqs_app_draft');
@@ -809,7 +880,18 @@ export default function Application() {
     onSuccess: handleApplicationSubmitted,
     onError: (err: any) => {
       if (err?.response?.data?.code === "PAYMENT_REQUIRED") {
-        setShowPaymentDialog(true);
+        // Our IntouchPay gateway only ever settles Rwandan mobile money, so the whole payment
+        // dialog (Mobile Money or otherwise) is Rwandan-only. A non-Rwandan applicant's
+        // processing fee proof is just one more required document in the category's own "Other
+        // Documents" checklist (flagged isPaymentProof — see fileController.ts) — uploaded
+        // inline there like any other document, never through a popup.
+        if (data.practiceLocation === "Rwandan") {
+          setShowPaymentDialog(true);
+        } else {
+          toast.error("Upload your proof of payment in the Other Documents step to continue.");
+          const docsStepIndex = STEPS.indexOf("Other Documents");
+          if (docsStepIndex >= 0) setStep(docsStepIndex);
+        }
         return;
       }
       toast.error(err?.response?.data?.error || "Failed to submit application");
@@ -882,7 +964,7 @@ export default function Application() {
     if (!data.categoryId && step >= 2) {
       // Skip auto-save if no categoryId yet (steps 0-1)
     }
-    if (data.categoryId) {
+    if (isValidCategoryId(data.categoryId)) {
       setSaveStatus("saving");
       if (!appId) {
         // First time this application is being created: every later step (Education,
@@ -1669,9 +1751,13 @@ function WizardContent({
                         </div>
                       </div>
                     )}
-                    <p className="text-xs text-muted-foreground pt-1 leading-normal font-sans">
-                      Applications are currently accepted only through one of the two graduate routes above.
-                    </p>
+                    {data.entityType === "Individual" && (
+                      <p className="text-xs text-muted-foreground pt-1 leading-normal font-sans">
+                        {data.practiceLocation === "Non_Rwandan"
+                          ? "Non-Rwandan individuals apply directly under the Technologist or Professional category."
+                          : "Applications are currently accepted only through one of the two graduate routes above."}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -1813,7 +1899,7 @@ function WizardContent({
                            onChange={(e) => setData({ ...data, personal: { ...data.personal, countryOfOrigin: e.target.value } })} />
                       </div>
                     )}
-                    {(data.categoryName === "Technologist" || data.categoryName === "Professional") && (
+                    {(/technologist|professional/i.test(data.categoryName || "")) && (
                       <div className="space-y-1">
                         <Label htmlFor="app-years">Years in Profession</Label>
                         <Input id="app-years" type="number" min={0} placeholder="e.g. 5" value={data.personal.yearsInProfession}

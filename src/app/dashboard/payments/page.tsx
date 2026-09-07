@@ -281,7 +281,10 @@ export default function Payments() {
       amount: numAmount,
       currency: isRwandan ? "RWF" : "USD",
       txType: defaultTxType,
-      paymentMethod: isRwandan ? "MTN_Momo" : "Bank_Transfer",
+      // Simply "not through our gateway" — this is the manual proof-upload path, and which
+      // exact rail (MoMo code, bank transfer, cash) the member used isn't worth asking them
+      // to specify.
+      paymentMethod: "Manual_Payment",
       transactionReference: generatedTxRef,
       receiptUrl,
       cpdDocumentUrl: cpdUrl,
@@ -556,7 +559,7 @@ export default function Payments() {
                 after a rejected proof) had no Mobile Money option at all, unlike the same fee's
                 own payment dialog on the application wizard page. Mirrors First-Year Fee: both
                 options always visible together, no CPD gate applies to this fee type either. */}
-            {canUpload && defaultTxType === "Processing_Fee" && data?.application?.id && (
+            {canUpload && isRwandan && defaultTxType === "Processing_Fee" && data?.application?.id && (
               <div className="mt-2 pt-5 border-t border-gold/20">
                 <Button
                   type="button"
@@ -573,7 +576,7 @@ export default function Payments() {
 
             {/* First-Year Fee: unchanged — Mobile Money and the manual receipt uploader are
                 both always visible together, no CPD gate applies to this fee type. */}
-            {canUpload && defaultTxType === "First_Year_Fee" && data?.application?.id && (
+            {canUpload && isRwandan && defaultTxType === "First_Year_Fee" && data?.application?.id && (
               <div className="mt-2 pt-5 border-t border-gold/20">
                 <Button
                   type="button"
@@ -592,7 +595,7 @@ export default function Payments() {
                 Mobile Money is offered first, with the manual receipt uploader tucked behind
                 an explicit "Upload Receipt Instead" choice rather than shown alongside it. */}
             <AnimatePresence initial={false}>
-              {canUpload && defaultTxType === "Annual_Renewal" && data?.application?.id && cpdFile && (
+              {canUpload && isRwandan && defaultTxType === "Annual_Renewal" && data?.application?.id && cpdFile && (
                 <motion.div
                   key="renewal-payment-step"
                   initial={{ opacity: 0, height: 0 }}
@@ -644,9 +647,9 @@ export default function Payments() {
               )}
             </AnimatePresence>
 
-            {canUpload && (defaultTxType !== "Annual_Renewal" || (cpdFile && showManualRenewalUpload)) && (
+            {canUpload && (defaultTxType !== "Annual_Renewal" || (cpdFile && (showManualRenewalUpload || !isRwandan))) && (
               <div className="mt-2 pt-5 border-t border-gold/20">
-                {defaultTxType === "Annual_Renewal" && (
+                {defaultTxType === "Annual_Renewal" && isRwandan && (
                   <button
                     type="button"
                     onClick={() => { setShowManualRenewalUpload(false); setFile(null); }}
@@ -656,7 +659,7 @@ export default function Payments() {
                   </button>
                 )}
                 <div className="flex items-center gap-2">
-                  {defaultTxType === "Annual_Renewal" && (
+                  {defaultTxType === "Annual_Renewal" && isRwandan && (
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-navy text-[11px] font-bold text-white dark:bg-gold dark:text-[#1a1a1a]">3</span>
                   )}
                   <Label className="text-navy font-semibold">{displayDocName} <span className="text-red-500">*</span></Label>
@@ -875,7 +878,7 @@ export default function Payments() {
                         {tx.txType.replace(/_/g, " ")}
                       </td>
                       <td className="px-5 py-4 text-sm text-zinc-600 dark:text-zinc-400">
-                        {tx.paymentMethod?.replace(/_/g, " ") || "—"}
+                        {tx.paymentMethod?.replace(/_/g, " ") || "-"}
                       </td>
                       <td className="px-5 py-4 font-semibold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
                         {tx.currency} {Number(tx.amount).toLocaleString()}
@@ -892,7 +895,7 @@ export default function Payments() {
         </CardContent>
       </Card>
 
-      {data?.application?.id && defaultTxType === "Annual_Renewal" && (
+      {data?.application?.id && isRwandan && defaultTxType === "Annual_Renewal" && (
         <MomoPaymentDialog
           open={showRenewalDialog}
           onOpenChange={setShowRenewalDialog}
@@ -928,7 +931,7 @@ export default function Payments() {
 
       {/* First-year fee: covers both a brand-new membership's first-year fee and a
           mentorship/APC upgrade's pending-upgrade fee — both share the same txType. */}
-      {data?.application?.id && defaultTxType === "First_Year_Fee" && (
+      {data?.application?.id && isRwandan && defaultTxType === "First_Year_Fee" && (
         <MomoPaymentDialog
           open={showRenewalDialog}
           onOpenChange={setShowRenewalDialog}
@@ -955,7 +958,7 @@ export default function Payments() {
       {/* Processing Fee: the application-submission fee. Manual upload is handled by the
           generic uploader further up the page (allowManual=false here, same as First-Year
           Fee), this dialog only covers the Mobile Money side. */}
-      {data?.application?.id && defaultTxType === "Processing_Fee" && (
+      {data?.application?.id && isRwandan && defaultTxType === "Processing_Fee" && (
         <MomoPaymentDialog
           open={showRenewalDialog}
           onOpenChange={setShowRenewalDialog}

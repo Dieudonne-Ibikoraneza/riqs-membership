@@ -35,6 +35,14 @@ const greatVibes = Great_Vibes({
 export const metadata: Metadata = {
   title: "RIQS — Rwanda Institute of Quantity Surveyors",
   description: "Official membership management portal for the Rwanda Institute of Quantity Surveyors (RIQS). Register, manage and verify membership of Quantity Surveyors in Rwanda.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/riqs-favicon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/riqs-favicon-512.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({

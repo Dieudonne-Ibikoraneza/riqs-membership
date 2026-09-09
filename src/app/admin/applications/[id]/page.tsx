@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getApplicationDetail, submitReviewerAction, submitApproverDecision, verifyPayment } from "@/lib/api/admin";
+import { getApplicationDetail, submitReviewerAction, submitApproverDecision, verifyPayment, getMentorsForAssignment, assignMentorToApplication } from "@/lib/api/admin";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { applicantServices } from "@/services/applicant.services";
@@ -153,7 +153,43 @@ export default function Review({ params }: PageProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const prevDoc = useRef(activeDoc);
+  const documentsCardRef = useRef<HTMLDivElement>(null);
   const [direction, setDirection] = useState(0);
+  const [selectedMentor, setSelectedMentor] = useState("");
+  const [mentorSearch, setMentorSearch] = useState("");
+  const [isMentorDialogOpen, setIsMentorDialogOpen] = useState(false);
+
+  const canManageMentor = role === "Admin" || role === "Approver";
+  const isGraduateApplication = app?.entityType === "Individual" && String(app?.category || "").toLowerCase().includes("graduate");
+  const { data: mentorOptions } = useQuery({
+    queryKey: ["admin", "assignmentMentors"],
+    queryFn: getMentorsForAssignment,
+    enabled: canManageMentor && isMentorDialogOpen,
+  });
+  const assignMentorMutation = useMutation({
+    mutationFn: () => assignMentorToApplication(app.id, selectedMentor),
+    onSuccess: (data) => {
+      const assignment = data.assignment;
+      setApp((prev: any) => ({
+        ...prev,
+        mentorship: {
+          ...(prev.mentorship || {}),
+          id: assignment.id,
+          mentor: assignment.mentorName,
+          contact: assignment.mentorContact || "",
+          qualification: assignment.mentorQualification || "",
+          mentorRegistrationNumber: assignment.mentorRegistrationNumber,
+          requestedInstitutionalAssignment: false,
+          isSelfAssigned: false,
+          startedAt: assignment.createdAt ? new Date(assignment.createdAt).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+          progress: assignment.completedDurationMonths || 0,
+        }
+      }));
+      setIsMentorDialogOpen(false);
+      toast.success("Mentor assigned successfully.");
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || "Failed to assign mentor.")
+  });
 
   const toggleFullscreen = (index: number) => {
     const el = document.getElementById(`viewer-container-${index}`);
@@ -184,6 +220,49 @@ export default function Review({ params }: PageProps) {
           // Fetch APC records for the status banner
           import("@/lib/api/admin").then(m => m.getApcForApplication(id)).catch(() => ({ assessments: [] }))
         ]);
+
+        const token = typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : '';
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+
+        // Real uploaded_documents rows first, then a synthetic tab for every education
+        // record's own attached certificate (added post-approval via a Profile Edit
+        // Request, stored separately from uploaded_documents) — this lets each certificate
+        // preview inline in the same Documents Workbench instead of only downloading.
+        const baseDocuments = (res.documents || []).map((d: any) => ({
+          name: d.documentName || d.documentType,
+          documentType: d.documentType,
+          documentName: d.documentName,
+          fileName: d.fileName,
+          type: d.documentType.split('_').pop() || "DOC",
+          url: `${baseUrl}/files/download/${d.id}?token=${token}`,
+          originalFileUrl: d.fileUrl
+        }));
+
+        const certDocuments: any[] = [];
+        const education = (res.education || []).map((e: any) => {
+          const base = {
+            degree: e.qualificationType,
+            institution: e.institution,
+            startMonthYear: new Date(e.startDate).toISOString().slice(0, 7),
+            endMonthYear: e.endDate ? new Date(e.endDate).toISOString().slice(0, 7) : undefined
+          };
+          if (!e.certificateUrl) return base;
+          const documentIndex = baseDocuments.length + certDocuments.length;
+          const label = `${e.qualificationType || "Education"} Certificate`;
+          certDocuments.push({
+            name: label,
+            documentType: 'education_certificate',
+            documentName: label,
+            fileName: e.certificateUrl.split('/').pop(),
+            type: (e.certificateUrl.split('.').pop() || "DOC").toUpperCase(),
+            url: `${baseUrl}/files/downloadByUrl?url=${encodeURIComponent(e.certificateUrl)}&token=${token}`,
+            originalFileUrl: e.certificateUrl
+          });
+          return { ...base, documentIndex };
+        });
+
+        const documents = [...baseDocuments, ...certDocuments];
+
         const mappedApp = {
           id: res.application.id,
           applicantName: res.application.full_name,
@@ -210,12 +289,7 @@ export default function Review({ params }: PageProps) {
           processingFeeCleared: res.application.processing_fee_cleared,
           processingFeeTxId: res.application.processing_fee_tx_id,
           processingFeeStatus: res.application.processing_fee_status,
-          education: (res.education || []).map((e: any) => ({
-            degree: e.qualificationType,
-            institution: e.institution,
-            startMonthYear: new Date(e.startDate).toISOString().slice(0, 7),
-            endMonthYear: e.endDate ? new Date(e.endDate).toISOString().slice(0, 7) : undefined
-          })),
+          education,
           employment: (res.employment || []).map((e: any) => ({
             role: e.jobTitle,
             company: e.companyName,
@@ -230,6 +304,7 @@ export default function Review({ params }: PageProps) {
               startedAt: new Date(mAssignment.createdAt).toISOString().split('T')[0],
               progress: mAssignment.completedDurationMonths || 0,
               contact: mAssignment.mentorContact || "",
+              mentorRegistrationNumber: mAssignment.mentorRegistrationNumber || "",
               qualification: mAssignment.mentorQualification || "",
               preferredMentors: mAssignment.preferredMentors || [],
               isSelfAssigned: mAssignment.isSelfAssigned,
@@ -244,19 +319,7 @@ export default function Review({ params }: PageProps) {
             };
           })() : null,
           shareholders: res.shareholders || [],
-          documents: (res.documents || []).map((d: any) => {
-            const token = typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : '';
-            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-            return {
-              name: d.documentName || d.documentType,
-              documentType: d.documentType,
-              documentName: d.documentName,
-              fileName: d.fileName,
-              type: d.documentType.split('_').pop() || "DOC",
-              url: `${baseUrl}/files/download/${d.id}?token=${token}`,
-              originalFileUrl: d.fileUrl
-            };
-          }),
+          documents,
           categoryDocuments: res.categoryDocuments || [],
           apcAssessments: apcRes.assessments || [],
           statusHistory: res.statusHistory || [],
@@ -917,15 +980,36 @@ export default function Review({ params }: PageProps) {
                   {app.education.length > 0 ? app.education.map((e: any, i: number) => (
                     <div
                       key={i}
-                      className="rounded border border-zinc-100 dark:border-zinc-800 p-2.5 bg-zinc-50/55"
+                      className="rounded border border-zinc-100 dark:border-zinc-800 p-2.5 bg-zinc-50/55 flex items-center justify-between gap-3"
                     >
-                      <div className="font-semibold text-zinc-850 dark:text-zinc-200">
-                        {e.degree}
+                      <div>
+                        <div className="font-semibold text-zinc-850 dark:text-zinc-200">
+                          {e.degree}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {e.institution} ·{" "}
+                          {e.startMonthYear ? formatMonthYear(e.startMonthYear) : e.year} — {e.endMonthYear ? formatMonthYear(e.endMonthYear) : "Present"}
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {e.institution} ·{" "}
-                        {e.startMonthYear ? formatMonthYear(e.startMonthYear) : e.year} — {e.endMonthYear ? formatMonthYear(e.endMonthYear) : "Present"}
-                      </div>
+                      {e.documentIndex !== undefined && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 gap-1.5 text-xs"
+                          onClick={() => {
+                            const idx = e.documentIndex;
+                            const dir = idx === prevDoc.current ? 0 : idx > prevDoc.current ? 1 : -1;
+                            setDirection(dir);
+                            setActiveDoc(idx);
+                            prevDoc.current = idx;
+                            setZoom(1);
+                            setRot(0);
+                            documentsCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }}
+                        >
+                          <FileText className="h-3.5 w-3.5 text-gold" /> View Certificate
+                        </Button>
+                      )}
                     </div>
                   )) : (
                     <div className="text-muted-foreground italic">No education records provided.</div>
@@ -969,7 +1053,7 @@ export default function Review({ params }: PageProps) {
             </motion.div>
           )}
 
-          {app.entityType === "Individual" && app.mentorship && (
+          {isGraduateApplication && (
             <motion.div
               initial={{ opacity: 0, x: -15 }}
               animate={{ opacity: 1, x: 0 }}
@@ -980,25 +1064,32 @@ export default function Review({ params }: PageProps) {
                   <CardTitle className="text-sm font-bold text-navy">
                     Mentorship
                   </CardTitle>
+                  {canManageMentor && app.mentorship?.upgradeRequested ? (
+                    <span className="ml-auto text-xs font-medium text-muted-foreground">Mentor changes locked after upgrade request</span>
+                  ) : canManageMentor && (
+                    <Button size="sm" variant="outline" className="ml-auto" onClick={() => { setSelectedMentor(app.mentorship?.mentorRegistrationNumber || ""); setMentorSearch(""); setIsMentorDialogOpen(true); }}>
+                      {app.mentorship?.mentor ? "Change Mentor" : "Assign Mentor"}
+                    </Button>
+                  )}
                 </CardHeader>
                 <CardContent className="p-4 text-sm">
                   <div className="font-medium">
                     Assigned Mentor:{" "}
                     <strong className="text-zinc-800 dark:text-zinc-200">
-                      {app.mentorship.mentor}
+                      {app.mentorship?.mentor || "Not assigned"}
                     </strong>
                   </div>
-                  {app.mentorship.contact && (
+                  {app.mentorship?.contact && (
                     <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                       {app.mentorship.contact}
                     </div>
                   )}
-                  {app.mentorship.qualification && (
+                  {app.mentorship?.qualification && (
                     <div className="text-xs text-zinc-600 dark:text-zinc-400">
                       {app.mentorship.qualification}
                     </div>
                   )}
-                  {app.mentorship.preferredMentors?.length > 0 && (
+                  {app.mentorship?.preferredMentors?.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
                       <div className="text-xs font-semibold text-navy mb-1.5">Preferred Mentors:</div>
                       <div className="space-y-1.5">
@@ -1014,7 +1105,7 @@ export default function Review({ params }: PageProps) {
                       </div>
                     </div>
                   )}
-                  {app.mentorship.preferredPracticeAreas?.length > 0 && (
+                  {app.mentorship?.preferredPracticeAreas?.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
                       <div className="text-xs font-semibold text-navy mb-1.5">Preferred Practice Areas:</div>
                       <div className="text-xs text-zinc-800 dark:text-zinc-200">
@@ -1022,7 +1113,7 @@ export default function Review({ params }: PageProps) {
                       </div>
                     </div>
                   )}
-                  {app.mentorship.mentorshipPlan && (
+                  {app.mentorship?.mentorshipPlan && (
                     <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
                       <div className="text-xs font-semibold text-navy mb-1.5">Mentorship Plan:</div>
                       <div className="text-xs text-zinc-800 dark:text-zinc-200">
@@ -1031,8 +1122,7 @@ export default function Review({ params }: PageProps) {
                     </div>
                   )}
                   <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
-                    Started {app.mentorship.startedAt} ·{" "}
-                    {app.mentorship.progress} months completed
+                    {app.mentorship?.startedAt ? <>Started {app.mentorship.startedAt} · {app.mentorship.progress} months completed</> : "No mentorship assignment yet."}
                   </div>
                 </CardContent>
               </Card>
@@ -1081,14 +1171,14 @@ export default function Review({ params }: PageProps) {
             </motion.div>
           )}
 
-          <Card className="min-w-0 border-zinc-100 dark:border-zinc-800 flex flex-col h-[min(70vh,650px)] lg:h-[calc(100vh-5rem)]">
+          <Card ref={documentsCardRef} className="min-w-0 border-zinc-100 dark:border-zinc-800 flex flex-col h-[min(70vh,650px)] lg:h-[calc(100vh-5rem)]">
             <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-800 py-3 px-4 shrink-0">
               <CardTitle className="text-sm font-bold text-navy">
                 Documents Workbench
               </CardTitle>
             </CardHeader>
           <CardContent className="min-h-0 min-w-0 p-4 flex-1 flex flex-col overflow-hidden">
-            <Tabs
+            {app.documents.length > 0 ? <Tabs
               value={String(activeDoc)}
               onValueChange={(v) => {
                 const idx = +v;
@@ -1165,7 +1255,15 @@ export default function Review({ params }: PageProps) {
                   );
                 })}
               </div>
-            </Tabs>
+            </Tabs> : (
+              <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50/70 p-8 text-center dark:border-zinc-800 dark:bg-zinc-950/30">
+                <div className="max-w-sm">
+                  <FileText className="mx-auto h-10 w-10 text-zinc-400" />
+                  <h3 className="mt-3 text-sm font-semibold text-zinc-800 dark:text-zinc-200">No documents attached</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">There are no documents attached to this application yet.</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
         </div>
@@ -1319,6 +1417,55 @@ export default function Review({ params }: PageProps) {
               {dialog === "forward_to_reviewers" && "Forward to Reviewers"}
               {dialog === "submit_review_note" && "Submit Note"}
               {dialog === "failPayment" && "Mark as Failed"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isMentorDialogOpen} onOpenChange={setIsMentorDialogOpen}>
+        <DialogContent className="w-[calc(100vw-1rem)] max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{app.mentorship?.mentor ? "Change assigned mentor" : "Assign a mentor"}</DialogTitle>
+            <DialogDescription>
+              Select an active RIQS mentor. Each mentor can supervise up to 5 graduates.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="mentor-assignment">Mentor</Label>
+            <div className="relative">
+              <Input
+                id="mentor-assignment"
+                placeholder="Search mentor by name or membership ID..."
+                value={mentorSearch}
+                onChange={(event) => {
+                  setMentorSearch(event.target.value);
+                  setSelectedMentor("");
+                }}
+                autoComplete="off"
+              />
+              {!selectedMentor && <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-950">
+                {(mentorOptions?.mentors || []).filter((mentor) => `${mentor.fullName} ${mentor.membershipId}`.toLowerCase().replace(/[^a-z0-9]/g, "").includes(mentorSearch.toLowerCase().replace(/[^a-z0-9]/g, ""))).length > 0 ? (
+                  (mentorOptions?.mentors || []).filter((mentor) => `${mentor.fullName} ${mentor.membershipId}`.toLowerCase().replace(/[^a-z0-9]/g, "").includes(mentorSearch.toLowerCase().replace(/[^a-z0-9]/g, ""))).map((mentor) => {
+                    const full = mentor.assignedCount >= mentor.capacity && mentor.membershipId !== app.mentorship?.mentorRegistrationNumber;
+                    return <button key={mentor.membershipId} type="button" disabled={full} onMouseDown={(event) => { event.preventDefault(); if (!full) { setSelectedMentor(mentor.membershipId); setMentorSearch(`${mentor.fullName} - ${mentor.membershipId}`); } }} className={`flex w-full flex-col px-4 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-900 ${full ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
+                      <span className="text-sm font-medium">{mentor.fullName}</span>
+                      <span className="text-xs text-muted-foreground">{mentor.membershipId} · {mentor.assignedCount}/{mentor.capacity} graduates{full ? " · Full" : ""}</span>
+                    </button>;
+                  })
+                ) : <div className="px-4 py-3 text-center text-sm text-muted-foreground">No mentors found matching &quot;{mentorSearch}&quot;</div>}
+              </div>}
+            </div>
+            {!mentorOptions?.mentors?.length && <p className="text-xs text-muted-foreground">No active mentors are available.</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMentorDialogOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-navy text-white hover:bg-navy/90"
+              disabled={!selectedMentor || assignMentorMutation.isPending}
+              onClick={() => assignMentorMutation.mutate()}
+            >
+              {assignMentorMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save assignment
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { awardFellowStatus, revokeFellowStatus, getMembersRegistry, sendAdminEmail, awardHonoraryStatus, revokeHonoraryStatus, updateMemberHonors, createHonorableMentionMember, type AdminMemberRegistryResponse } from "@/lib/api/admin";
+import { awardFellowStatus, revokeFellowStatus, getMembersRegistry, sendAdminEmail, awardHonoraryStatus, revokeHonoraryStatus, updateMemberHonors, createHonorableMentionMember, autoAssignGraduateMentors, type AdminMemberRegistryResponse } from "@/lib/api/admin";
 import { axiosClient } from "@/lib/axiosClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +89,7 @@ export default function AdminMembers() {
   
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<AdminMemberRegistryResponse | null>(null);
+  const [isAutoAssigning, setIsAutoAssigning] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
 
   useEffect(() => {
@@ -269,6 +270,24 @@ export default function AdminMembers() {
     (catFilter !== "all" ? 1 : 0) +
     (locFilter !== "all" ? 1 : 0);
 
+  const handleAutoAssignMentors = async () => {
+    setIsAutoAssigning(true);
+    try {
+      const result = await autoAssignGraduateMentors();
+      if (result.summary.unassigned > 0) {
+        toast.warning(`${result.summary.assigned} assigned; ${result.summary.unassigned} graduate(s) remain unassigned because mentor capacity is unavailable.`);
+      } else {
+        toast.success(result.message);
+      }
+      const refreshed = await getMembersRegistry(page, pageSize, q, statusFilter, catFilter, locFilter, sortKey, sortDir);
+      setData(refreshed);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to auto-assign graduate mentors.");
+    } finally {
+      setIsAutoAssigning(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-8">
       {/* Header section */}
@@ -296,6 +315,17 @@ export default function AdminMembers() {
           )}
           {canManageMemberStatus && (
             <Button
+              variant="outline"
+              onClick={handleAutoAssignMentors}
+              disabled={isAutoAssigning || !(data?.unassignedGraduateCount || 0)}
+              className="border-amber-300 text-amber-800 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300"
+            >
+              {isAutoAssigning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+              Auto-assign mentors{data?.unassignedGraduateCount ? ` (${data.unassignedGraduateCount})` : ""}
+            </Button>
+          )}
+          {canManageMemberStatus && (
+            <Button
               onClick={() => setAddMemberDialogOpen(true)}
               className="bg-gold text-[#1a1a1a] hover:bg-gold/90 transition-all font-semibold"
             >
@@ -313,6 +343,16 @@ export default function AdminMembers() {
           </Link>
         </div>
       </div>
+
+      {!!data?.unassignedGraduateCount && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span><strong>{data.unassignedGraduateCount} Graduate member{data.unassignedGraduateCount === 1 ? " is" : "s are"} currently without a mentor.</strong> Review their profiles or use auto-assignment.</span>
+          </div>
+          {canManageMemberStatus && <Button size="sm" onClick={handleAutoAssignMentors} disabled={isAutoAssigning} className="bg-amber-600 text-white hover:bg-amber-700">Assign available mentors</Button>}
+        </div>
+      )}
 
       {/* Filter and sorting bar */}
       <Card className="border border-zinc-150 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm">
@@ -550,7 +590,8 @@ export default function AdminMembers() {
                     className={cn(
                       "border-b border-zinc-100 dark:border-zinc-800/80 transition-colors hover:bg-gold/5 cursor-pointer",
                       i % 2 === 1 && "bg-zinc-50/20 dark:bg-zinc-950/10",
-                      selectedIds.includes(m.id) && "bg-gold/10 dark:bg-gold/20"
+                      selectedIds.includes(m.id) && "bg-gold/10 dark:bg-gold/20",
+                      String(m.category || "").toLowerCase().includes("graduate") && !m.mentorAssigned && "bg-amber-50/80 dark:bg-amber-950/20 border-l-4 border-l-amber-500"
                     )}
                   >
                     <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
@@ -607,6 +648,11 @@ export default function AdminMembers() {
                             >
                               <UserPlus className="h-2.5 w-2.5 mr-1" />
                               Mentor
+                            </Badge>
+                          )}
+                          {String(m.category || "").toLowerCase().includes("graduate") && !m.mentorAssigned && (
+                            <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-800 border-amber-300 uppercase tracking-wider font-bold">
+                              <AlertTriangle className="h-2.5 w-2.5 mr-1" /> No mentor
                             </Badge>
                           )}
                         </div>

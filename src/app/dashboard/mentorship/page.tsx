@@ -206,7 +206,8 @@ export default function Mentorship() {
   const logbookPercentage = Math.min(100, (mentorshipProgress?.entriesCount || 0) * 50);
   const twoYearsElapsed = monthsElapsed >= 24;
   const monthsToGo = Math.max(0, 24 - monthsElapsed);
-  const upgradeEligible = logbookComplete;
+  const hasAssignedMentor = Boolean(assignment?.mentorRegistrationNumber);
+  const upgradeEligible = logbookComplete && hasAssignedMentor;
   const upgradeRequested = assignment?.upgradeRequested;
 
   const hasActiveApc = apcData?.assessments?.some(
@@ -535,16 +536,15 @@ export default function Mentorship() {
               <div>
                 <div className="font-bold text-red-800 dark:text-red-300 text-sm">Annual Renewal Required — Mentorship Access Locked</div>
                 <p className="text-xs text-red-700 dark:text-red-400 font-sans mt-1 leading-relaxed max-w-xl">
-                  Your first membership year ended {monthsElapsed} months ago. To continue logging hours and requesting your upgrade, you must pay your annual renewal fee ({((profileData?.application as any)?.annual_renewal_fee || 50000).toLocaleString()} RWF) and upload your Annual Report. Once your payment is verified by RIQS, your access will be restored.
+                  Your first membership year ended {monthsElapsed} months ago. To continue logging hours and requesting your upgrade, pay your annual renewal fee ({((profileData?.application as any)?.annual_renewal_fee || 50000).toLocaleString()} RWF) and upload your Annual Report. Pay by Mobile Money and your access is restored instantly — a manually-uploaded proof of payment needs our team to verify it first.
                 </p>
               </div>
             </div>
-            <Button
-              className="bg-red-600 hover:bg-red-700 text-white border-none shrink-0 gap-1.5 font-semibold"
-              onClick={() => window.location.href = '/dashboard/checkout'}
-            >
-              <RefreshCw className="h-4 w-4" /> Pay Renewal Fee
-            </Button>
+            <Link href="/dashboard/payments">
+              <Button className="bg-red-600 hover:bg-red-700 text-white border-none shrink-0 gap-1.5 font-semibold">
+                <RefreshCw className="h-4 w-4" /> Pay Renewal Fee
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       )}
@@ -697,7 +697,7 @@ export default function Mentorship() {
                           <div 
                             className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50 hover:border-gold transition-all h-[500px]"
                             onClick={() => {
-                              if (!upgradeEligible) return toast.error("You must upload both logbooks before attaching Year 2 Report.");
+                              if (!logbookComplete) return toast.error("You must upload both logbooks before attaching Year 2 Report.");
                               document.getElementById("report-upload-input-2")?.click();
                             }}
                           >
@@ -722,7 +722,9 @@ export default function Mentorship() {
               <Clock className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
               <div className="text-blue-800 dark:text-blue-300 font-sans">
                 <strong className="font-semibold">Not yet eligible for upgrade.</strong>{" "}
-                You need <strong>2 submitted logbooks</strong> to initiate an upgrade. You currently have {mentorshipProgress?.entriesCount || 0}. Keep logging your progress.
+                {!hasAssignedMentor
+                  ? <>A mentor must be assigned before you can request an upgrade. Please contact the Secretariat for assignment.</>
+                  : <>You need <strong>2 submitted logbooks</strong> to initiate an upgrade. You currently have {mentorshipProgress?.entriesCount || 0}. Keep logging your progress.</>}
               </div>
             </div>
           )}

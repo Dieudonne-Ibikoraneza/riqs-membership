@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -39,7 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { getMemberById, awardFellowStatus, revokeFellowStatus, changeMembershipCategory, sendAdminEmail, updateMemberHonors, promoteToMentor, revokeMentorStatus } from "@/lib/api/admin";
+import { getMemberById, awardFellowStatus, revokeFellowStatus, changeMembershipCategory, sendAdminEmail, updateMemberHonors, promoteToMentor, revokeMentorStatus, getMentorsForAssignment, assignMentorToApplication, type AssignmentMentor } from "@/lib/api/admin";
 import { axiosClient } from "@/lib/axiosClient";
 import { formatPracticeLocation } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -99,6 +100,12 @@ export default function AdminMemberProfilePage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [auditPage, setAuditPage] = useState(1);
   const [ticketPage, setTicketPage] = useState(1);
+  const [mentorDialogOpen, setMentorDialogOpen] = useState(false);
+  const [mentorSearch, setMentorSearch] = useState("");
+  const [selectedMentor, setSelectedMentor] = useState("");
+  const [mentorOptions, setMentorOptions] = useState<AssignmentMentor[]>([]);
+  const [mentorLoading, setMentorLoading] = useState(false);
+  const [mentorSaving, setMentorSaving] = useState(false);
 
   // Email state
   const [composeOpen, setComposeOpen] = useState(false);
@@ -149,6 +156,30 @@ export default function AdminMemberProfilePage() {
     fetchMember();
     fetchCategories();
   }, [id]);
+
+  useEffect(() => {
+    if (!mentorDialogOpen) return;
+    setMentorLoading(true);
+    getMentorsForAssignment()
+      .then((result) => setMentorOptions(result.mentors))
+      .catch((error: any) => toast.error(error.response?.data?.error || "Failed to load mentors."))
+      .finally(() => setMentorLoading(false));
+  }, [mentorDialogOpen]);
+
+  const saveMentorAssignment = async () => {
+    if (!app?.id || !selectedMentor) return;
+    setMentorSaving(true);
+    try {
+      await assignMentorToApplication(app.id, selectedMentor);
+      toast.success("Mentor assigned successfully.");
+      setMentorDialogOpen(false);
+      fetchMember();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to assign mentor.");
+    } finally {
+      setMentorSaving(false);
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -269,6 +300,9 @@ export default function AdminMemberProfilePage() {
 
   const app = member.applications?.[0];
   const category = app?.category;
+  const mentorshipAssignment = app?.mentorshipAssignment;
+  const isGraduate = member.membershipClass === "Graduate" || String(category?.categoryName || "").toLowerCase().includes("graduate");
+  const hasMentor = Boolean(mentorshipAssignment?.mentorRegistrationNumber);
   const isFellow = member.membershipClass === "Fellow";
 
   const totalPaid = member.financialTransactions
@@ -353,6 +387,31 @@ export default function AdminMemberProfilePage() {
 
       {/* MAIN CONTENT */}
       <div className="max-w-7xl mx-auto pb-12 px-2 sm:px-4 lg:px-8 relative pt-6">
+
+      {isGraduate && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm ${hasMentor ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-300" : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200"}`}
+        >
+          <div className="flex items-start gap-2">
+            {hasMentor ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
+            <div>
+              <strong>{hasMentor ? "Mentor assigned" : "Graduate has no mentor assigned"}</strong>
+              <div className="text-xs mt-0.5 opacity-90">
+                {hasMentor ? `${mentorshipAssignment.mentorName || "Assigned mentor"} (${mentorshipAssignment.mentorRegistrationNumber})` : "This member cannot proceed with a mentorship upgrade until an active mentor is assigned."}
+              </div>
+            </div>
+          </div>
+          {app && (mentorshipAssignment?.upgradeRequested ? (
+            <span className="text-xs font-medium opacity-80">Mentor changes are locked after upgrade request</span>
+          ) : (
+            <Button size="sm" variant={hasMentor ? "outline" : "default"} onClick={() => { setSelectedMentor(mentorshipAssignment?.mentorRegistrationNumber || ""); setMentorSearch(""); setMentorDialogOpen(true); }} className={!hasMentor ? "bg-amber-600 text-white hover:bg-amber-700" : ""}>
+              {hasMentor ? "Change mentor" : "Assign mentor"}
+            </Button>
+          ))}
+        </motion.div>
+      )}
 
       {member.ongoingChange && (
         <motion.div
@@ -1032,6 +1091,35 @@ export default function AdminMemberProfilePage() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={mentorDialogOpen} onOpenChange={setMentorDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{hasMentor ? "Change assigned mentor" : "Assign a mentor"}</DialogTitle>
+            <DialogDescription>Select an active RIQS mentor. Each mentor can supervise up to 5 graduates.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="relative">
+              <Input placeholder="Search mentor by name or membership ID..." value={mentorSearch} onChange={(event) => { setMentorSearch(event.target.value); setSelectedMentor(""); }} autoComplete="off" />
+              {!selectedMentor && <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-950">
+                  {mentorLoading ? <div className="px-4 py-3 text-center text-sm text-muted-foreground"><Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />Loading mentors...</div> : mentorOptions.filter((mentor) => `${mentor.fullName} ${mentor.membershipId}`.toLowerCase().replace(/[^a-z0-9]/g, "").includes(mentorSearch.toLowerCase().replace(/[^a-z0-9]/g, ""))).length > 0 ? mentorOptions.filter((mentor) => `${mentor.fullName} ${mentor.membershipId}`.toLowerCase().replace(/[^a-z0-9]/g, "").includes(mentorSearch.toLowerCase().replace(/[^a-z0-9]/g, ""))).map((mentor) => {
+                    const full = mentor.assignedCount >= mentor.capacity && mentor.membershipId !== mentorshipAssignment?.mentorRegistrationNumber;
+                    return <button key={mentor.membershipId} type="button" disabled={full} onMouseDown={(event) => { event.preventDefault(); if (!full) { setSelectedMentor(mentor.membershipId); setMentorSearch(`${mentor.fullName} - ${mentor.membershipId}`); } }} className={`flex w-full flex-col px-4 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-900 ${full ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
+                      <span className="text-sm font-medium">{mentor.fullName}</span>
+                      <span className="text-xs text-muted-foreground">{mentor.membershipId} · {mentor.assignedCount}/{mentor.capacity} graduates{full ? " · Full" : ""}</span>
+                    </button>;
+                  }) : <div className="px-4 py-3 text-center text-sm text-muted-foreground">No mentors found matching &quot;{mentorSearch}&quot;</div>}
+              </div>}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMentorDialogOpen(false)}>Cancel</Button>
+            <Button className="bg-navy text-white hover:bg-blue-900" disabled={!selectedMentor || mentorSaving || Boolean(mentorshipAssignment?.upgradeRequested)} onClick={saveMentorAssignment}>
+              {mentorSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save assignment
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

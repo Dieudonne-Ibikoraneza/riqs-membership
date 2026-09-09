@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, Lock, ChevronDown, ChevronUp, Loader2, AlertCircle } from "lucide-react";
+import { Download, Lock, ChevronDown, ChevronUp, Loader2, AlertCircle, UploadCloud, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
 import { publicServices } from "@/services/public.services";
@@ -181,6 +181,89 @@ function DocumentCard({ doc, docTypeMap }: { doc: any; docTypeMap: Record<string
   );
 }
 
+function MissingDocumentCard({
+  doc,
+  applicationId,
+}: {
+  doc: { uid: string; label: string; required: boolean };
+  applicationId: string;
+}) {
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("applicationId", applicationId);
+      formData.append("documentType", doc.uid);
+      return applicantServices.uploadDocument(formData);
+    },
+    onMutate: () => setIsUploading(true),
+    onSuccess: () => {
+      toast.success(`${doc.label} uploaded and locked to your profile.`);
+      queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || `Failed to upload ${doc.label}.`);
+    },
+    onSettled: () => setIsUploading(false),
+  });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadMutation.mutate(file);
+    e.target.value = "";
+  };
+
+  return (
+    <Card className="w-full min-w-0 max-w-full overflow-hidden border-dashed border-2 border-zinc-200 dark:border-zinc-800 bg-transparent">
+      <CardContent className="w-full min-w-0 max-w-full flex items-center justify-between gap-4 p-4">
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="min-w-0 truncate font-semibold text-zinc-900 dark:text-zinc-100 text-sm" title={doc.label}>
+              {doc.label}
+            </span>
+            {doc.required ? (
+              <Badge variant="outline" className="shrink-0 text-xs border-red-200 bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400">
+                Required
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="shrink-0 text-xs border-zinc-200 bg-zinc-50 text-zinc-500 dark:bg-zinc-900">
+                Optional
+              </Badge>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground font-sans">Not yet uploaded.</p>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.png,.jpg,.jpeg"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={isUploading}
+          onClick={() => fileInputRef.current?.click()}
+          className="shrink-0 border-zinc-200 dark:border-zinc-800"
+        >
+          {isUploading ? (
+            <Loader2 className="h-4 w-4 animate-spin md:mr-2" />
+          ) : (
+            <UploadCloud className="h-4 w-4 text-gold md:mr-2" />
+          )}
+          <span className="hidden md:inline">Upload</span>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Documents() {
   const { isStudent } = useAuth();
   const { data: profileData, isLoading } = useQuery({
@@ -213,9 +296,11 @@ export default function Documents() {
   if (profileData?.application?.categoryId && categories && categories.length > 0) {
     const category = categories.find((c: any) => c.id === profileData!.application!.categoryId);
     if (category) {
+      const catRequired = category.required_documents ?? category.requiredDocuments;
+      const catOptional = category.optional_documents ?? category.optionalDocuments;
       const allCategoryDocs = [
-        ...(Array.isArray(category.requiredDocuments) ? category.requiredDocuments : []),
-        ...(Array.isArray(category.optionalDocuments) ? category.optionalDocuments : [])
+        ...(Array.isArray(catRequired) ? catRequired : []),
+        ...(Array.isArray(catOptional) ? catOptional : [])
       ];
       for (const d of allCategoryDocs) {
         if (d.typeCode && d.name) {
@@ -231,6 +316,44 @@ export default function Documents() {
   const membershipClass = (profileData?.profile as any)?.membershipClass || "";
   const isRestrictedMember = isStudent || membershipClass.includes("Student") || membershipClass.includes("Visiting");
 
+  // Education documents (degree, transcripts, student-association proof, CPD certificates)
+  // are attached via the Education Records section of the Profile page instead, and payment
+  // proofs are irrelevant for an already-Approved, already-imported member (their Processing
+  // Fee is assumed cleared before import) — neither belongs in this backfill checklist.
+  const EDUCATION_DOC_TYPES = ["transcript", "certificate", "degree", "student_association", "cpd_certificate"];
+
+  // Approved members (e.g. bulk-imported from the roster) may have no documents on file at
+  // all yet. Compute which of their category's admin-configured documents are still missing
+  // so they can self-upload them here — these skip reviewer verification entirely and lock
+  // permanently the moment they're submitted.
+  const missingDocs = useMemo(() => {
+    if (profileData?.application?.status !== "Approved") return [];
+    const category = categories.find((c: any) => c.id === profileData?.application?.categoryId);
+    if (!category) return [];
+
+    const paymentTypeCodes = new Set(
+      (docTypes as any[]).filter((dt) => dt.isPaymentProof).map((dt) => dt.code)
+    );
+
+    const rawRequired = category.required_documents ?? category.requiredDocuments;
+    const rawOptional = category.optional_documents ?? category.optionalDocuments;
+    const reqDocs = (Array.isArray(rawRequired) ? rawRequired : []).map((d: any) => ({ ...d, required: true }));
+    const optDocs = (Array.isArray(rawOptional) ? rawOptional : []).map((d: any) => ({ ...d, required: false }));
+
+    const typeCounts: Record<string, number> = {};
+    const checklist = [...reqDocs, ...optDocs]
+      .map((d: any) => {
+        const base = d.typeCode || (d.name ? d.name.toLowerCase().replace(/[^a-z0-9]/g, "_") : "unknown");
+        typeCounts[base] = (typeCounts[base] || 0) + 1;
+        const uid = typeCounts[base] > 1 ? `${base}_${typeCounts[base]}` : base;
+        return { uid, base, label: d.name || formatLabel(uid), required: d.required };
+      })
+      .filter((d) => !EDUCATION_DOC_TYPES.includes(d.base) && !paymentTypeCodes.has(d.base));
+
+    const uploadedTypes = new Set(documents.map((d: any) => d.documentType));
+    return checklist.filter((d) => !uploadedTypes.has(d.uid));
+  }, [profileData, categories, documents, docTypes]);
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <div>
@@ -244,34 +367,67 @@ export default function Documents() {
         <div className="flex items-center justify-center h-40">
           <Loader2 className="h-8 w-8 animate-spin text-gold" />
         </div>
-      ) : documents.length === 0 ? (
-        <Card className="border-dashed border-2 bg-transparent">
-          <CardContent className="flex flex-col items-center justify-center h-40 text-muted-foreground text-center px-4">
-            {isRestrictedMember ? (
-              <div className="flex flex-col items-center gap-2 max-w-md">
-                <AlertCircle className="h-6 w-6 text-muted-foreground/60 mb-2" />
-                <p>No documents are attached to your profile.</p>
-                <p className="text-sm">If you require specific documents or believe this is an error, please contact the administrator for assistance.</p>
-              </div>
-            ) : (
-              <p>No documents found.</p>
-            )}
-          </CardContent>
-        </Card>
       ) : (
-        <div className="grid min-w-0 gap-4 stagger">
-          {documents.map((d: any, index: number) => (
-            <motion.div
-              key={d.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.04 }}
-              className="min-w-0 max-w-full"
-            >
-              <DocumentCard doc={d} docTypeMap={docTypeMap} />
-            </motion.div>
-          ))}
-        </div>
+        <>
+          {missingDocs.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 rounded-lg border border-gold/30 bg-gold/5 p-4">
+                <ShieldAlert className="h-5 w-5 text-gold shrink-0 mt-0.5" />
+                <div className="space-y-1 text-sm">
+                  <p className="font-semibold text-zinc-900 dark:text-zinc-100">Complete your document file</p>
+                  <p className="text-muted-foreground font-sans">
+                    Your membership category requires the documents below. Please double-check that the file you select
+                    is correct before uploading — these uploads are not reviewed by our team, and once submitted they
+                    cannot be changed or replaced.
+                  </p>
+                </div>
+              </div>
+              <div className="grid min-w-0 gap-3 stagger">
+                {missingDocs.map((d, index) => (
+                  <motion.div
+                    key={d.uid}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.04 }}
+                    className="min-w-0 max-w-full"
+                  >
+                    <MissingDocumentCard doc={d} applicationId={profileData!.application!.id} />
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {documents.length === 0 && missingDocs.length === 0 ? (
+            <Card className="border-dashed border-2 bg-transparent">
+              <CardContent className="flex flex-col items-center justify-center h-40 text-muted-foreground text-center px-4">
+                {isRestrictedMember ? (
+                  <div className="flex flex-col items-center gap-2 max-w-md">
+                    <AlertCircle className="h-6 w-6 text-muted-foreground/60 mb-2" />
+                    <p>No documents are attached to your profile.</p>
+                    <p className="text-sm">If you require specific documents or believe this is an error, please contact the administrator for assistance.</p>
+                  </div>
+                ) : (
+                  <p>No documents found.</p>
+                )}
+              </CardContent>
+            </Card>
+          ) : documents.length > 0 ? (
+            <div className="grid min-w-0 gap-4 stagger">
+              {documents.map((d: any, index: number) => (
+                <motion.div
+                  key={d.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.04 }}
+                  className="min-w-0 max-w-full"
+                >
+                  <DocumentCard doc={d} docTypeMap={docTypeMap} />
+                </motion.div>
+              ))}
+            </div>
+          ) : null}
+        </>
       )}
     </div>
   );

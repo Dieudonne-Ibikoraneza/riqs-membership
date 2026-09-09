@@ -240,7 +240,14 @@ function parseProfTechSheet(matrix: unknown[][], headerRowIdx: number): { rows: 
       categoryCode,
       membershipIdOverride,
       registrationYear,
-      membershipExpiresAt: "2026-12-31",
+      // Dec 31 of whichever year the import is actually run in — not a fixed year. This sheet's
+      // embedded reg-number year is a permanent original-signup year, not a renewal tracker, so
+      // it must never be used for expiry (unlike the GRADUATE sheet's own YEAR OF REGISTRATION
+      // column, which genuinely is a last-renewal-year tracker and stays as-is). Previously this
+      // was hardcoded to "2026-12-31" to match the roster file's own "as of January 2026"
+      // snapshot date — correct only for the specific year the file was current for, and wrong
+      // (already-expired on arrival) for every import run afterward.
+      membershipExpiresAt: `${new Date().getFullYear()}-12-31`,
       blacklisted,
       include,
       reason,
@@ -289,7 +296,15 @@ function parseGraduateSheet(matrix: unknown[][], headerRowIdx: number): { rows: 
       phoneNumber,
       categoryCode,
       registrationYear,
-      membershipExpiresAt: `${registrationYear}-12-31`,
+      // Dec 31 of whichever year the import is actually run in — not the sheet's own YEAR OF
+      // REGISTRATION value. That column still drives `registrationYear` above (membershipId
+      // prefix, Application.approvedAt — an original/last-renewal-year fact worth keeping), but
+      // using it for expiry too meant a member whose column said e.g. 2024 landed already
+      // expired, years of "missed" Annual_Renewal invoices deep, the moment they were imported —
+      // real misbehavior, not a status genuinely worth resurrecting. Matches the PROF_TECH sheet's
+      // same fix; the admin now separately ensures each imported member's annual fee is actually
+      // cleared before/alongside the import rather than relying on this date to encode that.
+      membershipExpiresAt: `${new Date().getFullYear()}-12-31`,
       blacklisted: false,
       include,
       reason,

@@ -1250,48 +1250,23 @@ function WizardContent({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isPhotoLoading, setIsPhotoLoading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const [verifyingMentorIdx, setVerifyingMentorIdx] = useState<number | null>(null);
   const [collapsedDocs, setCollapsedDocs] = useState<Record<string, boolean>>({});
   const [resolvedCorrectionDocuments, setResolvedCorrectionDocuments] = useState<string[]>([]);
 
-  const verifyMentor = async (index: number, membershipId: string) => {
-    if (!membershipId) return;
-
-    // Check for duplicates
-    const isDuplicate = data.mentors.some((m: any, i: number) => i !== index && m.membershipId === membershipId);
+  // Used by the search-as-you-type mentor picker below — the member already picked an exact
+  // result from the dropdown (searched by name OR membership ID via the public directory's
+  // mentorsOnly filter), so this just needs a duplicate guard, not
+  // another round-trip to re-verify what was just returned.
+  const selectMentor = (index: number, mentor: { membershipId: string; name: string; contact: string }) => {
+    const isDuplicate = data.mentors.some((m: any, i: number) => i !== index && m.membershipId === mentor.membershipId);
     if (isDuplicate) {
       toast.error("This mentor has already been added.");
-      const v = [...data.mentors];
-      v[index].membershipId = "";
-      v[index].name = "";
-      v[index].contact = "";
-      setData({ ...data, mentors: v });
       return;
     }
-    try {
-      setVerifyingMentorIdx(index);
-      const member = await publicServices.getMentorById(membershipId);
-      const v = [...data.mentors];
-      if (member) {
-        v[index].name = member.fullName;
-        v[index].contact = member.contact;
-        setData({ ...data, mentors: v });
-        toast.success("Mentor found!");
-      } else {
-        toast.error("Mentor not found or unavailable.");
-        v[index].name = "";
-        v[index].contact = "";
-        setData({ ...data, mentors: v });
-      }
-    } catch (err) {
-      toast.error("Failed to verify mentor. They may not be eligible.");
-      const v = [...data.mentors];
-      v[index].name = "";
-      v[index].contact = "";
-      setData({ ...data, mentors: v });
-    } finally {
-      setVerifyingMentorIdx(null);
-    }
+    const v = [...data.mentors];
+    v[index] = { ...v[index], ...mentor };
+    setData({ ...data, mentors: v });
+    toast.success("Mentor selected!");
   };
 
   useEffect(() => {
@@ -2262,22 +2237,12 @@ function WizardContent({
                   {data.mentors.map((m: any, i: number) => (
                     <div key={i} className="grid gap-3 border p-4 rounded-md md:grid-cols-[1fr_1fr_1fr_auto] bg-zinc-50/50">
                       <div>
-                        <Label>Membership ID</Label>
-                        <div className="flex gap-2">
-                          <Input placeholder="e.g. RIQS-001" value={m.membershipId || ""}
-                            onChange={(e) => { const v = [...data.mentors]; v[i].membershipId = e.target.value; setData({ ...data, mentors: v }); }}
-                            onBlur={() => verifyMentor(i, m.membershipId)}
-                          />
-                          <Button 
-                            variant="outline" 
-                            size="icon" 
-                            onClick={() => verifyMentor(i, m.membershipId)}
-                            disabled={verifyingMentorIdx === i || !m.membershipId}
-                            title="Verify Mentor"
-                          >
-                            {verifyingMentorIdx === i ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                          </Button>
-                        </div>
+                        <Label>Mentor (search by name or ID)</Label>
+                        <MentorSearchField
+                          membershipId={m.membershipId || ""}
+                          disabled={m.isSaved}
+                          onSelect={(mentor) => selectMentor(i, mentor)}
+                        />
                       </div>
                       <div>
                         <Label>Mentor's full name</Label>
@@ -2787,6 +2752,117 @@ function WizardContent({
           );
         })()}
       </div>
+    </div>
+  );
+}
+
+// ─── Mentor search-as-you-type picker ────────────────────────────────────────
+// Same UX pattern as the admin Email System's recipient picker (an Input plus an
+// AnimatePresence dropdown of matches, select-to-populate) — except this one searches the
+// server on every keystroke (debounced) rather than filtering an already-fetched page, since
+// the public directory endpoint already supports it directly. Reuses
+// getPublicMembersDirectory's existing `mentorsOnly` + `search` filters (the same one across
+// fullName/email/membershipId already used by the public Members Directory), so typing either
+// a name or a membership ID both work from the same box — nothing new on the backend.
+function MentorSearchField({
+  membershipId,
+  disabled,
+  onSelect,
+}: {
+  membershipId: string;
+  disabled?: boolean;
+  onSelect: (mentor: { membershipId: string; name: string; contact: string }) => void;
+}) {
+  const [query, setQuery] = useState(membershipId || "");
+  const [open, setOpen] = useState(false);
+  const [results, setResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep the box in sync if this mentor slot gets populated/cleared from elsewhere (e.g. a
+  // duplicate-selection reset, or the row being reloaded from a saved application).
+  useEffect(() => {
+    setQuery(membershipId || "");
+  }, [membershipId]);
+
+  const runSearch = (q: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const trimmed = q.trim();
+    if (trimmed.length < 2) {
+      setResults([]);
+      setIsSearching(false);
+      return;
+    }
+    setIsSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await publicServices.getPublicMembers({ search: trimmed, mentorsOnly: true, limit: 8 });
+        setResults(res?.members || []);
+      } catch {
+        setResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 350);
+  };
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <Input
+          placeholder="Search by name or membership ID..."
+          value={query}
+          disabled={disabled}
+          autoComplete="off"
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+            runSearch(e.target.value);
+          }}
+          onFocus={() => { if (query.trim().length >= 2) setOpen(true); }}
+          onBlur={() => setTimeout(() => setOpen(false), 200)}
+        />
+        {isSearching && (
+          <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+        )}
+      </div>
+      <AnimatePresence>
+        {open && query.trim().length >= 2 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute top-full left-0 w-full mt-1 max-h-60 overflow-y-auto bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-lg z-50"
+          >
+            {isSearching ? (
+              <div className="px-4 py-3 text-sm text-muted-foreground text-center">Searching...</div>
+            ) : results.length > 0 ? (
+              results.map((m: any) => (
+                <div
+                  key={m.id}
+                  onClick={() => {
+                    onSelect({
+                      membershipId: m.membership_id,
+                      name: m.full_name,
+                      contact: m.phone_number || m.email || "",
+                    });
+                    setQuery(m.membership_id || "");
+                    setOpen(false);
+                  }}
+                  className="px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 cursor-pointer flex flex-col"
+                >
+                  <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{m.full_name}</span>
+                  <span className="text-xs text-muted-foreground">{m.membership_id} · {m.email}</span>
+                </div>
+              ))
+            ) : (
+              <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                No mentors found matching &ldquo;{query}&rdquo;
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

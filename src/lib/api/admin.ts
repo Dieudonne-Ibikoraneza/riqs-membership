@@ -46,6 +46,37 @@ export async function getApplicationDetail(id: string): Promise<any> {
   return data;
 }
 
+export interface AssignmentMentor {
+  id: string;
+  membershipId: string;
+  fullName: string;
+  email: string;
+  phoneNumber?: string | null;
+  membershipClass?: string | null;
+  assignedCount: number;
+  capacity: number;
+}
+
+export async function getMentorsForAssignment(): Promise<{ mentors: AssignmentMentor[] }> {
+  const { data } = await axiosClient.get('/admin/mentors');
+  return data;
+}
+
+export async function assignMentorToApplication(applicationId: string, mentorMembershipId: string): Promise<any> {
+  const { data } = await axiosClient.post('/admin/mentorship/assign', { applicationId, mentorMembershipId });
+  return data;
+}
+
+export async function autoAssignGraduateMentors(): Promise<{
+  message: string;
+  assigned: any[];
+  unassigned: any[];
+  summary: { considered: number; assigned: number; unassigned: number };
+}> {
+  const { data } = await axiosClient.post('/admin/mentorship/auto-assign');
+  return data;
+}
+
 export async function submitReviewDecision(
   applicationId: string,
   action: "Approve" | "Flag" | "Reject",
@@ -89,6 +120,7 @@ export async function submitApproverDecision(
 
 export interface AdminMemberRegistryResponse {
   members: any[];
+  unassignedGraduateCount?: number;
   pagination: {
     total: number;
     page: number;

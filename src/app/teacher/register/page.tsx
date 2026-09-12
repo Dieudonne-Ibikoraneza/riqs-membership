@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -81,18 +80,10 @@ export default function RegisterStudent() {
 
             <div className="space-y-2">
               <Label htmlFor="practiceLocation">Practice Location</Label>
-              <Select 
-                value={formData.practiceLocation} 
-                onValueChange={(val) => setFormData({...formData, practiceLocation: val})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select location" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Rwandan">Local (Rwanda)</SelectItem>
-                  <SelectItem value="Non_Rwandan">Foreign (Non-Rwandan)</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input id="practiceLocation" value="Local (Rwanda)" disabled className="bg-zinc-100" />
+              <p className="text-xs text-muted-foreground">
+                Teacher-registered Student Membership is currently only available for students based in Rwanda.
+              </p>
             </div>
 
             <div className="pt-4">

@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -51,6 +50,7 @@ import { useParams, useRouter } from "next/navigation";
 import { publicServices } from "@/services/public.services";
 import { DocumentTabsViewer } from "@/components/ui/document-tabs-viewer";
 import PDFViewer from "@/components/ui/pdf-viewer";
+import { MomoPaymentDialog } from "@/components/ui/momo-payment-dialog";
 
 // ─── Status Banner ──────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, {
@@ -190,6 +190,8 @@ export default function Application() {
   const [step, setStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
   const [data, setData] = useState<any>({
     practiceLocation: "Rwandan",
@@ -381,10 +383,12 @@ export default function Application() {
   const saveMutation = useMutation({
     mutationFn: teacherServices.saveApplication,
     onSuccess: (res) => {
+      setSaveStatus("saved");
       // Update appId if newly created
       queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
     },
     onError: (err: any) => {
+      setSaveStatus("error");
       toast.error(err?.response?.data?.error || "Failed to save progress");
     },
   });
@@ -505,10 +509,39 @@ export default function Application() {
       queryClient.invalidateQueries({ queryKey: ["teacherApp", appId] });
       toast.success("Application submitted successfully!");
     },
-    onError: (err: any) => toast.error(err?.response?.data?.error || "Failed to submit application"),
+    onError: (err: any) => {
+      if (err?.response?.data?.code === "PAYMENT_REQUIRED") {
+        setShowPaymentDialog(true);
+        return;
+      }
+      toast.error(err?.response?.data?.error || "Failed to submit application");
+    },
   });
 
+  const handleApplicationSubmitted = async () => {
+    localStorage.removeItem(`riqs_app_draft_${appId}`);
+    localStorage.removeItem(`riqs_app_step_${appId}`);
+    await queryClient.invalidateQueries({ queryKey: ["teacherApp", appId] });
+  };
+
   // ─── Save & advance ────────────────────────────────────────────────────────
+  const buildPersonalPayload = () => ({
+    applicationId: appId,
+    practiceLocation: data.practiceLocation,
+    entityType: data.entityType,
+    categoryId: data.categoryId,
+    fullName: data.personal.fullName,
+    phoneNumber: data.personal.phone,
+    dob: data.personal.dob,
+    nationalIdOrPassport: data.personal.nationalId,
+    yearsInProfession: data.personal.yearsInProfession,
+    residencyAddress: data.personal.residentAddress,
+    workAddress: data.personal.workAddress,
+    countryOfOrigin: data.personal.countryOfOrigin,
+    firmName: data.entityType === "Firm" ? data.personal.firmName : undefined,
+    firmAddress: data.entityType === "Firm" ? data.personal.firmAddress : undefined,
+  });
+
   const next = () => {
     if (data.entityType === "Firm" && currentStepName === "Personal Info") {
       let sum = 0;
@@ -522,32 +555,27 @@ export default function Application() {
     }
     // Note: Firm shareholders not supported in teacher registration flow
 
-    if (!data.categoryId && step >= 2) {
-      // Skip auto-save if no categoryId yet (steps 0-1)
-    }
     if (data.categoryId) {
       // Fire and forget, no await or loading state to ensure instant transition
-      saveMutation.mutate({
-        applicationId: appId,
-        practiceLocation: data.practiceLocation,
-        entityType: data.entityType,
-        categoryId: data.categoryId,
-        fullName: data.personal.fullName,
-        phoneNumber: data.personal.phone,
-        dob: data.personal.dob,
-        nationalIdOrPassport: data.personal.nationalId,
-        yearsInProfession: data.personal.yearsInProfession,
-        residencyAddress: data.personal.residentAddress,
-        workAddress: data.personal.workAddress,
-        countryOfOrigin: data.personal.countryOfOrigin,
-        firmName: data.entityType === "Firm" ? data.personal.firmName : undefined,
-        firmAddress: data.entityType === "Firm" ? data.personal.firmAddress : undefined,
-      } as any);
+      saveMutation.mutate(buildPersonalPayload() as any);
     }
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
   };
 
   const back = () => setStep((s) => Math.max(0, s - 1));
+
+  // Save edits after the user pauses briefly, rather than waiting for them to click Next —
+  // mirrors the applicant wizard's own debounced autosave.
+  useEffect(() => {
+    if (!hasLoaded || !data.categoryId || !isEditable) return;
+    setSaveStatus("idle");
+    const timer = window.setTimeout(() => {
+      setSaveStatus("saving");
+      saveMutation.mutate(buildPersonalPayload() as any);
+    }, 800);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, hasLoaded, isEditable]);
 
   const submit = () => {
     if (!appId) return toast.error("Application not found. Please complete all steps first.");
@@ -599,7 +627,12 @@ export default function Application() {
         let k = base;
         if (doc.name.toLowerCase().includes("degree") || doc.name.toLowerCase().includes("diploma")) {
           k = "degree";
-        } else if (doc.name.toLowerCase().includes("passport") || doc.name.toLowerCase().includes("photo")) {
+        } else if (doc.name.toLowerCase().includes("photo")) {
+          // Only a doc literally about a *photo* shares the dedicated passport-photo slot
+          // (satisfied by the widget in Personal Info, which uploads as "PassportPhoto").
+          // A doc about an ID/passport *scan* (typeCode "id_passport") keeps its own slot —
+          // it used to collide with this one just for mentioning "passport" in its name,
+          // which made it silently unreachable in every checklist (see getStepIssues below).
           k = "photo";
         }
         
@@ -668,6 +701,26 @@ export default function Application() {
 
   const currentStepName = STEPS[step];
 
+  const paymentDialog = (
+    <MomoPaymentDialog
+      open={showPaymentDialog}
+      onOpenChange={setShowPaymentDialog}
+      title="Pay Processing Fee"
+      description="A processing fee is required before this student's application can be submitted for review."
+      amount={Number(activeApp?.category?.processingFee || 0)}
+      defaultPhone={data.personal.phone || ""}
+      applicationId={appId!}
+      initiate={(mobilephone) => teacherServices.initiateProcessingFeePayment({ applicationId: appId!, mobilephone })}
+      checkStatus={(transactionId) => teacherServices.getProcessingFeePaymentStatus(appId!, transactionId)}
+      onSuccess={async () => {
+        await handleApplicationSubmitted();
+        setShowPaymentDialog(false);
+      }}
+      successMessage="Payment confirmed — the application has been submitted!"
+      onManualProofSubmitted={() => submitMutation.mutateAsync(appId!)}
+    />
+  );
+
   if (profileLoading) {
     return (
       <div className="mx-auto max-w-5xl space-y-6 animate-pulse">
@@ -694,9 +747,12 @@ export default function Application() {
            </Button>
         </div>
 
+        {paymentDialog}
+
         {appStatus === "Correction_Required" && (
           <div className="mt-8 pt-8 border-t border-zinc-200 dark:border-zinc-800">
             <WizardContent
+              goToStep={setStep}
               step={step}
               STEPS={STEPS}
               pct={pct}
@@ -730,6 +786,8 @@ export default function Application() {
   }
 
   return (
+    <>
+    {paymentDialog}
     <WizardContent
       goToStep={setStep}
       step={step}
@@ -758,6 +816,7 @@ export default function Application() {
       documents={appData?.application?.uploadedDocuments || []}
       reviewerNotes={reviewerNotes}
     />
+    </>
   );
 }
 
@@ -861,6 +920,49 @@ function WizardContent({
   };
 
   const contextualChecklist = getContextualChecklist();
+
+  const getStepDocumentChecklist = (stepName: string) => {
+    if (stepName === "Education") return documentChecklist.filter((d: any) => ["degree"].includes(d.k));
+    if (stepName === "Other Documents") return documentChecklist.filter((d: any) => !["photo", "degree"].includes(d.k));
+    return [];
+  };
+
+  // Mirrors the applicant wizard's own per-step validation — used both to flag which stepper
+  // icon needs attention (once the user reaches Review & Submit) and to gate the Submit button.
+  const getStepIssues = (stepName: string): string[] => {
+    if (stepName === "Personal Info") {
+      const p = data.personal;
+      const missing: string[] = [];
+      if (!p.fullName) missing.push("full name");
+      if (!p.phone) missing.push("phone number");
+      if (!p.nationalId) missing.push("national ID or passport");
+      if (!p.dob) missing.push("date of birth");
+      if (!photoPreview && !isPhotoLoading) missing.push("passport photo");
+      return missing.length ? [`Complete: ${missing.join(", ")}.`] : [];
+    }
+    if (stepName === "Education") {
+      if (!data.education.some((e: any) => e.id)) return ["Add and save at least one academic record."];
+      const missingDocs = getStepDocumentChecklist("Education").filter((d: any) => d.r && (!data.docs[d.k] || data.docs[d.k] === "loading_from_backend"));
+      if (missingDocs.length) return [`Upload required education documents: ${missingDocs.map((d: any) => d.l).join(", ")}.`];
+      return [];
+    }
+    if (stepName === "Employment Record") {
+      if (!data.hasNoEmployment && !data.employment.some((e: any) => e.id)) {
+        return ["Add and save at least one employment record, or check 'I have never been employed'."];
+      }
+      return [];
+    }
+    if (stepName === "Mentorship Plan") {
+      if (!data.mentors.some((m: any) => m.isSaved)) return ["Add and verify at least one mentor."];
+      return [];
+    }
+    if (stepName === "Other Documents") {
+      const missingDocs = getStepDocumentChecklist("Other Documents").filter((d: any) => d.r && (!data.docs[d.k] || data.docs[d.k] === "loading_from_backend"));
+      if (missingDocs.length) return [`Upload required documents: ${missingDocs.map((d: any) => d.l).join(", ")}.`];
+      return [];
+    }
+    return [];
+  };
 
   const uploadPhotoMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -982,24 +1084,39 @@ function WizardContent({
           </div>
           <div className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-4 lg:flex-nowrap lg:justify-between">
             {STEPS.map((s: string, i: number) => {
-              const done = i < step, active = i === step;
+              const hasStepIssue = getStepIssues(s).length > 0;
+              const visitedWithIssues = i < step && hasStepIssue;
+              const done = i < step && !visitedWithIssues;
+              const active = i === step;
+              const flagOnReview = currentStepName === "Review & Submit" && hasStepIssue;
               return (
                 <button
                   key={s}
-                  onClick={() => i <= step && goToStep(i)}
+                  type="button"
+                  onClick={() => goToStep(i)}
                   className={cn(
                     "group flex flex-col items-center gap-1.5 transition-all outline-none",
                     "w-[calc(33.333%-1rem)] md:w-[calc(25%-1rem)] lg:w-auto lg:flex-1",
-                    i > step && "cursor-default opacity-60",
                   )}
                 >
                   <div className={cn(
                     "flex h-9 w-9 items-center justify-center text-xs font-bold transition-all duration-300",
-                    done && "bg-gold text-[#1a1a1a] shadow-gold",
-                    active && "bg-navy text-white scale-110 ring-4 ring-navy/15 animate-pulse-gold",
-                    !done && !active && "bg-muted text-muted-foreground border border-border",
+                    flagOnReview ? "bg-red-50 text-red-700 border-2 border-red-300 dark:bg-red-950/30 dark:text-red-400"
+                    : done ? "bg-gold text-[#1a1a1a] shadow-gold"
+                    : active ? "bg-navy text-white scale-110 ring-4 ring-navy/15 animate-pulse-gold"
+                    : "bg-muted text-muted-foreground border border-border",
                   )}>
-                    {done ? <Check className="h-4 w-4" /> : i + 1}
+                    {flagOnReview ? (
+                      <span className="text-base font-extrabold" aria-label="Step has missing information">!</span>
+                    ) : done ? (
+                      <Check className="h-4 w-4" />
+                    ) : active ? (
+                      i + 1
+                    ) : visitedWithIssues ? (
+                      <Loader2 className="h-4 w-4" aria-label="Step incomplete" />
+                    ) : (
+                      i + 1
+                    )}
                   </div>
                   <span className={cn(
                     "text-[10px] text-center leading-tight transition-colors hidden md:block mt-1 max-w-[110px] break-words whitespace-normal font-sans",
@@ -1032,46 +1149,6 @@ function WizardContent({
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.15 }}
             >
-              {/* ── Practice Location ── */}
-              {currentStepName === "Practice Location" && (
-                <RadioGroup value={data.practiceLocation} onValueChange={updateLocation} className="grid gap-3 md:grid-cols-2">
-                  {["Rwandan", "Non_Rwandan"].map((o) => (
-                    <label key={o} className={cn(
-                      "flex cursor-pointer items-start gap-3 border p-5 transition-all rounded-md",
-                      data.practiceLocation === o ? "border-gold bg-gold/5 shadow-gold/20" : "border-zinc-200 dark:border-zinc-800 hover:border-navy/35 hover:bg-zinc-50/50",
-                    )}>
-                      <RadioGroupItem value={o} className="mt-0.5" />
-                      <div>
-                        <div className="font-semibold text-navy">{o === "Rwandan" ? "Rwandan" : "Non-Rwandan"} Practitioner</div>
-                        <div className="text-sm text-muted-foreground mt-0.5 font-sans">
-                          {o === "Rwandan" ? "Practicing Quantity Surveying inside Rwanda" : "Practicing/based outside Rwanda"}
-                        </div>
-                      </div>
-                    </label>
-                  ))}
-                </RadioGroup>
-              )}
-
-              {/* ── Entity Type ── */}
-              {currentStepName === "Entity Type" && (
-                <RadioGroup value={data.entityType} onValueChange={updateEntity} className="grid gap-3 md:grid-cols-2">
-                  {["Individual", "Firm"].map((o) => (
-                    <label key={o} className={cn(
-                      "flex cursor-pointer items-start gap-3 border p-5 transition-all rounded-md",
-                      data.entityType === o ? "border-gold bg-gold/5 shadow-gold/20" : "border-zinc-200 dark:border-zinc-800 hover:border-navy/35 hover:bg-zinc-50/50",
-                    )}>
-                      <RadioGroupItem value={o} className="mt-0.5" />
-                      <div>
-                        <div className="font-semibold text-navy">{o} Application</div>
-                        <div className="text-sm text-muted-foreground mt-0.5 font-sans">
-                          {o === "Individual" ? "Apply for individual Quantity Surveyor credentials" : "Apply as a corporate firm / practice group"}
-                        </div>
-                      </div>
-                    </label>
-                  ))}
-                </RadioGroup>
-              )}
-
               {/* ── Personal Info ── */}
               {currentStepName === "Personal Info" && (
                 data.entityType === "Individual" ? (
@@ -1719,6 +1796,31 @@ function WizardContent({
                       </div>
                     ))}
                   </div>
+                  {STEPS.some((stepName: string) => getStepIssues(stepName).length > 0) && (
+                    <div className="rounded-md border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900 p-4 text-sm text-red-900 dark:text-red-300">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-700 dark:text-red-400" />
+                        <div className="space-y-2">
+                          <p className="font-semibold">This application is not ready to submit.</p>
+                          <p>Click a step with a red exclamation mark to complete the missing information.</p>
+                          <ul className="list-disc space-y-1 pl-5">
+                            {STEPS.filter((stepName: string) => getStepIssues(stepName).length > 0).map((stepName: string) => (
+                              <li key={stepName}>
+                                <button
+                                  type="button"
+                                  className="cursor-pointer font-semibold underline"
+                                  onClick={() => goToStep(STEPS.indexOf(stepName))}
+                                >
+                                  {stepName}
+                                </button>
+                                {": "}{getStepIssues(stepName).join(" ")}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="border-l-4 border-gold bg-gold/10 p-4 text-sm text-[#8a5c00] rounded-r-md leading-relaxed">
                     <FileText className="mr-2 inline h-4 w-4 text-gold" />
                     By submitting this application, you declare that all uploaded certifications and declarations represent legal facts. RIQS Councils will complete the review queue within 5–10 working days.
@@ -1731,8 +1833,16 @@ function WizardContent({
                     </Label>
                   </div>
                   <Button
-                    disabled={!data.agreedToTerms || submitMutation.isPending || !appId}
-                    onClick={submit}
+                    disabled={!data.agreedToTerms || submitMutation.isPending || !appId || STEPS.some((stepName: string) => getStepIssues(stepName).length > 0)}
+                    onClick={() => {
+                      const firstInvalidStep = STEPS.find((stepName: string) => getStepIssues(stepName).length > 0);
+                      if (firstInvalidStep) {
+                        goToStep(STEPS.indexOf(firstInvalidStep));
+                        toast.error(`${firstInvalidStep}: ${getStepIssues(firstInvalidStep)[0]}`);
+                        return;
+                      }
+                      submit();
+                    }}
                     className="w-full h-12 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold text-base font-bold border-none disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitMutation.isPending ? (

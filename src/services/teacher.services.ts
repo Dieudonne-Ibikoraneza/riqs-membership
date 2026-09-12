@@ -67,5 +67,13 @@ export const teacherServices = {
   submitApplication: async (applicationId: string) => {
     const { data } = await axiosClient.post("/teacher/submit-student-application", { applicationId });
     return data;
+  },
+  initiateProcessingFeePayment: async ({ applicationId, mobilephone }: { applicationId: string; mobilephone: string }) => {
+    const { data } = await axiosClient.post(`/teacher/application/${applicationId}/payment/initiate`, { mobilephone });
+    return data;
+  },
+  getProcessingFeePaymentStatus: async (applicationId: string, transactionId: string) => {
+    const { data } = await axiosClient.get(`/teacher/application/${applicationId}/payment/status/${transactionId}`);
+    return data;
   }
 };

@@ -27,7 +27,12 @@ export async function getApplicationsQueue(
   page: number = 1,
   limit: number = 10,
   status?: string,
-  view: string = 'queue'
+  view: string = 'queue',
+  q?: string,
+  location?: string,
+  category?: string,
+  sortKey?: string,
+  sortDir?: string
 ): Promise<AdminQueueResponse> {
   const params = new URLSearchParams();
   params.append("page", page.toString());
@@ -36,6 +41,11 @@ export async function getApplicationsQueue(
   if (status && status !== "all") {
     params.append("status", status);
   }
+  if (q) params.append("q", q);
+  if (location && location !== "all") params.append("location", location);
+  if (category && category !== "all") params.append("category", category);
+  if (sortKey) params.append("sortKey", sortKey);
+  if (sortDir) params.append("sortDir", sortDir);
 
   const { data } = await axiosClient.get<AdminQueueResponse>(`/admin/queue?${params.toString()}`);
   return data;

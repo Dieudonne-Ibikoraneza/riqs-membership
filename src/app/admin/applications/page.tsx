@@ -66,6 +66,7 @@ export default function AdminApps() {
   const isMentorshipRoute = pathname?.includes("mentorship");
   
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [status, setStatus] = useState<string>(isMentorshipRoute ? "Mentorship Upgrade" : "all");
   const [loc, setLoc] = useState<string>("all");
   const [cat, setCat] = useState<string>("all");
@@ -77,6 +78,7 @@ export default function AdminApps() {
   const [applications, setApplications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [view, setView] = useState<"queue" | "all">("queue");
   
   const [composeOpen, setComposeOpen] = useState(false);
@@ -87,11 +89,31 @@ export default function AdminApps() {
 
   const router = useRouter();
 
+  // Debounce search input so we don't fire a request on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 400);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQ, status, loc, cat, sortKey, sortDir, view]);
+
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
       try {
-        const res = await getApplicationsQueue(page, pageSize, status, view);
+        const res = await getApplicationsQueue(
+          page,
+          pageSize,
+          status,
+          view,
+          debouncedQ || undefined,
+          loc,
+          cat,
+          sortKey,
+          sortDir
+        );
         const mapped = res.queue.map(a => ({
           id: a.id,
           memberId: a.member_id,
@@ -105,6 +127,7 @@ export default function AdminApps() {
           profilePhotoUrl: a.profilePhotoUrl
         }));
         setApplications(mapped);
+        setTotalCount(res.pagination.total);
         setTotalPages(Math.max(1, Math.ceil(res.pagination.total / pageSize)));
       } catch (err) {
         toast.error("Failed to load applications");
@@ -113,7 +136,7 @@ export default function AdminApps() {
       }
     }
     loadData();
-  }, [page, status, view, role]);
+  }, [page, status, view, role, debouncedQ, loc, cat, sortKey, sortDir]);
 
   const handleSendBulkEmail = async () => {
     if (!emailSubject.trim() || !emailBody.trim()) {
@@ -155,47 +178,7 @@ export default function AdminApps() {
     router.push(`/admin/applications/${a.id}`);
   };
 
-  const filtered = useMemo(
-    () =>
-      applications.filter((a) => {
-        if (
-          q &&
-          !`${a.applicantName} ${a.id} ${a.email}`
-            .toLowerCase()
-            .includes(q.toLowerCase())
-        )
-          return false;
-        // Backend filters by status, but we can do it locally if needed, though we already pass status to backend.
-        if (status !== "all" && a.status !== status.replace("_", " ")) return false;
-        if (loc !== "all" && a.practiceLocation !== loc) return false;
-        if (cat !== "all" && !a.category.includes(cat)) return false;
-        return true;
-      }),
-    [applications, q, status, loc, cat],
-  );
-
-  const sortedApplications = useMemo(() => {
-    const arr = [...filtered];
-    arr.sort((a, b) => {
-      let comparison = 0;
-      if (sortKey === "applicant") {
-        comparison = a.applicantName.localeCompare(b.applicantName);
-      } else if (sortKey === "id") {
-        comparison = a.id.localeCompare(b.id);
-      } else if (sortKey === "submitted") {
-        comparison = a.submittedAt.localeCompare(b.submittedAt);
-      } else if (sortKey === "status") {
-        comparison = a.status.localeCompare(b.status);
-      } else if (sortKey === "category") {
-        comparison = a.category.localeCompare(b.category);
-      }
-      return sortDir === "asc" ? comparison : -comparison;
-    });
-    return arr;
-  }, [filtered, sortKey, sortDir]);
-
-  const safePage = page;
-  const pageData = sortedApplications;
+  const pageData = applications;
 
   const selectedIds = Object.keys(sel).filter((k) => sel[k]);
 
@@ -203,7 +186,7 @@ export default function AdminApps() {
     const rows = [
       ["Application ID", "Name", "Category", "Location", "Status", "Submitted"],
     ];
-    sortedApplications.forEach((a) =>
+    pageData.forEach((a) =>
       rows.push([
         a.id,
         a.applicantName,
@@ -222,7 +205,7 @@ export default function AdminApps() {
     link.href = url;
     link.download = "applications.csv";
     link.click();
-    toast.success(`Exported ${sortedApplications.length} records to CSV`);
+    toast.success(`Exported ${pageData.length} records to CSV (current page only)`);
   };
 
   const resetFilters = () => {
@@ -276,7 +259,6 @@ export default function AdminApps() {
                   value={q}
                   onChange={(e) => {
                     setQ(e.target.value);
-                    setPage(1);
                   }}
                   className="pl-10 h-11 border-zinc-200 dark:border-zinc-800 focus-visible:ring-gold"
                 />
@@ -284,7 +266,6 @@ export default function AdminApps() {
                   <button
                     onClick={() => {
                       setQ("");
-                      setPage(1);
                     }}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
@@ -405,9 +386,9 @@ export default function AdminApps() {
               <div className="text-muted-foreground font-sans">
                 Found{" "}
                 <span className="font-semibold text-navy dark:text-gold">
-                  {filtered.length}
+                  {totalCount}
                 </span>{" "}
-                application{filtered.length !== 1 && "s"}
+                application{totalCount !== 1 && "s"}
                 {selectedIds.length > 0 && ` · ${selectedIds.length} selected`}
               </div>
               <div className="flex gap-2">
@@ -590,7 +571,7 @@ export default function AdminApps() {
 
       {totalPages > 1 && (
         <Pagination
-          page={safePage}
+          page={page}
           totalPages={totalPages}
           onChange={setPage}
         />

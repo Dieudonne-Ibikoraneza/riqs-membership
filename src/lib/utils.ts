@@ -19,3 +19,14 @@ export function formatPracticeLocation(val: string | null | undefined): string {
   if (normalized === "rwandan") return "Rwandan";
   return String(val).replace(/_/g, "-");
 }
+
+/**
+ * Generic underscore-separated enum -> readable label, e.g. "Visiting_Member" ->
+ * "Visiting Member", "Firm_Local_Small" -> "Firm Local Small". Use for raw
+ * MemberClass/category values shown in admin/profile views where the exact
+ * technical value should stay recognizable, just without the underscores.
+ */
+export function formatEnumLabel(val: string | null | undefined): string {
+  if (!val) return "—";
+  return String(val).replace(/_/g, " ");
+}

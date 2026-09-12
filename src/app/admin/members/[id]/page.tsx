@@ -42,7 +42,7 @@ import {
 import { toast } from "sonner";
 import { getMemberById, awardFellowStatus, revokeFellowStatus, changeMembershipCategory, sendAdminEmail, updateMemberHonors, promoteToMentor, revokeMentorStatus, getMentorsForAssignment, assignMentorToApplication, type AssignmentMentor } from "@/lib/api/admin";
 import { axiosClient } from "@/lib/axiosClient";
-import { formatPracticeLocation } from "@/lib/utils";
+import { formatPracticeLocation, formatEnumLabel } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth";
 
@@ -512,7 +512,7 @@ export default function AdminMemberProfilePage() {
                       className={`text-xs px-3 py-1 shadow-sm ${classBadgeColor[member.membershipClass] || "bg-slate-100 text-slate-700 border-slate-200"}`}
                     >
                       {isFellow && <Star className="h-3 w-3 mr-1.5 fill-amber-600 text-amber-600" />}
-                      {member.membershipClass}
+                      {formatEnumLabel(member.membershipClass)}
                     </Badge>
                   )}
                   {member.systemRole === "Mentor" && (
@@ -607,7 +607,7 @@ export default function AdminMemberProfilePage() {
           {/* Key Metrics */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: "Class", value: member.membershipClass || "—", icon: BadgeCheck, color: "text-blue-600", bg: "bg-blue-50" },
+              { label: "Class", value: formatEnumLabel(member.membershipClass), icon: BadgeCheck, color: "text-blue-600", bg: "bg-blue-50" },
               { label: "Category", value: category?.categoryCode || "—", icon: TrendingUp, color: "text-purple-600", bg: "bg-purple-50" },
               { label: "Total Paid", value: `${totalPaid.toLocaleString()} RWF`, icon: CreditCard, color: "text-emerald-600", bg: "bg-emerald-50" },
               { label: "Txns", value: member.financialTransactions?.length || 0, icon: Activity, color: "text-amber-600", bg: "bg-amber-50" },
@@ -649,7 +649,7 @@ export default function AdminMemberProfilePage() {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Category & Focus</p>
-                      <p className="font-medium text-slate-900">{category?.categoryName || "—"}</p>
+                      <p className="font-medium text-slate-900">{formatEnumLabel(category?.categoryName)}</p>
                     </div>
                   </div>
                   <div className="p-5 space-y-5 bg-slate-50/50">
@@ -906,7 +906,7 @@ export default function AdminMemberProfilePage() {
                     <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto" />
                     <p className="text-sm font-semibold text-navy">No honors configured</p>
                     <p className="text-xs text-muted-foreground leading-relaxed px-4">
-                      The category <span className="font-bold text-navy">{category?.categoryName?.replace(/_/g, " ") || member?.membershipClass?.replace(/_/g, " ")}</span> has no supported honorable mentions.
+                      The category <span className="font-bold text-navy">{formatEnumLabel(category?.categoryName || member?.membershipClass)}</span> has no supported honorable mentions.
                     </p>
                   </div>
                   <DialogFooter className="mt-2 border-t pt-4">
@@ -1058,7 +1058,7 @@ export default function AdminMemberProfilePage() {
             <div className="bg-slate-50 border border-slate-100 p-3 rounded-lg text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="text-slate-500">Current Category:</span>
-                <span className="font-semibold text-slate-900">{app?.category?.categoryName || "Unknown"}</span>
+                <span className="font-semibold text-slate-900">{app?.category?.categoryName ? formatEnumLabel(app.category.categoryName) : "Unknown"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Membership ID:</span>
@@ -1074,7 +1074,7 @@ export default function AdminMemberProfilePage() {
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.category_name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{formatEnumLabel(c.category_name)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

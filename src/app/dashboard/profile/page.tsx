@@ -23,7 +23,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
-import { cn } from "@/lib/utils";
+import { cn, formatEnumLabel } from "@/lib/utils";
 
 type Address = { district: string; sector: string; cell: string; village: string };
 const emptyAddress: Address = { district: "", sector: "", cell: "", village: "" };
@@ -435,7 +435,7 @@ export default function Profile() {
                   </Select>
                 </div>
               )}
-              <LockedField label="Practice Category" value={data.application?.category_name || member.membershipClass || ""} />
+              <LockedField label="Practice Category" value={data.application?.category_name || member.membershipClass ? formatEnumLabel(data.application?.category_name || member.membershipClass) : ""} />
             </div>
 
             {!isFirm && (

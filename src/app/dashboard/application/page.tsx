@@ -1788,7 +1788,10 @@ function WizardContent({
                       </div>
                       <div className="space-y-1">
                         <Label htmlFor="app-nationality">Nationality <span className="text-red-500">*</span></Label>
-                        <Input id="app-nationality" placeholder="e.g. Rwandan" value={data.personal.nationality}
+                        <Input id="app-nationality"
+                          placeholder={data.practiceLocation === "Non_Rwandan" ? "e.g. Kenyan" : undefined}
+                          value={data.personal.nationality}
+                          disabled={data.practiceLocation !== "Non_Rwandan"}
                           onChange={(e) => setData({ ...data, personal: { ...data.personal, nationality: e.target.value } })} />
                       </div>
                     </div>
@@ -1874,7 +1877,9 @@ function WizardContent({
                            onChange={(e) => setData({ ...data, personal: { ...data.personal, countryOfOrigin: e.target.value } })} />
                       </div>
                     )}
-                    {(/technologist|professional/i.test(data.categoryName || "")) && (
+                    {(data.practiceLocation === "Non_Rwandan" &&
+                      /technologist|professional/i.test(data.categoryName || "") &&
+                      !/graduate|student/i.test(data.categoryName || "")) && (
                       <div className="space-y-1">
                         <Label htmlFor="app-years">Years in Profession</Label>
                         <Input id="app-years" type="number" min={0} placeholder="e.g. 5" value={data.personal.yearsInProfession}

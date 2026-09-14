@@ -40,6 +40,19 @@ const KEY = "riqs.auth";
 
 const TOKEN_KEY = "riqs.auth.token";
 
+// Decodes the JWT payload locally (no signature check — that's the backend's job) just to
+// read `exp`, so a long-dead token doesn't get treated as a live session until the first
+// API call happens to 401. Returns true for anything unreadable, so it fails closed.
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (!payload.exp) return false;
+    return Date.now() >= payload.exp * 1000;
+  } catch {
+    return true;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [role, setRole] = useState<Role>(null);
@@ -52,6 +65,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (!token || isTokenExpired(token)) {
+        if (token) {
+          clearAuth();
+          toast.error("Your session has expired. Please sign in again.");
+        }
+        return;
+      }
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const v = JSON.parse(raw);

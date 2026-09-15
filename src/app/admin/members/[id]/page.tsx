@@ -22,7 +22,7 @@ import {
   CreditCard, FileText, Shield, Clock, AlertTriangle, CheckCircle2, MessageSquare,
   Ticket, TrendingUp, Award, ExternalLink, BadgeCheck, MoreVertical,
   Building2, Globe, IdCard, Activity, ChevronRight, Download, Send,
-  Maximize2, Minus, X, Loader2, Medal, UserPlus, UserMinus
+  Maximize2, Minus, X, Loader2, Medal, UserPlus, UserMinus, Lock, Unlock, Trash2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -40,7 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { getMemberById, awardFellowStatus, revokeFellowStatus, changeMembershipCategory, sendAdminEmail, updateMemberHonors, promoteToMentor, revokeMentorStatus, getMentorsForAssignment, assignMentorToApplication, type AssignmentMentor } from "@/lib/api/admin";
+import { getMemberById, awardFellowStatus, revokeFellowStatus, changeMembershipCategory, sendAdminEmail, updateMemberHonors, promoteToMentor, revokeMentorStatus, getMentorsForAssignment, assignMentorToApplication, lockMember, unlockMember, deleteMember, type AssignmentMentor } from "@/lib/api/admin";
 import { axiosClient } from "@/lib/axiosClient";
 import { formatPracticeLocation, formatEnumLabel } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -89,13 +89,15 @@ const TICKET_PAGE_SIZE = 5;
 export default function AdminMemberProfilePage() {
   const { id } = useParams();
   const router = useRouter();
-  const { role } = useAuth();
+  const { role, email: currentUserEmail } = useAuth();
   const canManageMemberStatus = ["Admin", "Approver"].includes(role || "");
+  const canDeleteMember = role === "Admin";
   const [member, setMember] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedHonors, setSelectedHonors] = useState<string[]>([]);
-  const [dialog, setDialog] = useState<null | "award-fellow" | "revoke-fellow" | "change-class" | "manage-honors" | "promote-mentor" | "revoke-mentor">(null);
+  const [dialog, setDialog] = useState<null | "award-fellow" | "revoke-fellow" | "change-class" | "manage-honors" | "promote-mentor" | "revoke-mentor" | "lock-member" | "delete-member">(null);
+  const [lockDurationDays, setLockDurationDays] = useState("7");
   const [newCategoryId, setNewCategoryId] = useState<string>("");
   const [categories, setCategories] = useState<any[]>([]);
   const [auditPage, setAuditPage] = useState(1);
@@ -270,6 +272,51 @@ export default function AdminMemberProfilePage() {
     }
   };
 
+  const handleUnlockMember = async () => {
+    setActionLoading(true);
+    try {
+      await unlockMember(id as string);
+      toast.success(`${member.fullName}'s account has been unlocked.`);
+      fetchMember();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || "Failed to unlock member.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleLockMember = async () => {
+    const days = parseInt(lockDurationDays, 10);
+    if (isNaN(days) || days <= 0) {
+      toast.error("Enter a valid number of days.");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await lockMember(id as string, days);
+      toast.success(`${member.fullName}'s account has been locked for ${days} day(s).`);
+      setDialog(null);
+      setLockDurationDays("7");
+      fetchMember();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || "Failed to lock member.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteMember = async () => {
+    setActionLoading(true);
+    try {
+      await deleteMember(id as string);
+      toast.success(`${member.fullName}'s account has been deleted.`);
+      router.push("/admin/members");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || "Failed to delete member.");
+      setActionLoading(false);
+    }
+  };
+
   const handleChangeCategory = async () => {
     if (!newCategoryId) return;
     setActionLoading(true);
@@ -353,6 +400,22 @@ export default function AdminMemberProfilePage() {
                   <UserPlus className="h-4 w-4" /> Make Mentor
                 </Button>
               )
+            )}
+            {canManageMemberStatus && member.email !== currentUserEmail && (
+              member.isLocked ? (
+                <Button variant="outline" className="gap-2 hidden sm:flex border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900/50 dark:hover:bg-emerald-950/20" onClick={handleUnlockMember} disabled={actionLoading}>
+                  <Unlock className="h-4 w-4" /> Unlock Account
+                </Button>
+              ) : (
+                <Button variant="outline" className="gap-2 hidden sm:flex border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-900/50 dark:hover:bg-amber-950/20" onClick={() => setDialog("lock-member")}>
+                  <Lock className="h-4 w-4" /> Lock Account
+                </Button>
+              )
+            )}
+            {canDeleteMember && member.email !== currentUserEmail && (
+              <Button variant="outline" className="gap-2 hidden sm:flex border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900/50 dark:hover:bg-rose-950/20" onClick={() => setDialog("delete-member")}>
+                <Trash2 className="h-4 w-4" /> Delete Account
+              </Button>
             )}
             {canManageMemberStatus && (
               <>
@@ -522,6 +585,15 @@ export default function AdminMemberProfilePage() {
                     >
                       <UserPlus className="h-3 w-3 mr-1.5" />
                       Mentor
+                    </Badge>
+                  )}
+                  {member.isLocked && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs px-3 py-1 shadow-sm bg-zinc-200 text-zinc-700 border-zinc-300"
+                    >
+                      <Lock className="h-3 w-3 mr-1.5" />
+                      Locked
                     </Badge>
                   )}
                 </div>
@@ -1039,6 +1111,55 @@ export default function AdminMemberProfilePage() {
               <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
               <Button variant="destructive" onClick={handleRevokeMentor} disabled={actionLoading}>
                 {actionLoading ? "Revoking..." : "Confirm Revoke"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialog === "lock-member"} onOpenChange={(o) => { if (!o) { setDialog(null); setLockDurationDays("7"); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Lock Member Account</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <DialogDescription className="text-slate-600 text-base">
+              Lock <strong>{member.fullName}</strong>'s account? They will be unable to log in until unlocked or the lock expires.
+            </DialogDescription>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-900">Lock duration (days)</label>
+              <Input
+                type="number"
+                min={1}
+                value={lockDurationDays}
+                onChange={(e) => setLockDurationDays(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => { setDialog(null); setLockDurationDays("7"); }}>Cancel</Button>
+              <Button className="bg-amber-600 hover:bg-amber-700 text-white" onClick={handleLockMember} disabled={actionLoading}>
+                {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
+                Lock Account
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialog === "delete-member"} onOpenChange={(o) => !o && setDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Member Account</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <DialogDescription className="text-slate-600 text-base">
+              Permanently delete <strong>{member.fullName}</strong>'s account? This removes their profile and all dependent records (applications, transactions, documents). This action cannot be undone.
+            </DialogDescription>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleDeleteMember} disabled={actionLoading}>
+                {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                Delete Account
               </Button>
             </div>
           </div>

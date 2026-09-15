@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { awardFellowStatus, revokeFellowStatus, getMembersRegistry, sendAdminEmail, awardHonoraryStatus, revokeHonoraryStatus, updateMemberHonors, createHonorableMentionMember, autoAssignGraduateMentors, type AdminMemberRegistryResponse } from "@/lib/api/admin";
+import { awardFellowStatus, revokeFellowStatus, getMembersRegistry, sendAdminEmail, awardHonoraryStatus, revokeHonoraryStatus, updateMemberHonors, createHonorableMentionMember, autoAssignGraduateMentors, lockMember, unlockMember, deleteMember, type AdminMemberRegistryResponse } from "@/lib/api/admin";
 import { axiosClient } from "@/lib/axiosClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,10 +36,6 @@ import {
   Filter,
   X,
   ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
   Users,
   CheckCircle2,
   Clock,
@@ -55,10 +51,14 @@ import {
   Star,
   UserPlus,
   UploadCloud,
+  Lock,
+  Unlock,
+  Trash2,
 } from "lucide-react";
 import { MonthYearPicker } from "@/components/ui/month-picker";
 import { cn, formatPracticeLocation } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth";
@@ -76,8 +76,9 @@ function formatLabel(val: string | null | undefined): string {
 
 export default function AdminMembers() {
   const router = useRouter();
-  const { role } = useAuth();
+  const { role, email: currentUserEmail } = useAuth();
   const canManageMemberStatus = ["Admin", "Approver"].includes(role || "");
+  const canDeleteMember = role === "Admin";
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [catFilter, setCatFilter] = useState("all");
@@ -122,6 +123,13 @@ export default function AdminMembers() {
   const [honorsDialog, setHonorsDialog] = useState<{ open: boolean; member: any | null }>({ open: false, member: null });
   const [selectedHonors, setSelectedHonors] = useState<string[]>([]);
   const [isUpdatingHonors, setIsUpdatingHonors] = useState(false);
+
+  // Lock / Delete Member state
+  const [lockDialog, setLockDialog] = useState<{ open: boolean; member: any | null }>({ open: false, member: null });
+  const [lockDurationDays, setLockDurationDays] = useState("7");
+  const [isLockingMember, setIsLockingMember] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; member: any | null }>({ open: false, member: null });
+  const [isDeletingMember, setIsDeletingMember] = useState(false);
 
   // Add Member State
   const [addMemberDialogOpen, setAddMemberDialogOpen] = useState(false);
@@ -285,6 +293,58 @@ export default function AdminMembers() {
       toast.error(error.response?.data?.error || "Failed to auto-assign graduate mentors.");
     } finally {
       setIsAutoAssigning(false);
+    }
+  };
+
+  const refreshMembers = async () => {
+    const refreshed = await getMembersRegistry(page, pageSize, q, statusFilter, catFilter, locFilter, sortKey, sortDir);
+    setData(refreshed);
+  };
+
+  const handleUnlockMember = async (member: any) => {
+    try {
+      await unlockMember(member.id);
+      toast.success(`${member.fullName}'s account has been unlocked.`);
+      await refreshMembers();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to unlock member.");
+    }
+  };
+
+  const handleConfirmLockMember = async () => {
+    if (!lockDialog.member) return;
+    const days = parseInt(lockDurationDays, 10);
+    if (isNaN(days) || days <= 0) {
+      toast.error("Enter a valid number of days.");
+      return;
+    }
+    setIsLockingMember(true);
+    try {
+      await lockMember(lockDialog.member.id, days);
+      toast.success(`${lockDialog.member.fullName}'s account has been locked for ${days} day(s).`);
+      setLockDialog({ open: false, member: null });
+      setLockDurationDays("7");
+      await refreshMembers();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to lock member.");
+    } finally {
+      setIsLockingMember(false);
+    }
+  };
+
+  const handleConfirmDeleteMember = async () => {
+    if (!deleteDialog.member) return;
+    setIsDeletingMember(true);
+    try {
+      await deleteMember(deleteDialog.member.id);
+      toast.success(`${deleteDialog.member.fullName}'s account has been deleted.`);
+      setDeleteDialog({ open: false, member: null });
+      setSelectedIds((prev) => prev.filter((id) => id !== deleteDialog.member.id));
+      await refreshMembers();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to delete member.");
+    } finally {
+      setIsDeletingMember(false);
     }
   };
 
@@ -693,6 +753,15 @@ export default function AdminMembers() {
                         )}
                         {formatLabel(m.status)}
                       </Badge>
+                      {m.isLocked && (
+                        <Badge
+                          variant="outline"
+                          className="mt-1.5 font-semibold border-none px-2.5 py-1 text-xs flex items-center w-fit gap-1 bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                        >
+                          <Lock className="h-3 w-3 shrink-0" />
+                          Locked
+                        </Badge>
+                      )}
                     </td>
                     <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
@@ -722,7 +791,7 @@ export default function AdminMembers() {
                             </DropdownMenuItem>
                           )}
                           
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             className="cursor-pointer"
                             onClick={() => {
                               setSelectedIds([m.id]);
@@ -732,6 +801,34 @@ export default function AdminMembers() {
                             <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
                             Email Member
                           </DropdownMenuItem>
+                          {canManageMemberStatus && m.email !== currentUserEmail && (
+                            m.isLocked ? (
+                              <DropdownMenuItem
+                                onClick={() => handleUnlockMember(m)}
+                                className="text-emerald-600 dark:text-emerald-400 font-medium cursor-pointer"
+                              >
+                                <Unlock className="mr-2 h-4 w-4" />
+                                Unlock Account
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => setLockDialog({ open: true, member: m })}
+                                className="text-amber-600 dark:text-amber-400 font-medium cursor-pointer"
+                              >
+                                <Lock className="mr-2 h-4 w-4" />
+                                Lock Account
+                              </DropdownMenuItem>
+                            )
+                          )}
+                          {canDeleteMember && m.email !== currentUserEmail && (
+                            <DropdownMenuItem
+                              onClick={() => setDeleteDialog({ open: true, member: m })}
+                              className="text-rose-600 dark:text-rose-400 font-medium cursor-pointer"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete Member
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
@@ -745,7 +842,7 @@ export default function AdminMembers() {
 
         {/* Advanced Pagination controls */}
         {totalPages > 1 && (
-          <Pagination
+          <PaginationBar
             page={safePage}
             totalPages={totalPages}
             onChange={setPage}
@@ -1066,6 +1163,70 @@ export default function AdminMembers() {
         </DialogContent>
       </Dialog>
 
+      {/* Lock Member Dialog */}
+      <Dialog open={lockDialog.open} onOpenChange={(val) => { if (!val) { setLockDialog({ open: false, member: null }); setLockDurationDays("7"); } }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Lock Member Account</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4 text-sm text-zinc-600 dark:text-zinc-400">
+            <p>
+              Lock <strong className="text-zinc-900 dark:text-zinc-100">{lockDialog.member?.fullName}</strong>'s account? They will be unable to log in until unlocked or the lock expires.
+            </p>
+            <div className="grid gap-2">
+              <Label htmlFor="lockDurationDays">Lock duration (days)</Label>
+              <Input
+                id="lockDurationDays"
+                type="number"
+                min={1}
+                value={lockDurationDays}
+                onChange={(e) => setLockDurationDays(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setLockDialog({ open: false, member: null }); setLockDurationDays("7"); }}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              disabled={isLockingMember}
+              onClick={handleConfirmLockMember}
+            >
+              {isLockingMember ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
+              Lock Account
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Member Dialog */}
+      <Dialog open={deleteDialog.open} onOpenChange={(val) => { if (!val) setDeleteDialog({ open: false, member: null }); }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Member Account</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-sm text-zinc-600 dark:text-zinc-400">
+            <p>
+              Permanently delete <strong className="text-zinc-900 dark:text-zinc-100">{deleteDialog.member?.fullName}</strong>'s account? This removes their profile and all dependent records (applications, transactions, documents). This action cannot be undone.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog({ open: false, member: null })}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              disabled={isDeletingMember}
+              onClick={handleConfirmDeleteMember}
+            >
+              {isDeletingMember ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              Delete Member
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add Member Dialog */}
       <Dialog open={addMemberDialogOpen} onOpenChange={setAddMemberDialogOpen}>
         <DialogContent className="sm:max-w-[500px] bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
@@ -1267,130 +1428,3 @@ function Avatar({ name, url }: { name: string; url?: string }) {
   );
 }
 
-function Pagination({
-  page,
-  totalPages,
-  onChange,
-}: {
-  page: number;
-  totalPages: number;
-  onChange: (n: number) => void;
-}) {
-  const range = useMemo(() => {
-    if (totalPages <= 7) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    const arr: (number | string)[] = [];
-    if (page <= 4) {
-      arr.push(1, 2, 3, 4, 5, "...", totalPages);
-    } else if (page >= totalPages - 3) {
-      arr.push(
-        1,
-        "...",
-        totalPages - 4,
-        totalPages - 3,
-        totalPages - 2,
-        totalPages - 1,
-        totalPages,
-      );
-    } else {
-      arr.push(1, "...", page - 1, page, page + 1, "...", totalPages);
-    }
-    return arr;
-  }, [page, totalPages]);
-
-  return (
-    <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-100 dark:border-zinc-800/80 pt-5">
-      <div className="text-sm text-muted-foreground font-sans">
-        Showing page{" "}
-        <span className="font-semibold text-navy dark:text-gold">{page}</span>{" "}
-        of{" "}
-        <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-          {totalPages}
-        </span>
-      </div>
-      <div className="flex items-center gap-1.5 flex-wrap justify-center">
-        {/* First Page */}
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={page === 1}
-          onClick={() => onChange(1)}
-          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
-          title="First Page"
-        >
-          <ChevronsLeft className="h-4 w-4 text-gold" />
-        </Button>
-
-        {/* Previous Page */}
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={page === 1}
-          onClick={() => onChange(page - 1)}
-          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
-          title="Previous Page"
-        >
-          <ChevronLeft className="h-4 w-4 text-gold" />
-        </Button>
-
-        {/* Page Numbers */}
-        {range.map((p, index) => {
-          if (p === "...") {
-            return (
-              <span
-                key={`dots-${index}`}
-                className="px-2 text-zinc-450 dark:text-zinc-555 text-sm select-none font-bold"
-              >
-                ...
-              </span>
-            );
-          }
-
-          const isActive = p === page;
-          return (
-            <Button
-              key={`page-${p}`}
-              variant={isActive ? "default" : "outline"}
-              onClick={() => onChange(p as number)}
-              className={cn(
-                "h-9 w-9 font-semibold text-sm transition-all duration-200 hover:scale-105 active:scale-95",
-                isActive
-                  ? "bg-navy dark:bg-gold text-white dark:text-[#1a1a1a] shadow-md border-transparent cursor-default"
-                  : "border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800",
-              )}
-            >
-              {p}
-            </Button>
-          );
-        })}
-
-        {/* Next Page */}
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={page === totalPages}
-          onClick={() => onChange(page + 1)}
-          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
-          title="Next Page"
-        >
-          <ChevronRight className="h-4 w-4 text-gold" />
-        </Button>
-
-        {/* Last Page */}
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={page === totalPages}
-          onClick={() => onChange(totalPages)}
-          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
-          title="Last Page"
-        >
-          <ChevronsRight className="h-4 w-4 text-gold" />
-        </Button>
-      </div>
-
-
-    </div>
-  );
-}

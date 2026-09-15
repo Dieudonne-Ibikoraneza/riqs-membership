@@ -5,8 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { getAuditLogs } from "@/lib/api/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ShieldCheck, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2 } from "lucide-react";
+import { PaginationBar } from "@/components/ui/pagination-bar";
+import { ShieldCheck, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -141,54 +141,7 @@ export default function Audit() {
 
           {/* Pagination controls */}
           {totalPages > 1 && (
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-zinc-100 dark:border-zinc-800/80">
-              <div className="text-sm text-muted-foreground font-sans">
-                Showing page <span className="font-semibold text-navy dark:text-gold">{page}</span> of{" "}
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100">{totalPages}</span>
-              </div>
-              <div className="flex items-center gap-1.5 flex-wrap justify-center">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  disabled={page === 1}
-                  onClick={() => setPage(1)}
-                  className="h-9 w-9 border-zinc-200 dark:border-zinc-800"
-                  title="First Page"
-                >
-                  <ChevronsLeft className="h-4 w-4 text-gold" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  disabled={page === 1}
-                  onClick={() => setPage(page - 1)}
-                  className="h-9 w-9 border-zinc-200 dark:border-zinc-800"
-                  title="Previous Page"
-                >
-                  <ChevronLeft className="h-4 w-4 text-gold" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  disabled={page === totalPages}
-                  onClick={() => setPage(page + 1)}
-                  className="h-9 w-9 border-zinc-200 dark:border-zinc-800"
-                  title="Next Page"
-                >
-                  <ChevronRight className="h-4 w-4 text-gold" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  disabled={page === totalPages}
-                  onClick={() => setPage(totalPages)}
-                  className="h-9 w-9 border-zinc-200 dark:border-zinc-800"
-                  title="Last Page"
-                >
-                  <ChevronsRight className="h-4 w-4 text-gold" />
-                </Button>
-              </div>
-            </div>
+            <PaginationBar page={page} totalPages={totalPages} onChange={setPage} />
           )}
         </>
       )}

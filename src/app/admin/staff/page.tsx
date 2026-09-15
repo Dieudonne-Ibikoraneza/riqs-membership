@@ -5,11 +5,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Shield, Plus, Loader2, Copy, Check, AlertCircle,
-  MoreVertical, Star, Lock, Unlock, Crown
+  MoreVertical, Star, Lock, Unlock, Crown, Trash2
 } from "lucide-react";
 import {
   getStaffRegistry, createStaffAccount, lockStaffAccount,
-  unlockStaffAccount, promoteToHeadReviewer
+  unlockStaffAccount, promoteToHeadReviewer, deleteStaffAccount
 } from "@/lib/api/admin";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -69,7 +69,7 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 export default function StaffManagementPage() {
-  const { role } = useAuth();
+  const { role, email: currentUserEmail } = useAuth();
   const canCreateAssistant = role === "Admin" || role === "Approver";
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -92,6 +92,7 @@ export default function StaffManagementPage() {
   const [lockDuration, setLockDuration] = useState<number>(30);
 
   const [promoteTarget, setPromoteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["adminStaffList"],
@@ -147,6 +148,19 @@ export default function StaffManagementPage() {
     onError: (err: any) => {
       toast.error(err.response?.data?.error || "Failed to promote Head Reviewer");
       setPromoteTarget(null);
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteStaffAccount(id),
+    onSuccess: (res) => {
+      toast.success(res.message || "Staff member deleted successfully!");
+      setDeleteTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["adminStaffList"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || "Failed to delete staff member");
+      setDeleteTarget(null);
     }
   });
 
@@ -306,24 +320,40 @@ export default function StaffManagementPage() {
                               </>
                             )}
 
-                            {/* Lock / Unlock */}
-                            {staff.isLocked ? (
-                              <DropdownMenuItem
-                                className="gap-2 text-emerald-700 dark:text-emerald-400 focus:text-emerald-700 focus:bg-emerald-50 dark:focus:bg-emerald-950/30 cursor-pointer"
-                                onClick={() => unlockMutation.mutate(staff.id)}
-                                disabled={unlockMutation.isPending}
-                              >
-                                <Unlock className="h-4 w-4" />
-                                Unlock Account
-                              </DropdownMenuItem>
+                            {staff.email === currentUserEmail ? (
+                              <div className="px-2 py-1.5 text-xs text-zinc-400 dark:text-zinc-600">
+                                You can&apos;t lock or delete your own account.
+                              </div>
                             ) : (
-                              <DropdownMenuItem
-                                className="gap-2 text-orange-700 dark:text-orange-400 focus:text-orange-700 focus:bg-orange-50 dark:focus:bg-orange-950/30 cursor-pointer"
-                                onClick={() => setStaffToLock({ id: staff.id, name: staff.fullName })}
-                              >
-                                <Lock className="h-4 w-4" />
-                                Lock Account
-                              </DropdownMenuItem>
+                              <>
+                                {/* Lock / Unlock */}
+                                {staff.isLocked ? (
+                                  <DropdownMenuItem
+                                    className="gap-2 text-emerald-700 dark:text-emerald-400 focus:text-emerald-700 focus:bg-emerald-50 dark:focus:bg-emerald-950/30 cursor-pointer"
+                                    onClick={() => unlockMutation.mutate(staff.id)}
+                                    disabled={unlockMutation.isPending}
+                                  >
+                                    <Unlock className="h-4 w-4" />
+                                    Unlock Account
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    className="gap-2 text-orange-700 dark:text-orange-400 focus:text-orange-700 focus:bg-orange-50 dark:focus:bg-orange-950/30 cursor-pointer"
+                                    onClick={() => setStaffToLock({ id: staff.id, name: staff.fullName })}
+                                  >
+                                    <Lock className="h-4 w-4" />
+                                    Lock Account
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="gap-2 text-rose-700 dark:text-rose-400 focus:text-rose-700 focus:bg-rose-50 dark:focus:bg-rose-950/30 cursor-pointer"
+                                  onClick={() => setDeleteTarget({ id: staff.id, name: staff.fullName })}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  Delete Account
+                                </DropdownMenuItem>
+                              </>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>}
@@ -469,6 +499,33 @@ export default function StaffManagementPage() {
             >
               {lockMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
               Lock Account
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Staff Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Staff Account</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              Permanently delete <strong className="text-navy dark:text-zinc-200">{deleteTarget?.name}</strong>&apos;s account? This removes their access and all dependent records. This action cannot be undone.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              Delete Account
             </Button>
           </DialogFooter>
         </DialogContent>

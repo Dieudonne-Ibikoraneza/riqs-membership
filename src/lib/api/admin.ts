@@ -330,6 +330,11 @@ export async function promoteToHeadReviewer(id: string) {
   return data;
 }
 
+export async function deleteStaffAccount(id: string) {
+  const { data } = await axiosClient.delete(`/admin/staff/${id}`);
+  return data;
+}
+
 export async function getAllApc(status?: string, page: number = 1, limit: number = 20): Promise<any> {
   const params = new URLSearchParams();
   params.append("page", page.toString());
@@ -451,6 +456,21 @@ export async function awardHonoraryStatus(memberId: string): Promise<any> {
 
 export async function revokeHonoraryStatus(memberId: string): Promise<any> {
   const { data } = await axiosClient.post(`/admin/members/${memberId}/revoke-honorary`);
+  return data;
+}
+
+export async function lockMember(memberId: string, durationDays: number): Promise<any> {
+  const { data } = await axiosClient.patch(`/admin/members/${memberId}/lock`, { durationDays });
+  return data;
+}
+
+export async function unlockMember(memberId: string): Promise<any> {
+  const { data } = await axiosClient.patch(`/admin/members/${memberId}/unlock`);
+  return data;
+}
+
+export async function deleteMember(memberId: string): Promise<any> {
+  const { data } = await axiosClient.delete(`/admin/members/${memberId}`);
   return data;
 }
 

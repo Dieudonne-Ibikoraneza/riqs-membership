@@ -178,8 +178,16 @@ export interface AuditLogItem {
   details: string | null;
   createdAt: string;
   member: {
+    id: string;
     fullName: string;
     email: string;
+    systemRole: string | null;
+  } | null;
+  performedByMember: {
+    id: string;
+    fullName: string;
+    email: string;
+    systemRole: string | null;
   } | null;
 }
 
@@ -305,8 +313,35 @@ export async function approveApcGrade(payload: {
   return data;
 }
 
-export async function getStaffRegistry() {
-  const { data } = await axiosClient.get("/admin/staff");
+export interface StaffMember {
+  id: string;
+  fullName: string;
+  email: string;
+  systemRole: string;
+  isLocked: boolean;
+  lockedUntil: string | null;
+  createdAt: string;
+}
+
+export interface StaffRegistryResponse {
+  staff: StaffMember[];
+  headReviewer: { id: string; fullName: string; email: string } | null;
+  pagination: { total: number; page: number; limit: number };
+}
+
+export async function getStaffRegistry(params?: {
+  page?: number;
+  limit?: number;
+  q?: string;
+  role?: string;
+}): Promise<StaffRegistryResponse> {
+  const search = new URLSearchParams();
+  if (params?.page) search.append("page", String(params.page));
+  if (params?.limit) search.append("limit", String(params.limit));
+  if (params?.q) search.append("q", params.q);
+  if (params?.role && params.role !== "all") search.append("role", params.role);
+
+  const { data } = await axiosClient.get(`/admin/staff?${search.toString()}`);
   return data;
 }
 

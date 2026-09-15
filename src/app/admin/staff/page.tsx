@@ -5,8 +5,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Shield, Plus, Loader2, Copy, Check, AlertCircle,
-  MoreVertical, Star, Lock, Unlock, Crown, Trash2
+  MoreVertical, Star, Lock, Unlock, Crown, Trash2, Search, X, Filter
 } from "lucide-react";
+import { PaginationBar } from "@/components/ui/pagination-bar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   getStaffRegistry, createStaffAccount, lockStaffAccount,
   unlockStaffAccount, promoteToHeadReviewer, deleteStaffAccount
@@ -63,7 +71,7 @@ function RoleBadge({ role }: { role: string }) {
   return (
     <Badge variant="outline" className={cn("font-semibold flex items-center gap-1", cls)}>
       {role === "Head_Reviewer" && <Crown className="h-3 w-3" />}
-      {role === "Head_Reviewer" ? "Head Reviewer" : role}
+      {role.replace(/_/g, " ")}
     </Badge>
   );
 }
@@ -94,13 +102,28 @@ export default function StaffManagementPage() {
   const [promoteTarget, setPromoteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
+  // Server-side search, role filter, and pagination
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const [q, setQ] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+
   const { data, isLoading } = useQuery({
-    queryKey: ["adminStaffList"],
-    queryFn: getStaffRegistry,
+    queryKey: ["adminStaffList", page, pageSize, q, roleFilter],
+    queryFn: () => getStaffRegistry({ page, limit: pageSize, q, role: roleFilter }),
   });
 
   const staffList = data?.staff || [];
-  const existingHead = staffList.find((s: any) => s.systemRole === "Head_Reviewer");
+  const existingHead = data?.headReviewer || null;
+  const total = data?.pagination.total || 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const hasActiveFilters = q.trim().length > 0 || roleFilter !== "all";
+
+  const resetFilters = () => {
+    setQ("");
+    setRoleFilter("all");
+    setPage(1);
+  };
 
   const createMutation = useMutation({
     mutationFn: createStaffAccount,
@@ -225,9 +248,62 @@ export default function StaffManagementPage() {
       )}
 
       <Card className="border-zinc-100 dark:border-zinc-800 shadow-sm">
-        <CardHeader className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800 pb-4">
-          <CardTitle className="text-lg font-semibold text-navy">Registered Staff Members</CardTitle>
-          <CardDescription>Accounts with privileged internal access.</CardDescription>
+        <CardHeader className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800 pb-4 space-y-4">
+          <div>
+            <CardTitle className="text-lg font-semibold text-navy">Registered Staff Members</CardTitle>
+            <CardDescription>Accounts with privileged internal access.</CardDescription>
+          </div>
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search staff by name or email..."
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setPage(1);
+                }}
+                className="pl-9 h-10 bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
+              />
+              {q && (
+                <button
+                  onClick={() => {
+                    setQ("");
+                    setPage(1);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <Select
+              value={roleFilter}
+              onValueChange={(v) => {
+                setRoleFilter(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-10 w-full sm:w-[190px] bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+                <SelectValue placeholder="Role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All roles</SelectItem>
+                <SelectItem value="Admin">Admin</SelectItem>
+                <SelectItem value="Admin_Assistant">Admin Assistant</SelectItem>
+                <SelectItem value="Head_Reviewer">Head Reviewer</SelectItem>
+                <SelectItem value="Reviewer">Reviewer</SelectItem>
+                <SelectItem value="Approver">Approver</SelectItem>
+                <SelectItem value="Teacher">Teacher</SelectItem>
+              </SelectContent>
+            </Select>
+            {hasActiveFilters && (
+              <Button variant="outline" size="sm" onClick={resetFilters} className="h-10 shrink-0 border-zinc-200 dark:border-zinc-800">
+                <Filter className="mr-1.5 h-3.5 w-3.5" />
+                Clear
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
@@ -237,7 +313,12 @@ export default function StaffManagementPage() {
           ) : staffList.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">
               <Shield className="h-10 w-10 mx-auto mb-3 text-zinc-300 dark:text-zinc-700" />
-              <p>No staff members found.</p>
+              <p>{hasActiveFilters ? "No staff members match your search." : "No staff members found."}</p>
+              {hasActiveFilters && (
+                <Button variant="outline" size="sm" onClick={resetFilters} className="mt-3 border-zinc-200 dark:border-zinc-800">
+                  Reset filters
+                </Button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -365,6 +446,11 @@ export default function StaffManagementPage() {
             </div>
           )}
         </CardContent>
+        {totalPages > 1 && (
+          <div className="px-5 pb-5">
+            <PaginationBar page={page} totalPages={totalPages} onChange={setPage} />
+          </div>
+        )}
       </Card>
 
       {/* Add Staff Dialog */}

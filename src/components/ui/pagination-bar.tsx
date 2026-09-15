@@ -20,25 +20,33 @@ export function PaginationBar({
   onChange: (n: number) => void;
 }) {
   const range = useMemo(() => {
-    if (totalPages <= 7) {
+    // Always-shown pages: the first/last 4-page blocks, plus the active page and its
+    // immediate neighbors (so page/page±1 stay visible even when that lands right at the
+    // edge of a block — e.g. page 4 of 27 shows 1 2 3 4 5 ... 24 25 26 27, not just the
+    // bare block). A gap of exactly one page is filled in rather than turned into "...",
+    // since eliding a single number saves no space.
+    const EDGE_SIZE = 4;
+    if (totalPages <= EDGE_SIZE * 2) {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     }
-    const arr: (number | string)[] = [];
-    if (page <= 4) {
-      arr.push(1, 2, 3, 4, 5, "...", totalPages);
-    } else if (page >= totalPages - 3) {
-      arr.push(
-        1,
-        "...",
-        totalPages - 4,
-        totalPages - 3,
-        totalPages - 2,
-        totalPages - 1,
-        totalPages,
-      );
-    } else {
-      arr.push(1, "...", page - 1, page, page + 1, "...", totalPages);
+
+    const show = new Set<number>();
+    for (let i = 1; i <= EDGE_SIZE; i++) show.add(i);
+    for (let i = totalPages - EDGE_SIZE + 1; i <= totalPages; i++) show.add(i);
+    for (const p of [page - 1, page, page + 1]) {
+      if (p >= 1 && p <= totalPages) show.add(p);
     }
+
+    const sorted = Array.from(show).sort((a, b) => a - b);
+    const arr: (number | string)[] = [];
+    sorted.forEach((p, i) => {
+      if (i > 0) {
+        const diff = p - sorted[i - 1];
+        if (diff === 2) arr.push(sorted[i - 1] + 1);
+        else if (diff > 2) arr.push("...");
+      }
+      arr.push(p);
+    });
     return arr;
   }, [page, totalPages]);
 

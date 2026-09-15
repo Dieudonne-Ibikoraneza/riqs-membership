@@ -42,7 +42,7 @@ import {
 import { toast } from "sonner";
 import { getMemberById, awardFellowStatus, revokeFellowStatus, changeMembershipCategory, sendAdminEmail, updateMemberHonors, promoteToMentor, revokeMentorStatus, getMentorsForAssignment, assignMentorToApplication, lockMember, unlockMember, deleteMember, type AssignmentMentor } from "@/lib/api/admin";
 import { axiosClient } from "@/lib/axiosClient";
-import { formatPracticeLocation, formatEnumLabel } from "@/lib/utils";
+import { formatPracticeLocation, formatEnumLabel, isStaffRole } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth";
 
@@ -344,6 +344,34 @@ export default function AdminMemberProfilePage() {
   }
 
   if (!member) return null;
+
+  if (isStaffRole(member.systemRole)) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] px-4">
+        <Card className="max-w-md w-full border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+          <CardContent className="p-8 text-center space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-navy/10 text-navy">
+              <Shield className="h-7 w-7" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">{member.fullName} is a staff account</h2>
+              <p className="mt-1.5 text-sm text-slate-500 leading-relaxed">
+                This account has the <strong>{formatEnumLabel(member.systemRole)}</strong> role and is part of your internal team, not the public membership register. Staff accounts are created, locked, and removed from the Staff Management page instead.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => router.back()}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
+              </Button>
+              <Button className="flex-1 bg-navy hover:bg-blue-800 text-white" onClick={() => router.push("/admin/staff")}>
+                Go to Staff Management
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const app = member.applications?.[0];
   const category = app?.category;

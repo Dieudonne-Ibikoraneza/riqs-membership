@@ -30,3 +30,15 @@ export function formatEnumLabel(val: string | null | undefined): string {
   if (!val) return "—";
   return String(val).replace(/_/g, " ");
 }
+
+/**
+ * SystemRole values that live in the `members` table but are managed on the Staff page
+ * (/admin/staff) rather than the Members Register — mirrors STAFF_ROLES in
+ * backend/src/controllers/adminController.ts. Used to tell staff and regular members
+ * apart wherever a raw member id/role shows up (audit log links, member profile lookups).
+ */
+export const STAFF_SYSTEM_ROLES = ["Admin", "Admin_Assistant", "Head_Reviewer", "Reviewer", "Approver", "Teacher"];
+
+export function isStaffRole(role: string | null | undefined): boolean {
+  return !!role && STAFF_SYSTEM_ROLES.includes(role);
+}

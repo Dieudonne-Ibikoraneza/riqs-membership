@@ -14,6 +14,7 @@ export interface ApplicantProfileResponse {
     membershipClass: string | null;
     membershipId?: string | null;
     profilePhotoUrl?: string | null;
+    hasSeenOnboarding?: boolean | null;
   };
   application: {
     id: string;
@@ -77,6 +78,11 @@ export const applicantServices = {
 
   updateProfile: async (data: Partial<ApplicantProfileResponse['profile']>): Promise<any> => {
     const response = await axiosClient.put('/members/profile', data);
+    return response.data;
+  },
+
+  completeOnboarding: async (): Promise<{ message: string }> => {
+    const response = await axiosClient.patch('/members/onboarding-complete');
     return response.data;
   },
 

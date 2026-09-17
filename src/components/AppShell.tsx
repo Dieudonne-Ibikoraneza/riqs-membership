@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
@@ -41,6 +42,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+
+// Uses `window`/`document` internally — must never run during SSR.
+const GraduateOnboardingTour = dynamic(() => import("@/components/GraduateOnboardingTour"), { ssr: false });
 
 export function AppShell({
   children,
@@ -245,6 +249,18 @@ export function AppShell({
 
   const links = kind === "admin" ? adminLinks : kind === "teacher" ? teacherLinks : memberLinks;
 
+  // Anchors for GraduateOnboardingTour's sidebar walk-through — only meaningful for
+  // memberLinks hrefs, harmless (undefined) elsewhere.
+  const memberNavTourIds: Record<string, string> = {
+    "/dashboard/profile": "tour-nav-profile",
+    "/dashboard/application": "tour-nav-application",
+    "/dashboard/certificate": "tour-nav-certificate",
+    "/dashboard/payments": "tour-nav-payments",
+    "/dashboard/mentorship": "tour-nav-mentorship",
+    "/dashboard/documents": "tour-nav-documents",
+    "/dashboard/support": "tour-nav-support",
+  };
+
   const doLogout = () => {
     setLogoutOpen(true);
   };
@@ -373,6 +389,7 @@ export function AppShell({
                 >
                   <Link
                     href={l.href}
+                    data-tour-id={memberNavTourIds[l.href]}
                     onClick={() => setMobileOpen(false)}
                     title={undefined}
                     className={cn(
@@ -547,7 +564,11 @@ export function AppShell({
           </motion.div>
         </main>
       </div>
-      
+
+      {kind === "member" && pathname === "/dashboard" && (
+        <GraduateOnboardingTour profileData={profileData} onActiveChange={setMobileOpen} />
+      )}
+
       <Dialog open={logoutOpen} onOpenChange={setLogoutOpen}>
         <DialogContent>
           {(() => {

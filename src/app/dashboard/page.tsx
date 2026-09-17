@@ -102,6 +102,7 @@ export default function Overview() {
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Brand Welcome Banner */}
       <motion.div
+        data-tour-id="tour-status-card"
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         className="rounded-xl brand-gradient p-6 text-white md:p-8"
@@ -153,7 +154,7 @@ export default function Overview() {
       )}
 
       {/* Quick Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger">
+      <div data-tour-id="tour-stats-grid" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger">
         {[
           {
             i: Award,

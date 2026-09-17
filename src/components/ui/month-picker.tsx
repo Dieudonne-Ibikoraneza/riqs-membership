@@ -7,28 +7,134 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface MonthYearPickerProps {
   id?: string;
-  value: string; // "YYYY-MM" or "present" or ""
+  value: string; // "YYYY-MM" or "YYYY-MM-DD" or "present" or ""
   onChange: (val: string) => void;
   allowPresent?: boolean;
   monthOnly?: boolean;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 const MONTHS = [
-  { label: "Jan", val: "01" },
-  { label: "Feb", val: "02" },
-  { label: "Mar", val: "03" },
-  { label: "Apr", val: "04" },
-  { label: "May", val: "05" },
-  { label: "Jun", val: "06" },
-  { label: "Jul", val: "07" },
-  { label: "Aug", val: "08" },
-  { label: "Sep", val: "09" },
-  { label: "Oct", val: "10" },
-  { label: "Nov", val: "11" },
-  { label: "Dec", val: "12" },
+  { label: "Jan", full: "January", val: "01" },
+  { label: "Feb", full: "February", val: "02" },
+  { label: "Mar", full: "March", val: "03" },
+  { label: "Apr", full: "April", val: "04" },
+  { label: "May", full: "May", val: "05" },
+  { label: "Jun", full: "June", val: "06" },
+  { label: "Jul", full: "July", val: "07" },
+  { label: "Aug", full: "August", val: "08" },
+  { label: "Sep", full: "September", val: "09" },
+  { label: "Oct", full: "October", val: "10" },
+  { label: "Nov", full: "November", val: "11" },
+  { label: "Dec", full: "December", val: "12" },
 ];
+
+// Matches a month given as a number ("3", "03"), an abbreviation ("Mar"), or a full name
+// ("March"/"Marc..."), case-insensitively. Returns the zero-padded "01".."12" value, or
+// null if nothing recognizable was typed.
+function matchMonth(token: string): string | null {
+  const t = token.trim().toLowerCase();
+  if (!t) return null;
+  if (/^\d{1,2}$/.test(t)) {
+    const n = parseInt(t, 10);
+    return n >= 1 && n <= 12 ? String(n).padStart(2, "0") : null;
+  }
+  const byAbbr = MONTHS.find((m) => m.label.toLowerCase() === t);
+  if (byAbbr) return byAbbr.val;
+  const byFull = MONTHS.find((m) => m.full.toLowerCase() === t || m.full.toLowerCase().startsWith(t));
+  return byFull ? byFull.val : null;
+}
+
+const POPOVER_WIDTH = 280;
+
+// Finds the nearest ancestor that actually clips/scrolls its content (e.g. a Dialog with
+// overflow-y-auto), so the popover's horizontal position can be checked against that
+// boundary instead of the full viewport — a narrow field inside a centered dialog has
+// plenty of *viewport* room to its right, but none inside the dialog itself.
+function getScrollBoundary(node: HTMLElement | null): HTMLElement | null {
+  let el = node?.parentElement || null;
+  while (el && el !== document.body) {
+    const style = getComputedStyle(el);
+    if (/(auto|scroll|hidden)/.test(style.overflowX + style.overflowY)) return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
+function isValidCalendarDate(year: number, month: number, day: number): boolean {
+  const d = new Date(year, month - 1, day);
+  return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day;
+}
+
+// Parses free-typed text into this component's canonical value ("YYYY-MM" or "YYYY-MM-DD"),
+// accepting the common ways someone would naturally type a date — numeric with either slash
+// or dash separators in either order, or a month name/abbreviation with a year (and day, for
+// full dates). Returns null when the text isn't recognized, so the caller can leave the
+// field alone rather than committing garbage.
+function parseTypedDate(raw: string, opts: { monthOnly: boolean; allowPresent: boolean }): string | null {
+  const text = raw.trim();
+  if (!text) return "";
+  if (opts.allowPresent && /^present$/i.test(text)) return "present";
+
+  if (opts.monthOnly) {
+    let m = text.match(/^(\d{4})[-/](\d{1,2}|[A-Za-z]+)$/); // YYYY-MM or YYYY/Mon
+    if (m) {
+      const mon = matchMonth(m[2]);
+      if (mon) return `${m[1]}-${mon}`;
+    }
+    m = text.match(/^(\d{1,2}|[A-Za-z]+)[-/](\d{4})$/); // MM-YYYY or Mon/YYYY
+    if (m) {
+      const mon = matchMonth(m[1]);
+      if (mon) return `${m[2]}-${mon}`;
+    }
+    m = text.match(/^([A-Za-z]+)\.?\s+(\d{4})$/); // Mon YYYY / Month YYYY
+    if (m) {
+      const mon = matchMonth(m[1]);
+      if (mon) return `${m[2]}-${mon}`;
+    }
+    return null;
+  }
+
+  let m = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); // YYYY-MM-DD
+  if (m) {
+    const mon = matchMonth(m[2]);
+    const day = parseInt(m[3], 10);
+    if (mon && isValidCalendarDate(parseInt(m[1], 10), parseInt(mon, 10), day)) {
+      return `${m[1]}-${mon}-${String(day).padStart(2, "0")}`;
+    }
+    return null;
+  }
+  m = text.match(/^(\d{1,2})[-/](\d{1,2}|[A-Za-z]+)[-/](\d{4})$/); // DD/MM/YYYY or DD-Mon-YYYY
+  if (m) {
+    const day = parseInt(m[1], 10);
+    const mon = matchMonth(m[2]);
+    if (mon && isValidCalendarDate(parseInt(m[3], 10), parseInt(mon, 10), day)) {
+      return `${m[3]}-${mon}-${String(day).padStart(2, "0")}`;
+    }
+    return null;
+  }
+  m = text.match(/^(\d{1,2})\s+([A-Za-z]+)\.?,?\s+(\d{4})$/); // DD Mon YYYY
+  if (m) {
+    const day = parseInt(m[1], 10);
+    const mon = matchMonth(m[2]);
+    if (mon && isValidCalendarDate(parseInt(m[3], 10), parseInt(mon, 10), day)) {
+      return `${m[3]}-${mon}-${String(day).padStart(2, "0")}`;
+    }
+    return null;
+  }
+  m = text.match(/^([A-Za-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/); // Mon DD, YYYY
+  if (m) {
+    const mon = matchMonth(m[1]);
+    const day = parseInt(m[2], 10);
+    if (mon && isValidCalendarDate(parseInt(m[3], 10), parseInt(mon, 10), day)) {
+      return `${m[3]}-${mon}-${String(day).padStart(2, "0")}`;
+    }
+    return null;
+  }
+  return null;
+}
 
 export function MonthYearPicker({
   id,
@@ -38,10 +144,13 @@ export function MonthYearPicker({
   monthOnly = false,
   placeholder = "Select Date",
   className,
+  disabled = false,
 }: MonthYearPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<"bottom" | "top">("bottom");
+  const [offsetX, setOffsetX] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<"days" | "months" | "years">("days");
 
   // Parse current year/month/day from value or default to current date
@@ -79,13 +188,33 @@ export function MonthYearPicker({
         const rect = containerRef.current.getBoundingClientRect();
         const spaceBelow = window.innerHeight - rect.bottom;
         const spaceAbove = rect.top;
-        
+
         // The popover height is around 320px for the day grid
         if (spaceBelow < 320 && spaceAbove > spaceBelow) {
           setPosition("top");
         } else {
           setPosition("bottom");
         }
+
+        // Clamp horizontally against the nearest clipping/scrolling ancestor (a Dialog,
+        // typically) rather than the viewport — a narrow field inside a centered dialog can
+        // have plenty of viewport room to its right while having none inside the dialog,
+        // which is exactly what let the popover spill past the dialog's edge and trigger a
+        // stray horizontal scrollbar there. Computed as a precise pixel offset (rather than
+        // just flipping to a flush right-0) with a small margin, since the field's own edge
+        // can itself sit a couple of px from the true boundary due to ordinary layout
+        // rounding — flush-aligning to it would just reintroduce the same overflow.
+        const boundary = getScrollBoundary(containerRef.current);
+        const boundaryRect = boundary
+          ? boundary.getBoundingClientRect()
+          : { left: 0, right: window.innerWidth };
+        const margin = 8;
+        let offset = 0;
+        const overflowRight = rect.left + POPOVER_WIDTH - (boundaryRect.right - margin);
+        if (overflowRight > 0) offset = -overflowRight;
+        const resultingLeft = rect.left + offset;
+        if (resultingLeft < boundaryRect.left + margin) offset = boundaryRect.left + margin - rect.left;
+        setOffsetX(offset);
       }
     };
 
@@ -129,6 +258,32 @@ export function MonthYearPicker({
       return monthObj ? `${monthObj.label} ${parts[0]}` : value;
     }
     return value;
+  };
+
+  // The text field's own draft state — kept separate from `value` so a keystroke doesn't
+  // have to be a valid, complete date to stay on screen while the person is still typing it.
+  const [inputText, setInputText] = useState(getDisplayText());
+  const [isTyping, setIsTyping] = useState(false);
+
+  // Keep the field's displayed text in sync with the real value, but only while the person
+  // isn't actively editing it — otherwise an external update (e.g. picking a day from the
+  // calendar) would be expected to overwrite it, but the person's own keystrokes shouldn't be.
+  useEffect(() => {
+    if (!isTyping) setInputText(getDisplayText());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, isTyping]);
+
+  const commitTypedText = () => {
+    setIsTyping(false);
+    const parsed = parseTypedDate(inputText, { monthOnly, allowPresent });
+    if (parsed === null) {
+      // Not a date we recognize — revert to the last valid value instead of silently
+      // accepting (or worse, saving) something unparseable.
+      setInputText(getDisplayText());
+      return;
+    }
+    if (parsed !== value) onChange(parsed);
+    else setInputText(getDisplayText());
   };
 
   const handleSelectMonth = (monthVal: string) => {
@@ -197,22 +352,50 @@ export function MonthYearPicker({
   const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
   return (
-    <div ref={containerRef} className={cn("relative w-full", className)}>
-      {/* Input Field Button */}
-      <button
-        id={id}
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
+    <div ref={containerRef} className={cn("relative w-full min-w-0", className)}>
+      {/* Editable text field — type a date directly — plus a button that opens the same
+          calendar popover as before, for anyone who'd rather pick than type. */}
+      <div
         className={cn(
-          "flex h-10 w-full items-center justify-between rounded-none border border-input bg-white px-3 py-2 text-sm text-left transition-all placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-gold focus-visible:ring-2 focus-visible:ring-gold/30 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-950 dark:border-zinc-800",
-          !value && "text-muted-foreground"
+          "flex h-10 w-full min-w-0 items-center rounded-none border border-input bg-white transition-all focus-within:border-gold focus-within:ring-2 focus-within:ring-gold/30 dark:bg-zinc-950 dark:border-zinc-800",
+          disabled && "cursor-not-allowed opacity-50 bg-zinc-50 dark:bg-zinc-900",
         )}
       >
-        <span className={cn("truncate font-medium font-sans", value?.toLowerCase() === "present" && "text-gold font-semibold")}>
-          {getDisplayText() || placeholder}
-        </span>
-        <Calendar className="h-4.5 w-4.5 text-zinc-400 shrink-0 dark:text-zinc-500" />
-      </button>
+        <input
+          ref={inputRef}
+          id={id}
+          type="text"
+          value={inputText}
+          placeholder={placeholder}
+          disabled={disabled}
+          onFocus={() => setIsTyping(true)}
+          onChange={(e) => setInputText(e.target.value)}
+          onBlur={commitTypedText}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              inputRef.current?.blur();
+            } else if (e.key === "Escape") {
+              setInputText(getDisplayText());
+              setIsTyping(false);
+              inputRef.current?.blur();
+            }
+          }}
+          className={cn(
+            "h-full min-w-0 flex-1 border-none bg-transparent px-3 py-2 text-sm font-medium font-sans text-left placeholder:text-muted-foreground placeholder:font-normal focus-visible:outline-none disabled:cursor-not-allowed",
+            value?.toLowerCase() === "present" && "text-gold font-semibold"
+          )}
+        />
+        <button
+          type="button"
+          onClick={() => !disabled && setIsOpen((o) => !o)}
+          disabled={disabled}
+          aria-label="Open calendar"
+          className="flex h-full shrink-0 items-center px-3 text-zinc-400 transition-colors hover:text-navy disabled:cursor-not-allowed disabled:hover:text-zinc-400 dark:text-zinc-500 dark:hover:text-gold dark:disabled:hover:text-zinc-500"
+        >
+          <Calendar className="h-4.5 w-4.5" />
+        </button>
+      </div>
 
       {/* Popover Menu */}
       <AnimatePresence>
@@ -222,8 +405,9 @@ export function MonthYearPicker({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: position === "top" ? -8 : 8, scale: 0.96 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
+            style={{ left: offsetX }}
             className={cn(
-              "absolute left-0 z-50 w-[280px] rounded-none border border-input bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-950",
+              "absolute z-50 w-[280px] rounded-none border border-input bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-950",
               position === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5"
             )}
           >

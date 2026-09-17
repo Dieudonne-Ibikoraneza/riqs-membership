@@ -1297,11 +1297,11 @@ export default function AdminMembers() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                  <Input
+                  <MonthYearPicker
                     id="dateOfBirth"
-                    type="date"
                     value={addMemberForm.dateOfBirth}
-                    onChange={(e) => setAddMemberForm({ ...addMemberForm, dateOfBirth: e.target.value })}
+                    onChange={(v) => setAddMemberForm({ ...addMemberForm, dateOfBirth: v })}
+                    placeholder="Select date of birth"
                   />
                 </div>
               </div>

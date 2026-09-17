@@ -418,7 +418,7 @@ export default function Profile() {
               ) : (
                 <div className="space-y-1">
                   <Label htmlFor="prof-dob">Date of Birth</Label>
-                  <Input id="prof-dob" type="date" value={dob} disabled={locked} onChange={e => setDob(e.target.value)} />
+                  <MonthYearPicker id="prof-dob" value={dob} disabled={locked} onChange={setDob} placeholder="Select date of birth" />
                 </div>
               )}
               {member.gender ? (

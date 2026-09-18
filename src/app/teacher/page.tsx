@@ -20,7 +20,7 @@ export default function TeacherDashboard() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto animate-fade-in pb-10">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div data-tour-id="tour-status-card" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-navy tracking-tight">Teacher Workspace</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -35,7 +35,7 @@ export default function TeacherDashboard() {
         </Link>
       </div>
 
-      <Card className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
+      <Card data-tour-id="tour-stats-grid" className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
         <div className="border-b border-zinc-100 dark:border-zinc-800/80 px-5 py-4 flex items-center justify-between">
           <h2 className="font-semibold text-navy dark:text-zinc-100">Registered Students</h2>
           <Badge variant="secondary" className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">

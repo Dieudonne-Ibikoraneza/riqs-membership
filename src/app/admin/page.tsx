@@ -179,6 +179,7 @@ export default function AdminOverview() {
     <div className="space-y-6">
       {/* Brand Welcome Banner */}
       <motion.div
+        data-tour-id="tour-status-card"
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         className="rounded-xl brand-gradient p-6 text-white md:p-8"
@@ -212,7 +213,7 @@ export default function AdminOverview() {
       )}
 
       {/* Grid Stats */}
-      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${kpiStats.length <= 3 ? "lg:grid-cols-3" : kpiStats.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-5"}`}>
+      <div data-tour-id="tour-stats-grid" className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${kpiStats.length <= 3 ? "lg:grid-cols-3" : kpiStats.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-5"}`}>
         {loading
           ? Array.from({ length: isReviewer ? 3 : isApprover ? 2 : isAssistant ? 3 : 5 }).map((_, i) => (
               <Card key={i}><CardContent className="p-4"><Skeleton className="h-20 w-full" /></CardContent></Card>

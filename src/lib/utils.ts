@@ -42,3 +42,18 @@ export const STAFF_SYSTEM_ROLES = ["Admin", "Admin_Assistant", "Head_Reviewer", 
 export function isStaffRole(role: string | null | undefined): boolean {
   return !!role && STAFF_SYSTEM_ROLES.includes(role);
 }
+
+/**
+ * Derives a stable `data-tour-id` for a sidebar nav link from its href, e.g.
+ * "/admin/mentor-applications" -> "tour-nav-admin-mentor-applications". Shared between
+ * AppShell (which tags the actual <Link> elements) and DashboardOnboardingTour (which
+ * targets them) so the two can never drift out of sync with each other.
+ *
+ * Returns undefined for links that shouldn't be part of a tour: disabled ones, and ones
+ * with a dynamic/session-specific href (e.g. "/teacher/application/<id>") whose target
+ * wouldn't reliably exist or match between renders.
+ */
+export function navTourId(href: string, disabled?: boolean): string | undefined {
+  if (disabled || href === "#" || /\/[0-9a-fA-F-]{16,}(\/|$)/.test(href)) return undefined;
+  return `tour-nav-${href.replace(/^\//, "").replace(/\//g, "-")}`;
+}

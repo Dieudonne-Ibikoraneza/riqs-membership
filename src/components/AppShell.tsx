@@ -40,11 +40,11 @@ import {
   UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, navTourId } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 // Uses `window`/`document` internally — must never run during SSR.
-const GraduateOnboardingTour = dynamic(() => import("@/components/GraduateOnboardingTour"), { ssr: false });
+const DashboardOnboardingTour = dynamic(() => import("@/components/DashboardOnboardingTour"), { ssr: false });
 
 export function AppShell({
   children,
@@ -60,10 +60,13 @@ export function AppShell({
   const [collapsed, setCollapsed] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
 
+  // Fetched for every signed-in kind (not just members) — the endpoint just returns the
+  // current user's own profile row regardless of role, and DashboardOnboardingTour needs
+  // `hasSeenOnboarding` for admins/teachers too, not only members.
   const { data: profileData } = useQuery({
     queryKey: queryKeys.applicant.profile(),
     queryFn: applicantServices.getProfile,
-    enabled: !!role && kind === "member" && role !== "Admin",
+    enabled: !!role,
   });
 
   const [isFirm, setIsFirm] = useState(false);
@@ -249,18 +252,6 @@ export function AppShell({
 
   const links = kind === "admin" ? adminLinks : kind === "teacher" ? teacherLinks : memberLinks;
 
-  // Anchors for GraduateOnboardingTour's sidebar walk-through — only meaningful for
-  // memberLinks hrefs, harmless (undefined) elsewhere.
-  const memberNavTourIds: Record<string, string> = {
-    "/dashboard/profile": "tour-nav-profile",
-    "/dashboard/application": "tour-nav-application",
-    "/dashboard/certificate": "tour-nav-certificate",
-    "/dashboard/payments": "tour-nav-payments",
-    "/dashboard/mentorship": "tour-nav-mentorship",
-    "/dashboard/documents": "tour-nav-documents",
-    "/dashboard/support": "tour-nav-support",
-  };
-
   const doLogout = () => {
     setLogoutOpen(true);
   };
@@ -389,7 +380,7 @@ export function AppShell({
                 >
                   <Link
                     href={l.href}
-                    data-tour-id={memberNavTourIds[l.href]}
+                    data-tour-id={navTourId(l.href, (l as any).disabled)}
                     onClick={() => setMobileOpen(false)}
                     title={undefined}
                     className={cn(
@@ -565,9 +556,14 @@ export function AppShell({
         </main>
       </div>
 
-      {kind === "member" && pathname === "/dashboard" && (
-        <GraduateOnboardingTour profileData={profileData} onActiveChange={setMobileOpen} />
-      )}
+      <DashboardOnboardingTour
+        kind={kind}
+        pathname={pathname}
+        links={links}
+        role={role}
+        profileData={profileData}
+        onActiveChange={setMobileOpen}
+      />
 
       <Dialog open={logoutOpen} onOpenChange={setLogoutOpen}>
         <DialogContent>

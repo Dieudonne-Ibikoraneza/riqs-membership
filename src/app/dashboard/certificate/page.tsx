@@ -184,7 +184,7 @@ function CertificateContent() {
 
   // Graduate and Associate members are not yet licensed to practice independently — they get
   // the Graduate/Associate Membership Certificate (explicitly marked "not a practicing
-  // certificate") instead of the Practicing License text. Everyone becomes a Graduate first, so
+  // license") instead of the Practicing License text. Everyone becomes a Graduate first, so
   // once a member reaches Technologist/Professional/Fellow they can still look back at that
   // certificate via the archive toggle below.
   const isNonPractisingClass = membershipClass === "Graduate" || membershipClass === "Associate";
@@ -389,17 +389,25 @@ function CertificateContent() {
       showButton = true;
     } else if (appStatus === "Approved" && !isFirstYearFeeCleared) {
       badgeText = "First-Year Fee Required";
-      descText = "Your application has been approved, but your membership credentials have not been issued yet. Please pay and submit proof of payment for the first-year membership fee, then wait for verification before accessing your certificate.";
+      descText = "Your application has been approved, but your membership credentials have not been issued yet. Please pay and submit proof of payment for the first-year membership fee, then wait for verification before accessing your membership certificate or practicing license.";
       showButton = true;
       buttonLabel = "Go to Payments";
       buttonHref = "/dashboard/payments";
     }
 
+    const pendingTitle = isNonPractisingClass ? "Membership Certificate" : "Annual Practicing License";
+    const pendingSubtitle = isNonPractisingClass
+      ? "Your official, digitally signed RIQS membership certificate."
+      : "Your official, digitally signed RIQS practicing license.";
+    const pendingLockedHeading = isNonPractisingClass
+      ? "Membership Certificate Not Issued Yet"
+      : "Practicing License Not Issued Yet";
+
     return (
       <div className="space-y-6 max-w-4xl mx-auto">
         <div>
-          <h1 className="text-2xl font-bold text-navy">Annual Practicing License</h1>
-          <p className="text-sm text-muted-foreground font-sans font-normal mt-1">Your official, digitally signed RIQS practicing license certificate.</p>
+          <h1 className="text-2xl font-bold text-navy">{pendingTitle}</h1>
+          <p className="text-sm text-muted-foreground font-sans font-normal mt-1">{pendingSubtitle}</p>
         </div>
 
         <Card className="border-dashed border-2 bg-zinc-50/20 dark:bg-zinc-900/10 border-zinc-200 dark:border-zinc-800 p-8 shadow-sm">
@@ -413,7 +421,7 @@ function CertificateContent() {
               <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 <AlertCircle className="h-3.5 w-3.5 text-gold" /> {badgeText}
               </div>
-              <h2 className="text-xl font-bold text-navy dark:text-zinc-150 font-sans pt-1">Practicing License Not Issued Yet</h2>
+              <h2 className="text-xl font-bold text-navy dark:text-zinc-150 font-sans pt-1">{pendingLockedHeading}</h2>
               <p className="text-sm text-muted-foreground leading-relaxed font-sans">
                 {descText}
               </p>
@@ -543,7 +551,7 @@ function CertificateContent() {
           <p className="text-sm text-muted-foreground font-sans">
             {isMembershipCertMode
               ? "Your official, digitally signed RIQS membership certificate."
-              : "Your official, digitally signed RIQS practicing license certificate."}
+              : "Your official, digitally signed RIQS practicing license."}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -653,7 +661,7 @@ function CertificateContent() {
                     className="mt-[0.3%] text-[17px] font-extrabold uppercase"
                     style={{ color: CERT_RED, letterSpacing: "0.08em" }}
                   >
-                    This is not a practicing certificate
+                    This is not a practicing license
                   </div>
                 )}
 
@@ -698,7 +706,9 @@ function CertificateContent() {
                   </p>
                 ) : isVisiting ? null : (
                   <p className="mt-[0.3%] text-[19px] font-bold italic">
-                    This certificate is valid until {formattedValidUntil}.
+                    {isMembershipCertMode
+                      ? `This certificate is valid until ${formattedValidUntil}.`
+                      : `This license is valid until ${formattedValidUntil}.`}
                   </p>
                 )}
 

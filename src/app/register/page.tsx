@@ -16,13 +16,14 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { PasswordStrength } from "@/components/ui/PasswordStrength";
 import { Eye, EyeOff } from "lucide-react";
-import { isRouteAllowedForRole, isSafeRedirectTarget } from "@/lib/route-access";
+import { isRouteAllowedForRole, getSafeRedirectTarget } from "@/lib/route-access";
 
 function RegisterContent() {
   const { startSignup, verifyOtp, pending, cancelPending, resendOtp } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTarget = searchParams.get("redirect");
+  // Sanitized once, up front — everything below only ever sees a validated in-app path or null.
+  const redirectTarget = getSafeRedirectTarget(searchParams.get("redirect"));
   const [form, setForm] = useState({ name: "", email: "", pw: "", pw2: "" });
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -100,7 +101,7 @@ function RegisterContent() {
     toast.success("Account created — start your application");
     // A new member is never staff/teacher, so this only ever sends them somewhere under
     // /dashboard — otherwise fall back to starting their application as usual.
-    if (isSafeRedirectTarget(redirectTarget) && isRouteAllowedForRole(redirectTarget, "Standard", false)) {
+    if (redirectTarget && isRouteAllowedForRole(redirectTarget, "Standard", false)) {
       router.push(redirectTarget);
     } else {
       router.push("/dashboard/application");
@@ -204,7 +205,7 @@ function RegisterContent() {
                 <div className="mt-6 text-center text-sm text-muted-foreground">
                   Already have an account?{" "}
                   <Link
-                    href={isSafeRedirectTarget(redirectTarget) ? `/login?redirect=${encodeURIComponent(redirectTarget)}` : "/login"}
+                    href={redirectTarget ? `/login?redirect=${encodeURIComponent(redirectTarget)}` : "/login"}
                     className="font-semibold text-navy hover:underline"
                   >
                     Sign in

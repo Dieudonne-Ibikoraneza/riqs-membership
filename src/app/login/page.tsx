@@ -16,13 +16,15 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import Image from "next/image";
 import { Eye, EyeOff } from "lucide-react";
-import { getDefaultRouteForRole, isRouteAllowedForRole, isSafeRedirectTarget } from "@/lib/route-access";
+import { getDefaultRouteForRole, isRouteAllowedForRole, getSafeRedirectTarget } from "@/lib/route-access";
 
 function LoginContent() {
   const { startLogin, verifyOtp, pending, cancelPending, resendOtp } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTarget = searchParams.get("redirect");
+  // Sanitized once, up front — everything below only ever sees a validated in-app path or null,
+  // never the raw query-string value.
+  const redirectTarget = getSafeRedirectTarget(searchParams.get("redirect"));
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [otp, setOtp] = useState("");
@@ -67,7 +69,7 @@ function LoginContent() {
     if (success === "requirePasswordChange") {
       toast.info("Please change your temporary password to continue.");
       const params = new URLSearchParams({ reason: "first-login" });
-      if (isSafeRedirectTarget(redirectTarget)) params.set("redirect", redirectTarget);
+      if (redirectTarget) params.set("redirect", redirectTarget);
       router.push(`/forgot-password?${params.toString()}`);
     } else if (success) {
       toast.success(`We sent a 6-digit code to ${email}`);
@@ -99,7 +101,7 @@ function LoginContent() {
     // Send the member back to whatever route they originally tried to visit before being
     // asked to sign in — but only if their role is actually allowed there; otherwise fall
     // back to their normal workspace landing page.
-    if (isSafeRedirectTarget(redirectTarget) && isRouteAllowedForRole(redirectTarget, storedRole, storedIsTeacher)) {
+    if (redirectTarget && isRouteAllowedForRole(redirectTarget, storedRole, storedIsTeacher)) {
       router.push(redirectTarget);
     } else {
       router.push(getDefaultRouteForRole(storedRole, storedIsTeacher));
@@ -189,7 +191,7 @@ function LoginContent() {
                 <div className="mt-6 text-center text-sm text-muted-foreground">
                   No account?{" "}
                   <Link
-                    href={isSafeRedirectTarget(redirectTarget) ? `/register?redirect=${encodeURIComponent(redirectTarget)}` : "/register"}
+                    href={redirectTarget ? `/register?redirect=${encodeURIComponent(redirectTarget)}` : "/register"}
                     className="font-semibold text-navy hover:underline"
                   >
                     Register

@@ -32,7 +32,7 @@ const OVERVIEW_PATH: Record<ShellKind, string> = {
 const NAV_DESCRIPTIONS: Record<string, string> = {
   "/dashboard/profile": "Keep your personal, contact, and address details up to date here.",
   "/dashboard/application": "Review your submitted application and its details anytime.",
-  "/dashboard/certificate": "Download your official membership certificate from here.",
+  "/dashboard/certificate": "Download your membership certificate or practicing license from here.",
   "/dashboard/payments": "Pay your processing fee and annual membership dues from here.",
   "/dashboard/mentorship":
     "This is where you'll track your mentorship and upload the reports and logbooks required for your membership upgrade.",

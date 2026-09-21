@@ -361,7 +361,7 @@ export default function Overview() {
                 </div>
                 <div className="rounded-md border border-zinc-100 p-4 bg-blue-50/50">
                   <h4 className="text-sm font-semibold text-navy">Key Personnel</h4>
-                  <p className="text-xs text-muted-foreground mt-1">All practicing partners and shareholders within your firm must maintain active individual practicing certificates.</p>
+                  <p className="text-xs text-muted-foreground mt-1">All practicing partners and shareholders within your firm must maintain active individual practicing licenses.</p>
                 </div>
               </div>
             </CardContent>
@@ -374,7 +374,7 @@ export default function Overview() {
           </CardHeader>
           <CardContent className="space-y-3 flex-1 flex flex-col">
             {[
-              { to: "/dashboard/certificate", l: "Download Certificate", d: "Get your official cert", i: BadgeCheck, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-950/30" },
+              { to: "/dashboard/certificate", l: "Download Certificate / License", d: "Membership cert or practicing license", i: BadgeCheck, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-950/30" },
               ...(!doesNotPay ? [{ to: "/dashboard/payments", l: "Pay Annual Renewal", d: "Clear your 2025 dues", i: Wallet, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950/30" }] : []),
               { to: "/dashboard/profile", l: "Update Profile", d: "Edit personal details", i: FileText, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950/30" },
               { to: "/dashboard/documents", l: "Manage Documents", d: "Upload files & IDs", i: FileText, color: "text-purple-500", bg: "bg-purple-50 dark:bg-purple-950/30" },

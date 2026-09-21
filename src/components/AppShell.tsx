@@ -195,12 +195,16 @@ export function AppShell({
   const membershipClass = (profileData?.profile as any)?.membershipClass || "";
   const isRestrictedMember = isStudent || membershipClass.includes("Student") || membershipClass.includes("Visiting") || membershipClass.includes("Honorary") || membershipClass.includes("Life");
   const doesNotPay = membershipClass.includes("Visiting") || membershipClass.includes("Honorary") || membershipClass.includes("Life");
+  // Membership Certificate for Graduate/Associate/Honorary/Life; Practicing License for licensed classes.
+  const hasPracticingLicense =
+    ["Technologist", "Professional", "Fellow"].includes(membershipClass) ||
+    membershipClass.includes("Visiting");
 
   const memberLinks = [
     { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
     { href: "/dashboard/profile", label: "My Profile", icon: User2 },
     ...(!isRestrictedMember ? [{ href: "/dashboard/application", label: "Application", icon: FileText }] : []),
-    { href: "/dashboard/certificate", label: "Certificate", icon: Award },
+    { href: "/dashboard/certificate", label: hasPracticingLicense ? "License" : "Certificate", icon: Award },
     ...(!doesNotPay ? [{ href: "/dashboard/payments", label: "Payments", icon: Wallet }] : []),
     ...(needsMentorship && !isRestrictedMember ? [{ href: "/dashboard/mentorship", label: "Mentorship", icon: FileText }] : []),
     ...(canBeMentor && !isRestrictedMember ? [{ href: "/dashboard/mentees", label: "My Mentees", icon: GraduationCap }] : []),

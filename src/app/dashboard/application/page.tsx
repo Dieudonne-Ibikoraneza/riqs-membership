@@ -138,9 +138,9 @@ function StatusBanner({ status, onRefresh, isRefreshing, firstYearFeeCleared, fi
       ? "Application Approved — Membership Active"
       : cfg.title;
   const description = paymentRequired
-    ? `Your application has been approved. Please pay the first-year membership fee${firstYearFeeAmount ? ` of ${Number(firstYearFeeAmount).toLocaleString()} RWF` : ""} and submit proof of payment. Your membership ID, certificate, and other credentials will be issued after the payment is verified.`
+    ? `Your application has been approved. Please pay the first-year membership fee${firstYearFeeAmount ? ` of ${Number(firstYearFeeAmount).toLocaleString()} RWF` : ""} and submit proof of payment. Your membership ID, membership certificate or practicing license, and other credentials will be issued after the payment is verified.`
     : paymentComplete
-      ? "Your application was approved and your first-year membership fee has been verified. Your membership credentials are now available on the Certificate page."
+      ? "Your application was approved and your first-year membership fee has been verified. Your membership credentials are now available on the Certificate / License page."
       : cfg.description;
   return (
     <motion.div
@@ -193,7 +193,7 @@ function StatusBanner({ status, onRefresh, isRefreshing, firstYearFeeCleared, fi
               className="mt-2 bg-gold text-[#1a1a1a] hover:bg-gold/90 shadow-gold font-bold border-none"
               onClick={() => window.location.href = "/dashboard/certificate"}
             >
-              <Trophy className="mr-2 h-4 w-4" /> View My Certificate
+              <Trophy className="mr-2 h-4 w-4" /> View Certificate / License
             </Button>
           )}
           {status === "Correction_Required" && (

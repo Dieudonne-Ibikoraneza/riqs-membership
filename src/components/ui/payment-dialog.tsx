@@ -48,7 +48,7 @@ type Stage =
 const POLL_INTERVAL_MS = 4000;
 const ACTIVE_POLL_TIMEOUT_MS = 90 * 1000;
 
-export interface MomoPaymentDialogProps {
+export interface PaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -87,7 +87,7 @@ export interface MomoPaymentDialogProps {
   onManualProofSubmitted?: () => void | Promise<void>;
 }
 
-export function MomoPaymentDialog({
+export function PaymentDialog({
   open,
   onOpenChange,
   title,
@@ -105,7 +105,7 @@ export function MomoPaymentDialog({
   priorFailureReason,
   allowManual = true,
   onManualProofSubmitted,
-}: MomoPaymentDialogProps) {
+}: PaymentDialogProps) {
   const [stage, setStage] = useState<Stage>("method");
   const [phone, setPhone] = useState(defaultPhone || "");
   const [error, setError] = useState<string | null>(null);

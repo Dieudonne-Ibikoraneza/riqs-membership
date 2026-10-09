@@ -12,7 +12,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/services/queryKeys";
 import { applicantServices } from "@/services/applicant.services";
 import { cn } from "@/lib/utils";
-import { MomoPaymentDialog } from "@/components/ui/momo-payment-dialog";
+import { PaymentDialog } from "@/components/ui/payment-dialog";
 
 // --- Status Badge Helper ---
 
@@ -896,7 +896,7 @@ export default function Payments() {
       </Card>
 
       {data?.application?.id && isRwandan && defaultTxType === "Annual_Renewal" && (
-        <MomoPaymentDialog
+        <PaymentDialog
           open={showRenewalDialog}
           onOpenChange={setShowRenewalDialog}
           title="Pay Annual Renewal Fee"
@@ -932,7 +932,7 @@ export default function Payments() {
       {/* First-year fee: covers both a brand-new membership's first-year fee and a
           mentorship/APC upgrade's pending-upgrade fee — both share the same txType. */}
       {data?.application?.id && isRwandan && defaultTxType === "First_Year_Fee" && (
-        <MomoPaymentDialog
+        <PaymentDialog
           open={showRenewalDialog}
           onOpenChange={setShowRenewalDialog}
           title="Pay First-Year Membership Fee"
@@ -959,7 +959,7 @@ export default function Payments() {
           generic uploader further up the page (allowManual=false here, same as First-Year
           Fee), this dialog only covers the Mobile Money side. */}
       {data?.application?.id && isRwandan && defaultTxType === "Processing_Fee" && (
-        <MomoPaymentDialog
+        <PaymentDialog
           open={showRenewalDialog}
           onOpenChange={setShowRenewalDialog}
           title="Pay Processing Fee"

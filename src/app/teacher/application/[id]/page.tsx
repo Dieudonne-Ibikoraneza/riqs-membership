@@ -39,6 +39,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { RIQS_CONTACT } from "@/lib/riqs-contact";
 import { MonthYearPicker } from "@/components/ui/month-picker";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -50,7 +51,7 @@ import { useParams, useRouter } from "next/navigation";
 import { publicServices } from "@/services/public.services";
 import { DocumentTabsViewer } from "@/components/ui/document-tabs-viewer";
 import PDFViewer from "@/components/ui/pdf-viewer";
-import { MomoPaymentDialog } from "@/components/ui/momo-payment-dialog";
+import { PaymentDialog } from "@/components/ui/payment-dialog";
 
 // ─── Status Banner ──────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, {
@@ -101,7 +102,7 @@ const STATUS_CONFIG: Record<string, {
     icon: <XCircle className="h-12 w-12" />,
     title: "Application Not Approved",
     description:
-      "We regret to inform you that this application was not approved at this time. This decision may be based on eligibility criteria, documentation, or other assessment factors. Please contact the RIQS secretariat at info@riqs.rw or call +250 788 XXX XXX for detailed feedback and to understand the options for reapplication.",
+      `We regret to inform you that this application was not approved at this time. This decision may be based on eligibility criteria, documentation, or other assessment factors. Please contact the RIQS secretariat at ${RIQS_CONTACT.email} or call ${RIQS_CONTACT.phoneDisplay} for detailed feedback and to understand the options for reapplication.`,
     color: "text-red-700 dark:text-red-400",
     bg: "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800",
     badge: "border-red-300 bg-red-100 text-red-800",
@@ -702,7 +703,7 @@ export default function Application() {
   const currentStepName = STEPS[step];
 
   const paymentDialog = (
-    <MomoPaymentDialog
+    <PaymentDialog
       open={showPaymentDialog}
       onOpenChange={setShowPaymentDialog}
       title="Pay Processing Fee"

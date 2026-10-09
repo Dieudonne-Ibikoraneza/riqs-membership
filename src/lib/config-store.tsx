@@ -1,5 +1,6 @@
 "use client";
 
+import { RIQS_CONTACT, normalizeRiqsContactEmail } from "@/lib/riqs-contact";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 export type Option = { id: string; name: string; description: string };
@@ -111,7 +112,7 @@ const DEFAULTS: AppConfig = {
       category: "Billing",
       subject: "RIQS Annual Membership Renewal — Action Required",
       description: "Reminder sent to members whose annual license is approaching expiry.",
-      body: `<p class="mb-4">Dear <strong>{{name}}</strong>,</p>\n<p class="mb-4">This is a friendly reminder that your <strong>RIQS Annual Practicing License</strong> is due for renewal. To maintain your active membership status and continue enjoying all member privileges, please complete the renewal process before the expiry date.</p>\n<p class="mb-4"><strong>Renewal Steps:</strong></p>\n<ol class="list-decimal pl-5 mb-4 space-y-2">\n  <li>Log in to the <strong>RIQS Members Portal</strong></li>\n  <li>Navigate to the <strong>Payments</strong> section</li>\n  <li>Complete the annual subscription payment via Mobile Money (Code: <strong>604516</strong>) or bank transfer</li>\n  <li>Upload your <strong>proof of payment</strong></li>\n</ol>\n<p class="mb-4"><strong>Important:</strong> Failure to renew before the deadline may result in temporary suspension of your practicing license, removal from the public directory, and inability to participate in CPD events.</p>\n<p class="mb-4">If you have already completed the renewal, please disregard this message. For any questions, contact our Secretariat at <strong>info@riqs.rw</strong>.</p>\n<p class="mb-4">Best regards,<br/><strong>RIQS Finance Department</strong><br/>Rwanda Institute of Quantity Surveyors</p>`,
+      body: `<p class="mb-4">Dear <strong>{{name}}</strong>,</p>\n<p class="mb-4">This is a friendly reminder that your <strong>RIQS Annual Practicing License</strong> is due for renewal. To maintain your active membership status and continue enjoying all member privileges, please complete the renewal process before the expiry date.</p>\n<p class="mb-4"><strong>Renewal Steps:</strong></p>\n<ol class="list-decimal pl-5 mb-4 space-y-2">\n  <li>Log in to the <strong>RIQS Members Portal</strong></li>\n  <li>Navigate to the <strong>Payments</strong> section</li>\n  <li>Complete the annual subscription payment via Mobile Money (Code: <strong>604516</strong>) or bank transfer</li>\n  <li>Upload your <strong>proof of payment</strong></li>\n</ol>\n<p class="mb-4"><strong>Important:</strong> Failure to renew before the deadline may result in temporary suspension of your practicing license, removal from the public directory, and inability to participate in CPD events.</p>\n<p class="mb-4">If you have already completed the renewal, please disregard this message. For any questions, contact our Secretariat at <strong>${RIQS_CONTACT.email}</strong>.</p>\n<p class="mb-4">Best regards,<br/><strong>RIQS Finance Department</strong><br/>Rwanda Institute of Quantity Surveyors</p>`,
     },
     {
       id: "cpd",
@@ -143,7 +144,7 @@ const DEFAULTS: AppConfig = {
       category: "Compliance",
       subject: "RIQS Membership Suspension — Immediate Action Required",
       description: "Formal suspension notice for non-compliance or overdue payments.",
-      body: `<p class="mb-4">Dear <strong>{{name}}</strong>,</p>\n<p class="mb-4">We regret to inform you that your RIQS membership has been <strong>temporarily suspended</strong> effective immediately due to the following reason(s):</p>\n<ul class="list-disc pl-5 mb-4 space-y-2">\n  <li>Outstanding annual subscription payment exceeding <strong>90 days</strong> past the renewal deadline</li>\n  <li>Non-completion of the mandatory minimum <strong>CPD requirements</strong> for the current licensing year</li>\n</ul>\n<p class="mb-4"><strong>Impact of Suspension:</strong></p>\n<ul class="list-disc pl-5 mb-4 space-y-2">\n  <li>Your <strong>Annual Practicing License</strong> is no longer valid for professional engagements</li>\n  <li>Your profile has been <strong>removed from the public members directory</strong></li>\n  <li>You are <strong>ineligible to participate</strong> in RIQS events, tenders, or mentorship activities</li>\n</ul>\n<p class="mb-4">To reinstate your membership, please settle all outstanding obligations and contact the RIQS Secretariat at <strong>info@riqs.rw</strong> within <strong>30 days</strong>. After this period, a formal reinstatement application and additional fees may be required.</p>\n<p class="mb-4">Sincerely,<br/><strong>RIQS Compliance Office</strong><br/>Rwanda Institute of Quantity Surveyors</p>`,
+      body: `<p class="mb-4">Dear <strong>{{name}}</strong>,</p>\n<p class="mb-4">We regret to inform you that your RIQS membership has been <strong>temporarily suspended</strong> effective immediately due to the following reason(s):</p>\n<ul class="list-disc pl-5 mb-4 space-y-2">\n  <li>Outstanding annual subscription payment exceeding <strong>90 days</strong> past the renewal deadline</li>\n  <li>Non-completion of the mandatory minimum <strong>CPD requirements</strong> for the current licensing year</li>\n</ul>\n<p class="mb-4"><strong>Impact of Suspension:</strong></p>\n<ul class="list-disc pl-5 mb-4 space-y-2">\n  <li>Your <strong>Annual Practicing License</strong> is no longer valid for professional engagements</li>\n  <li>Your profile has been <strong>removed from the public members directory</strong></li>\n  <li>You are <strong>ineligible to participate</strong> in RIQS events, tenders, or mentorship activities</li>\n</ul>\n<p class="mb-4">To reinstate your membership, please settle all outstanding obligations and contact the RIQS Secretariat at <strong>${RIQS_CONTACT.email}</strong> within <strong>30 days</strong>. After this period, a formal reinstatement application and additional fees may be required.</p>\n<p class="mb-4">Sincerely,<br/><strong>RIQS Compliance Office</strong><br/>Rwanda Institute of Quantity Surveyors</p>`,
     },
     {
       id: "agm",
@@ -178,6 +179,13 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
         if (!parsed.emailTemplatesVersion || parsed.emailTemplatesVersion < 2) {
           parsed.emailTemplates = DEFAULTS.emailTemplates;
           parsed.emailTemplatesVersion = 2;
+          localStorage.setItem(KEY, JSON.stringify(parsed));
+        }
+        if (Array.isArray(parsed.emailTemplates)) {
+          parsed.emailTemplates = parsed.emailTemplates.map((template: EmailTemplate) => ({
+            ...template,
+            body: normalizeRiqsContactEmail(template.body),
+          }));
           localStorage.setItem(KEY, JSON.stringify(parsed));
         }
         setConfigState({ ...DEFAULTS, ...parsed });

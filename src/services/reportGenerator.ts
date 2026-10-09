@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { RIQS_CONTACT } from "@/lib/riqs-contact";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -252,11 +253,12 @@ export const generateApcAssessmentPDF = async (apcs: any[]) => {
     }
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.text("Rwanda Institute of Quantity Surveyors (RIQS)", 100, 18);
-    doc.text("BHC Building – 3rd Floor, KG 7 Ave 5", 100, 24);
-    doc.text("Email: qsrwanda@gmail.com", 100, 30);
-    doc.text("Website: www.rwandaiqs.com", 100, 36);
+    doc.text(RIQS_CONTACT.building, 100, 24);
+    doc.text(RIQS_CONTACT.streetAddress, 100, 29);
+    doc.text(`Email: ${RIQS_CONTACT.email}`, 100, 34);
+    doc.text(`Tel: ${RIQS_CONTACT.phoneDisplay} | ${RIQS_CONTACT.websiteDisplay}`, 100, 39);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
@@ -386,11 +388,11 @@ export const generateFormattedExcel = async (filename: string, title: string, co
 
   // Header Rows
   ws.getCell('C1').value = "Rwanda Institute of Quantity Surveyors (RIQS)";
-  ws.getCell('C2').value = "BHC Building – 3rd Floor, KG 7 Ave 5";
-  ws.getCell('C3').value = "Email: qsrwanda@gmail.com";
-  ws.getCell('C4').value = "Website: www.rwandaiqs.com";
-  ws.getCell('C5').value = "Kacyiru - Kigali - Rwanda";
-  ws.getCell('C6').value = "Tel: +250788302519 / 0783772116 / 0786443477";
+  ws.getCell('C2').value = RIQS_CONTACT.building;
+  ws.getCell('C3').value = `Email: ${RIQS_CONTACT.email}`;
+  ws.getCell('C4').value = `Website: ${RIQS_CONTACT.websiteDisplay}`;
+  ws.getCell('C5').value = RIQS_CONTACT.streetAddress;
+  ws.getCell('C6').value = `Tel: ${RIQS_CONTACT.phoneDisplay}`;
 
   // Merge & Style header
   for (let i = 1; i <= 6; i++) {

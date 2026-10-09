@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { RotateCw, Globe, Mail, Phone, Loader2 } from "lucide-react";
 import { applicantServices } from "@/services/applicant.services";
 import { generateVerificationQrDataUrl } from "@/lib/verificationQr";
+import { RIQS_CONTACT } from "@/lib/riqs-contact";
 
 type MemberData = {
   name: string;
@@ -504,11 +505,11 @@ function CardBack({ m, qrLoading }: { m: MemberData, qrLoading: boolean }) {
         className="absolute flex items-center gap-[2.5cqw]"
         style={{ left: "5.2%", bottom: "9.3%", color: "#fff", fontSize: "1.8cqw", fontWeight: 600 }}
       >
-        <ContactItem icon={Globe} text="www.riqs.rw" />
+        <ContactItem icon={Globe} text={RIQS_CONTACT.websiteDisplay} />
         <Divider />
-        <ContactItem icon={Mail} text="info@riqs.rw" />
+        <ContactItem icon={Mail} text={RIQS_CONTACT.email} />
         <Divider />
-        <ContactItem icon={Phone} text="+250 788 123 456" />
+        <ContactItem icon={Phone} text={RIQS_CONTACT.phoneDisplay} />
       </div>
 
       {/* Bottom-right QR */}

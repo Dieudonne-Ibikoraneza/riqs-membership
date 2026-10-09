@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { RIQS_CONTACT } from "@/lib/riqs-contact";
 export function PublicHeader() {
   const [open, setOpen] = useState(false);
   const { role, isTeacher } = useAuth();
@@ -200,9 +201,15 @@ export function PublicFooter() {
         <div>
           <h4 className="mb-3 text-sm font-semibold gold-text">Contact</h4>
           <ul className="space-y-2 text-sm text-white/80">
-            <li>Kigali, Rwanda</li>
-            <li>info@riqs.rw</li>
-            <li>+250 788 000 000</li>
+            <li><a href={RIQS_CONTACT.mapsUrl} target="_blank" rel="noopener noreferrer" className="hover:text-gold transition-colors">{RIQS_CONTACT.address}</a></li>
+            <li><a href={`mailto:${RIQS_CONTACT.email}`} className="hover:text-gold transition-colors">{RIQS_CONTACT.email}</a></li>
+            <li><a href={`tel:${RIQS_CONTACT.phone}`} className="hover:text-gold transition-colors">{RIQS_CONTACT.phoneDisplay}</a></li>
+            {RIQS_CONTACT.additionalPhones.map((phone) => (
+              <li key={phone.number}><a href={`tel:${phone.number}`} className="hover:text-gold transition-colors">{phone.display}</a></li>
+            ))}
+            <li><a href={RIQS_CONTACT.website} target="_blank" rel="noopener noreferrer" className="hover:text-gold transition-colors">{RIQS_CONTACT.websiteDisplay}</a></li>
+            <li className="pt-2">{RIQS_CONTACT.openingHours}</li>
+            <li>{RIQS_CONTACT.weekendHours}</li>
           </ul>
         </div>
         

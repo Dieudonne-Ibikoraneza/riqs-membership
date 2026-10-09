@@ -15,6 +15,7 @@ import {
   ArrowUpDown, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Users, Star, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RIQS_CONTACT } from "@/lib/riqs-contact";
 
 type SortKey = "name" | "id" | "category";
 type View = "cards" | "table";
@@ -150,8 +151,8 @@ export default function MembersPage() {
             <div className="lg:w-1/2 lg:pl-8 lg:border-l lg:border-zinc-200 dark:lg:border-zinc-800">
               <p className="text-sm text-muted-foreground leading-relaxed font-sans">
                 Compliant members are members of the institute who have paid their applicable membership fees for the current year and are authorized to practice the profession. Contact us at{" "}
-                <a href="mailto:info@riqs.rw" className="font-semibold text-navy dark:text-gold hover:underline">info@riqs.rw</a> or{" "}
-                <span className="font-semibold text-navy dark:text-gold">+250 788 000 000</span> in case you cannot find your name on the list while you have paid.
+                <a href={`mailto:${RIQS_CONTACT.email}`} className="font-semibold text-navy dark:text-gold hover:underline">{RIQS_CONTACT.email}</a> or{" "}
+                <a href={`tel:${RIQS_CONTACT.phone}`} className="font-semibold text-navy dark:text-gold hover:underline">{RIQS_CONTACT.phoneDisplay}</a> in case you cannot find your name on the list while you have paid.
               </p>
             </div>
           </div>

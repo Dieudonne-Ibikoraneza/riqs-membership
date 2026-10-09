@@ -11,6 +11,7 @@ import {
   ShieldCheck, ShieldAlert, ShieldQuestion, BadgeCheck, Calendar, MapPin, Star, Loader2, Mail, Phone,
 } from "lucide-react";
 import { useState } from "react";
+import { RIQS_CONTACT } from "@/lib/riqs-contact";
 
 function formatMembershipClass(cls?: string | null) {
   if (!cls) return "";
@@ -176,7 +177,7 @@ export default function VerifyMemberPage() {
           )}
 
           <p className="mt-6 text-center text-xs text-muted-foreground font-sans">
-            This page verifies membership status only, using the official RIQS register. For any concerns about a specific credential, contact the Secretariat at <span className="font-semibold">info@riqs.rw</span>.
+            This page verifies membership status only, using the official RIQS register. For any concerns about a specific credential, contact the Secretariat at <a href={`mailto:${RIQS_CONTACT.email}`} className="font-semibold hover:underline">{RIQS_CONTACT.email}</a>.
           </p>
         </section>
       </main>

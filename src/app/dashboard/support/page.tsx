@@ -25,6 +25,7 @@ import {
 import { Plus, MessageSquare, Clock, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { getMyTickets, createTicket, SupportTicket } from "@/lib/api/support";
+import { RIQS_CONTACT } from "@/lib/riqs-contact";
 
 export default function MemberSupportPage() {
   const router = useRouter();
@@ -102,6 +103,25 @@ export default function MemberSupportPage() {
           New Inquiry
         </Button>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg text-navy">Contact the RIQS Secretariat</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 text-sm sm:grid-cols-2">
+          <div className="space-y-2">
+            <p><a href={`mailto:${RIQS_CONTACT.email}`} className="font-medium text-navy hover:underline">{RIQS_CONTACT.email}</a></p>
+            <p><a href={`tel:${RIQS_CONTACT.phone}`} className="font-medium text-navy hover:underline">{RIQS_CONTACT.phoneDisplay}</a></p>
+            <p className="text-muted-foreground">Alternative numbers: {RIQS_CONTACT.additionalPhones.map((phone, index) => (
+              <span key={phone.number}>{index > 0 && " / "}<a href={`tel:${phone.number}`} className="hover:underline">{phone.display}</a></span>
+            ))}</p>
+          </div>
+          <div className="space-y-2 text-muted-foreground">
+            <p><a href={RIQS_CONTACT.mapsUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">{RIQS_CONTACT.address}</a></p>
+            <p>{RIQS_CONTACT.openingHours} (Kigali time)<br />{RIQS_CONTACT.weekendHours}</p>
+          </div>
+        </CardContent>
+      </Card>
 
       {loading ? (
         <div className="flex items-center justify-center h-40">

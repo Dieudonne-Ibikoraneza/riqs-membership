@@ -134,6 +134,7 @@ export default function Payments() {
   const hasProcessingFeeTx = transactions.some((tx: any) => tx.txType === "Processing_Fee");
   const isAppApproved = data?.application?.status === "Approved" || data?.application?.status === "Active";
   const isAppPending = data?.application?.status && !isAppApproved && data?.application?.status !== "Draft" && data?.application?.status !== "Correction_Required";
+  const isSubmittedProcessingFeeRetry = ["Pending", "Under_Review", "Pending_Approval"].includes(data?.application?.status);
 
   let displayDesc = renewalDesc;
   let displayAmount = feeAmount;
@@ -963,7 +964,9 @@ export default function Payments() {
           open={showRenewalDialog}
           onOpenChange={setShowRenewalDialog}
           title="Pay Processing Fee"
-          description="Your application category requires a processing fee before it can be submitted for review."
+          description={isSubmittedProcessingFeeRetry
+            ? "Retry your failed processing fee payment. Your application will remain in its current review stage."
+            : "Your application category requires a processing fee before it can be submitted for review."}
           amount={Number(defaultAmountNum) || 0}
           currency={unpaidTx?.currency || (isRwandan ? "RWF" : "USD")}
           defaultPhone={data?.profile?.phoneNumber || ""}
@@ -972,12 +975,16 @@ export default function Payments() {
           initiate={(mobilephone) => applicantServices.initiateProcessingFeePayment({ applicationId: data.application.id, mobilephone })}
           checkStatus={(transactionId) => applicantServices.getProcessingFeePaymentStatus(transactionId)}
           onSuccess={() => {
-            toast.success("Payment confirmed — your application has been submitted!");
+            toast.success(isSubmittedProcessingFeeRetry
+              ? "Payment confirmed — your application remains in review."
+              : "Payment confirmed — your application has been submitted!");
             queryClient.invalidateQueries({ queryKey: queryKeys.applicant.payments() });
             queryClient.invalidateQueries({ queryKey: queryKeys.applicant.profile() });
             setShowRenewalDialog(false);
           }}
-          successMessage="Payment confirmed — your application has been submitted!"
+          successMessage={isSubmittedProcessingFeeRetry
+            ? "Payment confirmed — your application remains in review."
+            : "Payment confirmed — your application has been submitted!"}
           priorFailureReason={unpaidTx?.status === "Failed" && unpaidTx?.txType === "Processing_Fee" ? unpaidTx.rejectionReason : null}
         />
       )}

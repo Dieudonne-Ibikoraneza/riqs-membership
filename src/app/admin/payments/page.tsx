@@ -31,6 +31,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { PaginationBar } from "@/components/ui/pagination-bar";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, CheckCircle2, Search, XCircle, RefreshCw, FileText, ArrowLeft, Star } from "lucide-react";
@@ -45,6 +47,19 @@ export default function AdminPaymentsPage() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("All");
   const [method, setMethod] = useState("All");
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [txType, setTxType] = useState("All");
+  const [pageSize, setPageSize] = useState(15);
+
+  React.useEffect(() => {
+    if (searchInput.trim() === search) return;
+    const timer = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchInput, search]);
   const [selectedTx, setSelectedTx] = useState<AdminPaymentTransaction | null>(null);
   const [verifyAction, setVerifyAction] = useState<"Paid" | "Failed">("Paid");
   const [rejectionReason, setRejectionReason] = useState("");
@@ -84,9 +99,13 @@ export default function AdminPaymentsPage() {
   }, [cpdUrl]);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["adminPayments", page, status, method],
-    queryFn: () => getPendingPayments(page, 15, status, method),
+    queryKey: ["adminPayments", page, pageSize, status, method, search, txType],
+    queryFn: () => getPendingPayments(page, pageSize, status, method, search, txType),
   });
+
+  const totalPages = data?.pagination.totalPages ?? 1;
+  // A verification can remove the last transaction from the current filtered page.
+  if (data && page > totalPages) setPage(totalPages);
 
   const { mutate: handleVerify, isPending: isVerifying } = useMutation({
     mutationFn: () => verifyPayment(selectedTx!.id, verifyAction, rejectionReason),
@@ -387,12 +406,36 @@ function Avatar({ name, url }: { name: string; url?: string }) {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+        <CardHeader className="flex flex-col gap-4 border-b pb-4">
           <div className="space-y-1">
             <CardTitle>Transactions Queue</CardTitle>
             <CardDescription>Review and verify submitted payments.</CardDescription>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
+            <div className="relative min-w-[240px] flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <Input
+                aria-label="Search transactions by member name, email, membership ID or reference"
+                placeholder="Name, email, membership ID or reference…"
+                value={searchInput}
+                maxLength={200}
+                onChange={(event) => setSearchInput(event.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={txType} onValueChange={(value) => { setTxType(value); setPage(1); }}>
+              <SelectTrigger className="w-[200px]" aria-label="Transaction type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Types</SelectItem>
+                <SelectItem value="Processing_Fee">Processing Fee</SelectItem>
+                <SelectItem value="First_Year_Fee">First Year Fee</SelectItem>
+                <SelectItem value="Annual_Renewal">Annual Renewal</SelectItem>
+                <SelectItem value="Stamp_Fee">Stamp Fee</SelectItem>
+                <SelectItem value="APC_Fee">APC Fee</SelectItem>
+              </SelectContent>
+            </Select>
             <div className="w-[200px]">
               <Select value={status} onValueChange={(val) => { setStatus(val); setPage(1); }}>
                 <SelectTrigger>
@@ -404,6 +447,7 @@ function Avatar({ name, url }: { name: string; url?: string }) {
                   <SelectItem value="Paid">Paid</SelectItem>
                   <SelectItem value="Failed">Failed</SelectItem>
                   <SelectItem value="Unpaid">Unpaid</SelectItem>
+                  <SelectItem value="Refunded">Refunded</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -455,7 +499,7 @@ function Avatar({ name, url }: { name: string; url?: string }) {
                 ) : data?.transactions.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-5 py-10 h-32 text-center text-muted-foreground">
-                      No transactions found for this status.
+                      No transactions match your search and filters.
                     </td>
                   </tr>
                 ) : (
@@ -525,6 +569,25 @@ function Avatar({ name, url }: { name: string; url?: string }) {
               </tbody>
             </table>
           </div>
+          {data && !isError && (
+            <div className="px-5 pb-5">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground" aria-live="polite">
+                  {data.pagination.total === 0 ? "0 transactions" : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, data.pagination.total)} of ${data.pagination.total} transactions`}
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Rows per page</span>
+                  <Select value={String(pageSize)} onValueChange={(value) => { setPageSize(Number(value)); setPage(1); }}>
+                    <SelectTrigger className="w-[80px]" aria-label="Rows per page"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[15, 30, 50, 100].map(size => <SelectItem key={size} value={String(size)}>{size}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <PaginationBar page={page} totalPages={totalPages} onChange={setPage} />
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

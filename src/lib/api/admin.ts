@@ -239,6 +239,7 @@ export interface AdminPaymentsResponse {
     total: number;
     page: number;
     limit: number;
+    totalPages: number;
   };
 }
 
@@ -246,10 +247,13 @@ export async function getPendingPayments(
   page: number = 1,
   limit: number = 20,
   status: string = "Pending_Verification",
-  method: string = "All"
+  method: string = "All",
+  search: string = "",
+  txType: string = "All"
 ): Promise<AdminPaymentsResponse> {
   const { data } = await axiosClient.get<AdminPaymentsResponse>(
-    `/payments/queue?page=${page}&limit=${limit}&status=${status}&method=${method}`
+    "/payments/queue",
+    { params: { page, limit, status, method, search, txType } }
   );
   return data;
 }

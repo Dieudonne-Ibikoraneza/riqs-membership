@@ -124,6 +124,10 @@ export default function Payments() {
   const pendingCount = transactions.filter(
     (tx: any) => tx.status === "Pending_Verification"
   ).length;
+  const pendingGatewayCount = transactions.filter(
+    (tx: { status: string; providerTransactionId?: string | null; clearedAt?: string | null }) => tx.status === "Pending_Verification" && tx.providerTransactionId && !tx.clearedAt
+  ).length;
+  const pendingReviewCount = pendingCount - pendingGatewayCount;
 
   const checklist = data?.application?.documentChecklist || [];
   const paymentDoc = checklist.find((d: any) => d.k.toLowerCase().includes("payment") || d.n.toLowerCase().includes("payment"));
@@ -359,10 +363,10 @@ export default function Payments() {
           className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-3 text-sm text-amber-800 dark:text-amber-300"
         >
           <Clock className="h-4 w-4 mt-0.5 shrink-0" />
-          <span>
-            You have <strong>{pendingCount}</strong> payment{pendingCount > 1 ? "s" : ""} awaiting
-            administrative verification. You will be notified once cleared.
-          </span>
+          <div className="space-y-1">
+            {pendingGatewayCount > 0 && <p>You have <strong>{pendingGatewayCount}</strong> Mobile Money payment{pendingGatewayCount > 1 ? "s" : ""} awaiting confirmation from the payment provider. Check the approval prompt on your phone.</p>}
+            {pendingReviewCount > 0 && <p>You have <strong>{pendingReviewCount}</strong> payment{pendingReviewCount > 1 ? "s" : ""} awaiting administrative verification. You will be notified once cleared.</p>}
+          </div>
         </motion.div>
       )}
 
@@ -374,9 +378,9 @@ export default function Payments() {
         >
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
           <div className="flex flex-col gap-1">
-            <span className="font-semibold">Your payment proof was rejected.</span>
-            <span>Reason: {unpaidTx.rejectionReason || "Invalid or missing documentation."}</span>
-            <span>Please re-upload a valid proof of payment below.</span>
+            <span className="font-semibold">{unpaidTx.providerTransactionId ? "Your Mobile Money payment was not completed." : "Your payment proof was rejected."}</span>
+            <span>Reason: {unpaidTx.rejectionReason || (unpaidTx.providerTransactionId ? "The payment provider did not supply a failure reason." : "Invalid or missing documentation.")}</span>
+            <span>{unpaidTx.providerTransactionId ? "Check your wallet and phone number, then retry with Mobile Money or upload proof of a separate completed payment." : "Please re-upload a valid proof of payment below."}</span>
           </div>
         </motion.div>
       )}
@@ -899,7 +903,10 @@ export default function Payments() {
       {data?.application?.id && isRwandan && defaultTxType === "Annual_Renewal" && (
         <PaymentDialog
           open={showRenewalDialog}
-          onOpenChange={setShowRenewalDialog}
+          onOpenChange={(next) => {
+            setShowRenewalDialog(next);
+            if (!next) queryClient.invalidateQueries({ queryKey: queryKeys.applicant.payments() });
+          }}
           title="Pay Annual Renewal Fee"
           description={`Renew your ${isFirm ? "company subscription" : "RIQS membership"} for the current year.`}
           amount={Number(defaultAmountNum) || Number(feeNumber)}
@@ -935,7 +942,10 @@ export default function Payments() {
       {data?.application?.id && isRwandan && defaultTxType === "First_Year_Fee" && (
         <PaymentDialog
           open={showRenewalDialog}
-          onOpenChange={setShowRenewalDialog}
+          onOpenChange={(next) => {
+            setShowRenewalDialog(next);
+            if (!next) queryClient.invalidateQueries({ queryKey: queryKeys.applicant.payments() });
+          }}
           title="Pay First-Year Membership Fee"
           description="Complete your first-year membership fee to activate your new membership class."
           amount={Number(defaultAmountNum) || 0}
@@ -962,7 +972,10 @@ export default function Payments() {
       {data?.application?.id && isRwandan && defaultTxType === "Processing_Fee" && (
         <PaymentDialog
           open={showRenewalDialog}
-          onOpenChange={setShowRenewalDialog}
+          onOpenChange={(next) => {
+            setShowRenewalDialog(next);
+            if (!next) queryClient.invalidateQueries({ queryKey: queryKeys.applicant.payments() });
+          }}
           title="Pay Processing Fee"
           description={isSubmittedProcessingFeeRetry
             ? "Retry your failed processing fee payment. Your application will remain in its current review stage."

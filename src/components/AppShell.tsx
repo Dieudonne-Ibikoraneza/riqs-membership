@@ -53,7 +53,7 @@ export function AppShell({
   children: ReactNode;
   kind: "member" | "admin" | "teacher";
 }) {
-  const { name, email, role, isMentor, isTeacher, isStudent, logout } = useAuth();
+  const { isReady, name, email, role, isMentor, isTeacher, isStudent, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -167,19 +167,15 @@ export function AppShell({
     }
   }, [role, kind, isTeacher, isStudent, isMentor, router, pathname, profileData, pendingTrack]);
 
-  // Auto-redirect a signed-out visitor to the login page after a short grace period —
-  // long enough that a visitor whose auth is still hydrating from localStorage (role
-  // briefly null on first paint) doesn't get bounced before they're actually logged out,
-  // but short enough that they aren't left staring at the "Please sign in" screen forever.
-  // The screen itself stays up throughout so there's always something on screen rather
-  // than a blank page while this timer runs.
+  // Restore the saved session before deciding whether a login redirect is needed.
+  // Keep the short grace period for an actual signed-out visitor.
   useEffect(() => {
-    if (role) return;
+    if (!isReady || role) return;
     const timer = window.setTimeout(() => {
       router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
     }, 2000);
     return () => window.clearTimeout(timer);
-  }, [role, pathname, router]);
+  }, [isReady, role, pathname, router]);
 
   const actualIsMentor = isMentor || (profileData?.profile as any)?.systemRole === "Mentor";
   const isProfessional = profileData?.profile?.membershipClass?.includes("Professional");
@@ -265,6 +261,14 @@ export function AppShell({
     logout();
     router.push("/login");
   };
+
+  if (!isReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-black" role="status" aria-live="polite">
+        <span className="text-sm text-muted-foreground">Loading your workspace…</span>
+      </div>
+    );
+  }
 
   if (!role) {
     return (
@@ -354,7 +358,7 @@ export function AppShell({
           </button>
         </div>
 
-        {/* Nav (Staggered spring loading & interactive hovers) */}
+        {/* Keep navigation visible while routes and profile data update. */}
         <nav
           className={cn(
             "flex-1 px-3 py-4",
@@ -362,7 +366,7 @@ export function AppShell({
           )}
         >
           <div className="space-y-1">
-            {links.map((l, index) => {
+            {links.map((l) => {
               const aliasMatch =
                 (l as any).aliases?.some((a: string) =>
                   pathname.startsWith(a),
@@ -371,17 +375,7 @@ export function AppShell({
                 ? pathname === l.href
                 : pathname.startsWith(l.href) || aliasMatch;
               return (
-                <motion.div
-                  key={l.href}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{
-                    delay: index * 0.05,
-                    type: "spring",
-                    stiffness: 260,
-                    damping: 25,
-                  }}
-                >
+                <div key={l.href}>
                   <Link
                     href={l.href}
                     data-tour-id={navTourId(l.href, (l as any).disabled)}
@@ -416,7 +410,7 @@ export function AppShell({
                       </span>
                     )}
                   </Link>
-                </motion.div>
+                </div>
               );
             })}
           </div>
@@ -517,11 +511,7 @@ export function AppShell({
 
         {/* Content scrolls independently */}
         <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto pt-20">
-          <motion.div
-            key={pathname}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            className="min-w-0 w-full max-w-full p-4 md:p-6"
-          >
+          <div className="min-w-0 w-full max-w-full p-4 md:p-6">
             {showExpiryBanner && (
               <div className="mb-6 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 p-4 shadow-sm relative overflow-hidden flex flex-col sm:flex-row items-center gap-4 sm:justify-between group transition-all hover:bg-amber-500/10">
                 <div className="absolute top-0 right-0 -mr-8 -mt-8 opacity-10 pointer-events-none transition-transform group-hover:scale-110 group-hover:rotate-12 duration-700">
@@ -556,7 +546,7 @@ export function AppShell({
               </div>
             )}
             {children}
-          </motion.div>
+          </div>
         </main>
       </div>
 

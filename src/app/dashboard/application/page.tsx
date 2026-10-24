@@ -235,7 +235,8 @@ export default function Application() {
   // member sees why their last attempt didn't go through instead of a blank method picker.
   // Skipped entirely once a Processing_Fee attempt already covers this application — Paid,
   // matching submitApplication's own gate (see applicantController.ts), which now also lets a
-  // Pending_Verification manual proof through. Without checking Pending_Verification too, a
+  // Pending_Verification manual proof with an uploaded receipt through. A pending gateway
+  // request never covers the fee. Without checking manual Pending_Verification too, a
   // rejected manual receipt followed by a fresh manual re-upload would still show as "Failed"
   // here (fileController.ts's upload only clears out old Pending_Verification rows, not Failed
   // ones) and keep popping the payment modal back open even though the member already fixed it.
@@ -244,7 +245,12 @@ export default function Application() {
   const hasUsableProcessingFeePayment = processingFeeTransactions.some(
     (tx: any) =>
       tx.txType === "Processing_Fee" &&
-      ["Paid", "Pending_Verification"].includes(tx.status) &&
+      (tx.status === "Paid" || (
+        tx.status === "Pending_Verification" &&
+        !tx.providerTransactionId &&
+        ["Manual_Payment", "Bank_Transfer", "Manual_Cash"].includes(tx.paymentMethod) &&
+        Boolean(tx.receiptUrl)
+      )) &&
       Number(tx.amount) === currentProcessingFeeAmount
   );
   const latestFailedProcessingFee = hasUsableProcessingFeePayment
@@ -1231,7 +1237,7 @@ export default function Application() {
       priorFailureReason={latestFailedProcessingFee?.rejectionReason || null}
       // The manual bank-transfer proof can never become Paid on its own — only staff clearing
       // it can do that — so retry submission right after upload rather than leaving the member
-      // stuck: submitApplication now accepts a Pending_Verification Processing Fee too (see
+      // stuck: submitApplication accepts an uploaded manual Pending_Verification proof (see
       // applicantController.ts), so this succeeds immediately instead of erroring again.
       onManualProofSubmitted={() => submitMutation.mutateAsync(appId!)}
     />

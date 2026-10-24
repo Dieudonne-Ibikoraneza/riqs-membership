@@ -380,7 +380,7 @@ export default function Payments() {
           <div className="flex flex-col gap-1">
             <span className="font-semibold">{unpaidTx.providerTransactionId ? "Your Mobile Money payment was not completed." : "Your payment proof was rejected."}</span>
             <span>Reason: {unpaidTx.rejectionReason || (unpaidTx.providerTransactionId ? "The payment provider did not supply a failure reason." : "Invalid or missing documentation.")}</span>
-            <span>{unpaidTx.providerTransactionId ? "Check your wallet and phone number, then retry with Mobile Money or upload proof of a separate completed payment." : "Please re-upload a valid proof of payment below."}</span>
+            <span>{unpaidTx.providerTransactionId ? "Check that your phone number is correct and that your wallet has enough funds for the payment and any applicable charges. MTN Mobile Money and Airtel Money are supported. You can retry or upload proof of a separate completed payment." : "Please re-upload a valid proof of payment below."}</span>
           </div>
         </motion.div>
       )}

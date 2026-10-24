@@ -32,6 +32,7 @@ function normalizePhone(raw: string): string {
   const digits = raw.replace(/[^\d]/g, "");
   if (digits.startsWith("250")) return digits;
   if (digits.startsWith("0")) return `250${digits.slice(1)}`;
+  if (digits.startsWith("7")) return `250${digits}`;
   return digits;
 }
 
@@ -195,8 +196,8 @@ export function PaymentDialog({
 
   const handlePay = async () => {
     const normalized = normalizePhone(phone);
-    if (normalized.length < 11) {
-      setError("Enter a valid mobile money number (e.g. 0788123456).");
+    if (!/^2507[2389]\d{7}$/.test(normalized)) {
+      setError("Enter a valid MTN Mobile Money (078/079) or Airtel Money (072/073) number.");
       return;
     }
     setError(null);
@@ -352,7 +353,7 @@ export function PaymentDialog({
                   disabled={isSubmitting}
                 />
                 <p className="text-xs text-muted-foreground">
-                  You&rsquo;ll receive a prompt on this phone to approve the payment.
+                  MTN Mobile Money and Airtel Money are supported. Check that this is the correct registered number and that your wallet has enough funds for the payment and any applicable charges. You will receive a prompt on this phone to approve the payment.
                 </p>
               </div>
 
@@ -594,6 +595,7 @@ export function PaymentDialog({
               <div className="space-y-1">
                 <p className="font-semibold text-navy">Payment not completed</p>
                 <p className="text-sm text-muted-foreground max-w-xs">{error}</p>
+                <p className="text-sm text-muted-foreground max-w-xs">Before retrying, check your phone number and make sure your wallet has enough funds for the payment and any applicable charges. Both MTN Mobile Money and Airtel Money are supported.</p>
               </div>
               <Button
                 onClick={() => { setStage(allowManual ? "method" : "form"); setError(null); }}

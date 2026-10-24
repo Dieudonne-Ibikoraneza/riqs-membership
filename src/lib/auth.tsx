@@ -18,6 +18,7 @@ interface Pending {
 }
 
 interface AuthState {
+  isReady: boolean;
   role: Role;
   name: string | null;
   email: string | null;
@@ -55,6 +56,7 @@ function isTokenExpired(token: string): boolean {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  const [isReady, setIsReady] = useState(false);
   const [role, setRole] = useState<Role>(null);
   const [name, setName] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
@@ -79,7 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole(v.role); setName(v.name); setEmail(v.email);
         setIsMentor(!!v.isMentor); setIsTeacher(!!v.isTeacher); setIsStudent(!!v.isStudent);
       }
-    } catch {}
+    } catch {
+      // A missing or unreadable saved session is treated as signed out.
+    } finally {
+      setIsReady(true);
+    }
   }, []);
 
   const clearAuth = () => {
@@ -218,7 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={{
-      role, name, email, isMentor, isTeacher, isStudent, pending,
+      isReady, role, name, email, isMentor, isTeacher, isStudent, pending,
       startLogin, startSignup, verifyOtp, startForgotPassword, resetPassword, resendOtp, cancelPending, logout
     }}>
       {children}

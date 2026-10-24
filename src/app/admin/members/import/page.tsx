@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import {
   parseRosterWorkbook,
   toSubmitRow,
   getRowIssues,
+  getDuplicateIssues,
   type ParsedImportRow,
 } from "@/lib/import/rosterImportParser";
 import { bulkImportMembers, type BulkImportRowResult } from "@/lib/api/admin";
@@ -77,9 +78,8 @@ export default function ImportMembersPage() {
   const skippedCount = rows.length - includedCount;
   const blacklistedCount = rows.filter((r) => r.blacklisted).length;
 
-  const grouped = useMemo(() => {
-    return { PROF_TECH: rows.filter((r) => r.sourceSheet === "PROF_TECH").length, GRADUATE: rows.filter((r) => r.sourceSheet === "GRADUATE").length };
-  }, [rows]);
+  const grouped = { PROF_TECH: rows.filter((r) => r.sourceSheet === "PROF_TECH").length, GRADUATE: rows.filter((r) => r.sourceSheet === "GRADUATE").length };
+  const duplicateIssues = getDuplicateIssues(rows);
 
   async function handleParse() {
     if (!file) return;
@@ -128,6 +128,14 @@ export default function ImportMembersPage() {
     const toImport = rows.filter((r) => r.include);
     if (toImport.length === 0) {
       toast.error("No rows selected to import.");
+      return;
+    }
+    if (toImport.length > 500) {
+      toast.error("Select at most 500 members per import.");
+      return;
+    }
+    if (toImport.some(r => getRowIssues({ ...r, blacklisted: false }).length > 0) || getDuplicateIssues(toImport).size > 0) {
+      toast.error("Fix invalid rows and select only one record for each duplicate email or membership ID.");
       return;
     }
     setSubmitting(true);
@@ -227,7 +235,7 @@ export default function ImportMembersPage() {
                 <thead className="bg-navy text-white sticky top-0 z-10">
                   <tr>
                     <th className="p-3 text-left">Include</th>
-                    <th className="p-3 text-left">Sheet</th>
+                    <th className="p-3 text-left">Type / Excel row</th>
                     <th className="p-3 text-left">Name</th>
                     <th className="p-3 text-left">Email</th>
                     <th className="p-3 text-left">Phone</th>
@@ -259,7 +267,7 @@ export default function ImportMembersPage() {
                             className="h-4 w-4 disabled:cursor-not-allowed"
                           />
                         </td>
-                        <td className="p-3 text-xs text-muted-foreground">{r.sourceSheet === "PROF_TECH" ? "Prof/Tech" : "Graduate"}</td>
+                        <td className="p-3 text-xs text-muted-foreground">{r.sourceSheet === "PROF_TECH" ? "Prof/Tech" : "Graduate"} / {r.rawSourceRow}</td>
                         <td className="p-3">
                           <input
                             type="text"
@@ -308,6 +316,8 @@ export default function ImportMembersPage() {
                             <Badge className="bg-red-100 text-red-700 border-none text-[10px]">Blacklisted</Badge>
                           ) : blocked ? (
                             <Badge className="bg-amber-100 text-amber-700 border-none text-[10px]">{issues.join(", ")}</Badge>
+                          ) : duplicateIssues.has(r.key) ? (
+                            <span className="text-xs text-amber-700">{duplicateIssues.get(r.key)}</span>
                           ) : (
                             <Badge className="bg-emerald-100 text-emerald-700 border-none text-[10px]">Ready</Badge>
                           )}
@@ -353,6 +363,7 @@ export default function ImportMembersPage() {
               <table className="w-full text-sm">
                 <thead className="bg-navy text-white sticky top-0 z-10">
                   <tr>
+                    <th className="p-3 text-left">Excel row</th>
                     <th className="p-3 text-left">Name</th>
                     <th className="p-3 text-left">Email</th>
                     <th className="p-3 text-left">Status</th>
@@ -362,6 +373,7 @@ export default function ImportMembersPage() {
                 <tbody>
                   {results.results.map((r) => (
                     <tr key={r.rowIndex} className="border-b border-zinc-100 dark:border-zinc-800">
+                      <td className="p-3">{r.rawSourceRow ?? "—"}</td>
                       <td className="p-3 font-medium text-navy dark:text-zinc-100">{r.fullName}</td>
                       <td className="p-3">{r.email}</td>
                       <td className="p-3">

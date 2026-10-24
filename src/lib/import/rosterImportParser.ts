@@ -53,7 +53,9 @@ function isGraduateHeaderRow(row: unknown[]): boolean {
   );
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Match the backend's Zod 4 email policy. The previous permissive check accepted
+// pipes, consecutive dots and other addresses rejected only after submission.
+const EMAIL_RE = /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/;
 
 // Real category codes this roster ever uses — used to recognize the code cell even when a
 // neighboring separator cell has been corrupted (see reconstructRegistrationNumber below).
@@ -148,9 +150,27 @@ export function isValidEmail(email: string): boolean {
 export function getRowIssues(row: { fullName: string; email: string; phoneNumber?: string; blacklisted: boolean }): string[] {
   if (row.blacklisted) return ["Blacklisted"];
   const issues: string[] = [];
-  if (!row.fullName) issues.push("Missing name");
+  if (!row.fullName.trim()) issues.push("Missing name");
   if (!isValidEmail(row.email)) issues.push("Missing/invalid email");
   if (!row.phoneNumber) issues.push("Missing phone");
+  return issues;
+}
+
+export function getDuplicateIssues(rows: ParsedImportRow[]): Map<string, string> {
+  const issues = new Map<string, string>();
+  for (const field of ["email", "membershipIdOverride"] as const) {
+    const groups = new Map<string, ParsedImportRow[]>();
+    for (const row of rows) {
+      const value = row[field]?.trim().toLowerCase();
+      if (!value) continue;
+      groups.set(value, [...(groups.get(value) || []), row]);
+    }
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+      const message = `Duplicate ${field === "email" ? "email" : "membership ID"} in Excel rows ${group.map(r => r.rawSourceRow).join(", ")}. Review and select only the correct record.`;
+      for (const row of group) issues.set(row.key, [issues.get(row.key), message].filter(Boolean).join(" "));
+    }
+  }
   return issues;
 }
 
@@ -233,7 +253,7 @@ function parseProfTechSheet(matrix: unknown[][], headerRowIdx: number): { rows: 
 
     rows.push({
       key: `PROF_TECH-${r}`,
-      sourceSheet: "PROF_TECH",
+      sourceSheet: ["GrQS", "GrQST"].includes(categoryCode) ? "GRADUATE" : "PROF_TECH",
       fullName,
       email: rawEmail,
       phoneNumber,
@@ -349,14 +369,23 @@ export async function parseRosterWorkbook(file: File): Promise<ParseResult> {
     const result = shape === "PROF_TECH"
       ? parseProfTechSheet(matrix, headerRowIdx)
       : parseGraduateSheet(matrix, headerRowIdx);
-    rows.push(...result.rows);
+    rows.push(...result.rows.map(row => ({ ...row, key: `${sheetName}:${row.key}` })));
     warnings.push(...result.warnings);
   }
 
+  const duplicates = getDuplicateIssues(rows);
+  for (const row of rows) {
+    const issue = duplicates.get(row.key);
+    if (issue) {
+      row.include = false;
+      row.reason = [row.reason, issue].filter(Boolean).join(" ");
+    }
+  }
   return { rows, warnings };
 }
 
 export interface BulkImportSubmitRow {
+  rawSourceRow: number;
   sourceSheet: SourceSheet;
   fullName: string;
   email: string;
@@ -369,6 +398,7 @@ export interface BulkImportSubmitRow {
 
 export function toSubmitRow(row: ParsedImportRow): BulkImportSubmitRow {
   return {
+    rawSourceRow: row.rawSourceRow,
     sourceSheet: row.sourceSheet,
     fullName: row.fullName,
     email: row.email,

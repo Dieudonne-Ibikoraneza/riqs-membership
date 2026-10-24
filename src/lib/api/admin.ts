@@ -529,6 +529,7 @@ export async function createHonorableMentionMember(payload: {
 
 export interface BulkImportRowResult {
   rowIndex: number;
+  rawSourceRow?: number;
   fullName: string;
   email: string;
   status: "created" | "skipped" | "failed";
@@ -537,6 +538,7 @@ export interface BulkImportRowResult {
 }
 
 export async function bulkImportMembers(rows: Array<{
+  rawSourceRow?: number;
   sourceSheet: "PROF_TECH" | "GRADUATE";
   fullName: string;
   email: string;

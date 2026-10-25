@@ -161,7 +161,7 @@ export default function ImportMembersPage() {
         <div>
           <h1 className="text-2xl font-bold text-navy tracking-tight">Import Members from Roster</h1>
           <p className="text-sm text-muted-foreground font-sans">
-            Bulk-onboard existing members from the legacy Excel roster — each gets a one-time password emailed to them and must change it on first login.
+            Bulk-onboard existing members from the legacy Excel roster — each gets a temporary password emailed to them and must change it on first login.
           </p>
         </div>
       </div>
@@ -332,7 +332,7 @@ export default function ImportMembersPage() {
 
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <p className="text-sm text-muted-foreground">
-              <strong className="text-navy">{includedCount}</strong> members will be created and emailed a one-time password.
+              <strong className="text-navy">{includedCount}</strong> members will be created and emailed a temporary password.
             </p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setStep("upload")}>Back</Button>

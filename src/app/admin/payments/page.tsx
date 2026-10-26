@@ -31,7 +31,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { PaginationBar } from "@/components/ui/pagination-bar";
+import { PaginationBar, RowsPerPageSelect } from "@/components/ui/pagination-bar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -575,15 +575,7 @@ function Avatar({ name, url }: { name: string; url?: string }) {
                 <p className="text-sm text-muted-foreground" aria-live="polite">
                   {data.pagination.total === 0 ? "0 transactions" : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, data.pagination.total)} of ${data.pagination.total} transactions`}
                 </p>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Rows per page</span>
-                  <Select value={String(pageSize)} onValueChange={(value) => { setPageSize(Number(value)); setPage(1); }}>
-                    <SelectTrigger className="w-[80px]" aria-label="Rows per page"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {[15, 30, 50, 100].map(size => <SelectItem key={size} value={String(size)}>{size}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <RowsPerPageSelect value={pageSize} onChange={size => { setPageSize(size); setPage(1); }} />
               </div>
               <PaginationBar page={page} totalPages={totalPages} onChange={setPage} />
             </div>

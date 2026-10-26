@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 
 import {
   Dialog,
@@ -83,8 +84,6 @@ const formatAddress = (addr: any) => {
   return String(addr);
 };
 
-const AUDIT_PAGE_SIZE = 5;
-const TICKET_PAGE_SIZE = 5;
 
 export default function AdminMemberProfilePage() {
   const { id } = useParams();
@@ -102,6 +101,8 @@ export default function AdminMemberProfilePage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [auditPage, setAuditPage] = useState(1);
   const [ticketPage, setTicketPage] = useState(1);
+  const [auditPageSize, setAuditPageSize] = useState(15);
+  const [ticketPageSize, setTicketPageSize] = useState(15);
   const [mentorDialogOpen, setMentorDialogOpen] = useState(false);
   const [mentorSearch, setMentorSearch] = useState("");
   const [selectedMentor, setSelectedMentor] = useState("");
@@ -872,8 +873,9 @@ export default function AdminMemberProfilePage() {
         {/* Audit Log */}
         {(() => {
           const logs = member.auditLogs || [];
-          const totalPages = Math.ceil(logs.length / AUDIT_PAGE_SIZE);
-          const paginated = logs.slice((auditPage - 1) * AUDIT_PAGE_SIZE, auditPage * AUDIT_PAGE_SIZE);
+          const totalPages = Math.max(1, Math.ceil(logs.length / auditPageSize));
+          const safePage = Math.min(auditPage, totalPages);
+          const paginated = logs.slice((safePage - 1) * auditPageSize, safePage * auditPageSize);
           return (
             <Card className="shadow-sm border-slate-200 rounded-xl overflow-hidden w-full">
               <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
@@ -907,15 +909,9 @@ export default function AdminMemberProfilePage() {
                   ))
                 )}
               </div>
-              {totalPages > 1 && (
-                <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Page {auditPage} of {totalPages}</span>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setAuditPage(p => Math.max(1, p - 1))} disabled={auditPage === 1}>Previous</Button>
-                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setAuditPage(p => Math.min(totalPages, p + 1))} disabled={auditPage === totalPages}>Next</Button>
-                  </div>
+              <div className="px-5 pb-4">
+                  <PaginationBar page={safePage} totalPages={totalPages} onChange={setAuditPage} pageSize={auditPageSize} onPageSizeChange={setAuditPageSize} />
                 </div>
-              )}
             </Card>
           );
         })()}
@@ -923,8 +919,9 @@ export default function AdminMemberProfilePage() {
         {/* Support Tickets */}
         {(() => {
           const tickets = member.supportTickets || [];
-          const totalPages = Math.ceil(tickets.length / TICKET_PAGE_SIZE);
-          const paginated = tickets.slice((ticketPage - 1) * TICKET_PAGE_SIZE, ticketPage * TICKET_PAGE_SIZE);
+          const totalPages = Math.max(1, Math.ceil(tickets.length / ticketPageSize));
+          const safePage = Math.min(ticketPage, totalPages);
+          const paginated = tickets.slice((safePage - 1) * ticketPageSize, safePage * ticketPageSize);
           return (
             <Card className="shadow-sm border-slate-200 rounded-xl overflow-hidden w-full">
               <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
@@ -967,15 +964,9 @@ export default function AdminMemberProfilePage() {
                   ))
                 )}
               </div>
-              {totalPages > 1 && (
-                <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Page {ticketPage} of {totalPages}</span>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setTicketPage(p => Math.max(1, p - 1))} disabled={ticketPage === 1}>Previous</Button>
-                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setTicketPage(p => Math.min(totalPages, p + 1))} disabled={ticketPage === totalPages}>Next</Button>
-                  </div>
+              <div className="px-5 pb-4">
+                  <PaginationBar page={safePage} totalPages={totalPages} onChange={setTicketPage} pageSize={ticketPageSize} onPageSizeChange={setTicketPageSize} />
                 </div>
-              )}
             </Card>
           );
         })()}

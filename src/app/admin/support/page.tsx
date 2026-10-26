@@ -17,6 +17,7 @@ import { MessageSquare, Clock, CheckCircle2, Search, ArrowUpDown, Filter, User }
 import { toast } from "sonner";
 import { getAdminTickets, AdminTicketResponse } from "@/lib/api/adminSupport";
 import { SupportTicket } from "@/lib/api/support";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 
 export default function AdminSupportPage() {
   const router = useRouter();
@@ -24,28 +25,29 @@ export default function AdminSupportPage() {
   const [loading, setLoading] = useState(true);
   
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
 
-  const fetchTickets = async () => {
-    setLoading(true);
-    try {
-      const response = await getAdminTickets(page, 15, statusFilter, priorityFilter, q);
-      setData(response);
-    } catch (err: any) {
-      toast.error("Failed to fetch tickets.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    let active = true;
+    const fetchTickets = async () => {
+      setLoading(true);
+      try {
+        const response = await getAdminTickets(page, pageSize, statusFilter, priorityFilter, q);
+        if (active) setData(response);
+      } catch {
+        if (active) toast.error("Failed to fetch tickets.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
     const timer = setTimeout(() => {
       fetchTickets();
     }, 300);
-    return () => clearTimeout(timer);
-  }, [page, q, statusFilter, priorityFilter]);
+    return () => { active = false; clearTimeout(timer); };
+  }, [page, pageSize, q, statusFilter, priorityFilter]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -204,26 +206,8 @@ export default function AdminSupportPage() {
         )}
       </div>
 
-      {data && data.pagination.pages > 1 && (
-        <div className="flex justify-center items-center gap-4 pt-4">
-          <Button
-            variant="outline"
-            disabled={page === 1}
-            onClick={() => setPage(page - 1)}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {page} of {data.pagination.pages}
-          </span>
-          <Button
-            variant="outline"
-            disabled={page >= data.pagination.pages}
-            onClick={() => setPage(page + 1)}
-          >
-            Next
-          </Button>
-        </div>
+      {data && (
+        <PaginationBar page={page} totalPages={Math.max(1, data.pagination.pages)} onChange={setPage} pageSize={pageSize} onPageSizeChange={setPageSize} />
       )}
     </div>
   );

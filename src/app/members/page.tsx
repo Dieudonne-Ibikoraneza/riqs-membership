@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { publicServices, type PublicMember } from "@/services/public.services";
 import { queryKeys } from "@/services/queryKeys";
@@ -12,13 +12,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Search, Download, Mail, Phone, BadgeCheck, LayoutGrid, List,
-  ArrowUpDown, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Users, Star, Loader2
+  ArrowUpDown, Filter, X, Users, Star, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RIQS_CONTACT } from "@/lib/riqs-contact";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { exportFilename, exportCsv as serializeCsv } from "@/lib/export/smartExport";
 import { toast } from "sonner";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 
 type SortKey = "name" | "id" | "category";
 type View = "cards" | "table";
@@ -50,7 +51,7 @@ export default function MembersPage() {
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(15);
 
   // Debounce search input
   useEffect(() => {
@@ -417,7 +418,7 @@ export default function MembersPage() {
             </Card>
           )}
 
-          {totalPages > 1 && <Pagination page={safePage} totalPages={totalPages} onChange={setPage} />}
+          {!isError && <PaginationBar page={safePage} totalPages={totalPages} onChange={setPage} pageSize={pageSize} onPageSizeChange={setPageSize} />}
 
           {/* Join CTA */}
           <Card className="mt-12 brand-gradient text-white border-0 shadow-navy overflow-hidden relative animate-slide-up">
@@ -532,107 +533,3 @@ function MemberCard({ m }: { m: PublicMember }) {
   );
 }
 
-function Pagination({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (n: number) => void }) {
-  const range = useMemo(() => {
-    if (totalPages <= 7) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    const arr: (number | string)[] = [];
-    if (page <= 4) {
-      arr.push(1, 2, 3, 4, 5, "...", totalPages);
-    } else if (page >= totalPages - 3) {
-      arr.push(1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-    } else {
-      arr.push(1, "...", page - 1, page, page + 1, "...", totalPages);
-    }
-    return arr;
-  }, [page, totalPages]);
-
-  return (
-    <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-100 dark:border-zinc-800 pt-6">
-      <div className="text-sm text-muted-foreground font-sans">
-        Showing page <span className="font-semibold text-navy dark:text-gold">{page}</span> of <span className="font-semibold text-zinc-900 dark:text-zinc-100">{totalPages}</span>
-      </div>
-      <div className="flex items-center gap-1.5 flex-wrap justify-center">
-        {/* First Page */}
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={page === 1}
-          onClick={() => onChange(1)}
-          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
-          title="First Page"
-        >
-          <ChevronsLeft className="h-4 w-4 text-gold" />
-        </Button>
-
-        {/* Previous Page */}
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={page === 1}
-          onClick={() => onChange(page - 1)}
-          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
-          title="Previous Page"
-        >
-          <ChevronLeft className="h-4 w-4 text-gold" />
-        </Button>
-
-        {/* Page Numbers */}
-        {range.map((p, index) => {
-          if (p === "...") {
-            return (
-              <span
-                key={`dots-${index}`}
-                className="px-2 text-zinc-450 dark:text-zinc-550 text-sm select-none font-bold"
-              >
-                ...
-              </span>
-            );
-          }
-
-          const isActive = p === page;
-          return (
-            <Button
-              key={`page-${p}`}
-              variant={isActive ? "default" : "outline"}
-              onClick={() => onChange(p as number)}
-              className={cn(
-                "h-9 w-9 font-semibold text-sm transition-all duration-200 hover:scale-105 active:scale-95",
-                isActive
-                  ? "bg-navy dark:bg-gold text-white dark:text-[#1a1a1a] shadow-md border-transparent cursor-default"
-                  : "border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-              )}
-            >
-              {p}
-            </Button>
-          );
-        })}
-
-        {/* Next Page */}
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={page === totalPages}
-          onClick={() => onChange(page + 1)}
-          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
-          title="Next Page"
-        >
-          <ChevronRight className="h-4 w-4 text-gold" />
-        </Button>
-
-        {/* Last Page */}
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={page === totalPages}
-          onClick={() => onChange(totalPages)}
-          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
-          title="Last Page"
-        >
-          <ChevronsRight className="h-4 w-4 text-gold" />
-        </Button>
-      </div>
-    </div>
-  );
-}

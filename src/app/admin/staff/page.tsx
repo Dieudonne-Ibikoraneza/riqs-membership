@@ -104,7 +104,7 @@ export default function StaffManagementPage() {
 
   // Server-side search, role filter, and pagination
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(15);
   const [q, setQ] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
 
@@ -446,9 +446,9 @@ export default function StaffManagementPage() {
             </div>
           )}
         </CardContent>
-        {totalPages > 1 && (
+        {data && (
           <div className="px-5 pb-5">
-            <PaginationBar page={page} totalPages={totalPages} onChange={setPage} />
+            <PaginationBar page={page} totalPages={totalPages} onChange={setPage} pageSize={pageSize} onPageSizeChange={setPageSize} />
           </div>
         )}
       </Card>

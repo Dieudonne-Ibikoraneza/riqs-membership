@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 import { getApplicationsQueue, sendAdminEmail } from "@/lib/api/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,10 +25,6 @@ import {
   ArrowRight,
   ArrowUpDown,
   MapPin,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
   CheckCircle2,
   Clock,
   AlertTriangle,
@@ -74,7 +71,7 @@ export default function AdminApps() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [sel, setSel] = useState<Record<string, boolean>>({});
   const [page, setPage] = useState(1);
-  const pageSize = 8;
+  const [pageSize, setPageSize] = useState(15);
   const [applications, setApplications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
@@ -100,6 +97,7 @@ export default function AdminApps() {
   }, [debouncedQ, status, loc, cat, sortKey, sortDir, view]);
 
   useEffect(() => {
+    let active = true;
     async function loadData() {
       setIsLoading(true);
       try {
@@ -126,17 +124,20 @@ export default function AdminApps() {
           photoId: a.photoId,
           profilePhotoUrl: a.profilePhotoUrl
         }));
-        setApplications(mapped);
-        setTotalCount(res.pagination.total);
-        setTotalPages(Math.max(1, Math.ceil(res.pagination.total / pageSize)));
+        if (active) {
+          setApplications(mapped);
+          setTotalCount(res.pagination.total);
+          setTotalPages(Math.max(1, Math.ceil(res.pagination.total / pageSize)));
+        }
       } catch (err) {
-        toast.error("Failed to load applications");
+        if (active) toast.error("Failed to load applications");
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     }
     loadData();
-  }, [page, status, view, role, debouncedQ, loc, cat, sortKey, sortDir]);
+    return () => { active = false; };
+  }, [page, pageSize, status, view, role, debouncedQ, loc, cat, sortKey, sortDir]);
 
   const handleSendBulkEmail = async () => {
     if (!emailSubject.trim() || !emailBody.trim()) {
@@ -569,13 +570,13 @@ export default function AdminApps() {
         </Card>
       )}
 
-      {totalPages > 1 && (
-        <Pagination
+      <PaginationBar
           page={page}
           totalPages={totalPages}
           onChange={setPage}
+          pageSize={pageSize}
+          onPageSizeChange={size => { setPageSize(size); setSel({}); }}
         />
-      )}
     </div>
       
       {/* Floating Bulk Email Button */}
@@ -770,128 +771,3 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function Pagination({
-  page,
-  totalPages,
-  onChange,
-}: {
-  page: number;
-  totalPages: number;
-  onChange: (n: number) => void;
-}) {
-  const range = useMemo(() => {
-    if (totalPages <= 7) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    const arr: (number | string)[] = [];
-    if (page <= 4) {
-      arr.push(1, 2, 3, 4, 5, "...", totalPages);
-    } else if (page >= totalPages - 3) {
-      arr.push(
-        1,
-        "...",
-        totalPages - 4,
-        totalPages - 3,
-        totalPages - 2,
-        totalPages - 1,
-        totalPages,
-      );
-    } else {
-      arr.push(1, "...", page - 1, page, page + 1, "...", totalPages);
-    }
-    return arr;
-  }, [page, totalPages]);
-
-  return (
-    <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-100 dark:border-zinc-800/80 pt-5">
-      <div className="text-sm text-muted-foreground font-sans">
-        Showing page{" "}
-        <span className="font-semibold text-navy dark:text-gold">{page}</span>{" "}
-        of{" "}
-        <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-          {totalPages}
-        </span>
-      </div>
-      <div className="flex items-center gap-1.5 flex-wrap justify-center">
-        {/* First Page */}
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={page === 1}
-          onClick={() => onChange(1)}
-          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
-          title="First Page"
-        >
-          <ChevronsLeft className="h-4 w-4 text-gold" />
-        </Button>
-
-        {/* Previous Page */}
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={page === 1}
-          onClick={() => onChange(page - 1)}
-          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
-          title="Previous Page"
-        >
-          <ChevronLeft className="h-4 w-4 text-gold" />
-        </Button>
-
-        {/* Page Numbers */}
-        {range.map((p, index) => {
-          if (p === "...") {
-            return (
-              <span
-                key={`dots-${index}`}
-                className="px-2 text-zinc-450 dark:text-zinc-555 text-sm select-none font-bold"
-              >
-                ...
-              </span>
-            );
-          }
-
-          const isActive = p === page;
-          return (
-            <Button
-              key={`page-${p}`}
-              variant={isActive ? "default" : "outline"}
-              onClick={() => onChange(p as number)}
-              className={cn(
-                "h-9 w-9 font-semibold text-sm transition-all duration-200 hover:scale-105 active:scale-95",
-                isActive
-                  ? "bg-navy dark:bg-gold text-white dark:text-[#1a1a1a] shadow-md border-transparent cursor-default"
-                  : "border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800",
-              )}
-            >
-              {p}
-            </Button>
-          );
-        })}
-
-        {/* Next Page */}
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={page === totalPages}
-          onClick={() => onChange(page + 1)}
-          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
-          title="Next Page"
-        >
-          <ChevronRight className="h-4 w-4 text-gold" />
-        </Button>
-
-        {/* Last Page */}
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={page === totalPages}
-          onClick={() => onChange(totalPages)}
-          className="h-9 w-9 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105 active:scale-95 transition-all duration-200"
-          title="Last Page"
-        >
-          <ChevronsRight className="h-4 w-4 text-gold" />
-        </Button>
-      </div>
-    </div>
-  );
-}

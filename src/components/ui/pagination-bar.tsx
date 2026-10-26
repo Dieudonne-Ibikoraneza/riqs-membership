@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,14 +11,32 @@ import {
   ChevronsRight,
 } from "lucide-react";
 
+export function RowsPerPageSelect({ value, onChange }: { value: number; onChange: (size: number) => void }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-muted-foreground">Rows per page</span>
+      <Select value={String(value)} onValueChange={size => onChange(Number(size))}>
+        <SelectTrigger className="w-[80px]" aria-label="Rows per page"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {[15, 30, 50, 100].map(size => <SelectItem key={size} value={String(size)}>{size}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 export function PaginationBar({
   page,
   totalPages,
   onChange,
+  pageSize,
+  onPageSizeChange,
 }: {
   page: number;
   totalPages: number;
   onChange: (n: number) => void;
+  pageSize?: number;
+  onPageSizeChange?: (size: number) => void;
 }) {
   const range = useMemo(() => {
     // Always-shown pages: the first/last 4-page blocks, plus the active page and its
@@ -52,13 +71,18 @@ export function PaginationBar({
 
   return (
     <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-100 dark:border-zinc-800/80 pt-5">
-      <div className="text-sm text-muted-foreground font-sans">
-        Showing page{" "}
-        <span className="font-semibold text-navy dark:text-gold">{page}</span>{" "}
-        of{" "}
-        <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-          {totalPages}
-        </span>
+      <div className="flex flex-wrap items-center justify-center gap-4">
+        <div className="text-sm text-muted-foreground font-sans">
+          Showing page{" "}
+          <span className="font-semibold text-navy dark:text-gold">{page}</span>{" "}
+          of{" "}
+          <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+            {totalPages}
+          </span>
+        </div>
+        {pageSize !== undefined && onPageSizeChange && (
+          <RowsPerPageSelect value={pageSize} onChange={size => { onPageSizeChange(size); onChange(1); }} />
+        )}
       </div>
       <div className="flex items-center gap-1.5 flex-wrap justify-center">
         {/* First Page */}

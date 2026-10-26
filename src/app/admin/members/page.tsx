@@ -86,7 +86,7 @@ export default function AdminMembers() {
   const [sortKey, setSortKey] = useState<SortKey>("joined");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
-  const pageSize = 8;
+  const [pageSize, setPageSize] = useState(15);
   
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<AdminMemberRegistryResponse | null>(null);
@@ -841,11 +841,13 @@ export default function AdminMembers() {
       )}
 
         {/* Advanced Pagination controls */}
-        {totalPages > 1 && (
+        {data && (
           <PaginationBar
             page={safePage}
             totalPages={totalPages}
             onChange={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={size => { setPageSize(size); setSelectedIds([]); }}
           />
         )}
 

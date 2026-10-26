@@ -32,13 +32,12 @@ import {
   Calendar,
   Smartphone,
   ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 
 /* ── Mock Data ───────────────────────────────────────── */
 const INITIAL_STUDENTS = [
@@ -66,7 +65,7 @@ export default function StudentsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("registeredAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
-  const pageSize = 6;
+  const [pageSize, setPageSize] = useState(15);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newStudent, setNewStudent] = useState({ name: "", email: "", phone: "", university: "", gradYear: "" });
@@ -348,26 +347,7 @@ export default function StudentsPage() {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-zinc-100 pt-5">
-          <div className="text-sm text-muted-foreground">
-            Page <span className="font-semibold text-navy">{safePage}</span> of <span className="font-semibold">{totalPages}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="icon" disabled={safePage === 1} onClick={() => setPage(safePage - 1)} className="h-9 w-9 border-zinc-200">
-              <ChevronLeft className="h-4 w-4 text-gold" />
-            </Button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-              <Button key={p} variant={p === safePage ? "default" : "outline"} onClick={() => setPage(p)}
-                className={cn("h-9 w-9 font-semibold text-sm", p === safePage ? "bg-navy text-white shadow-md border-transparent" : "border-zinc-200 text-zinc-700 hover:bg-zinc-50")}
-              >{p}</Button>
-            ))}
-            <Button variant="outline" size="icon" disabled={safePage === totalPages} onClick={() => setPage(safePage + 1)} className="h-9 w-9 border-zinc-200">
-              <ChevronRight className="h-4 w-4 text-gold" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <PaginationBar page={safePage} totalPages={totalPages} onChange={setPage} pageSize={pageSize} onPageSizeChange={setPageSize} />
     </div>
   );
 }

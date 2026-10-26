@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -9,8 +10,6 @@ import {
   Search,
   BookOpen,
   ArrowRight,
-  ChevronLeft,
-  ChevronRight,
   MapPin,
   Clock,
   Star,
@@ -86,11 +85,10 @@ export default function MentorshipQueuePage() {
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState<"recent" | "oldest">("recent");
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(15);
 
   const [queue, setQueue] = useState<any[]>([]);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   // Debounce search input
@@ -104,6 +102,7 @@ export default function MentorshipQueuePage() {
   }, [debouncedQ, status, apcReadiness, location, category, sort]);
 
   useEffect(() => {
+    let active = true;
     async function load() {
       setIsLoading(true);
       try {
@@ -117,17 +116,19 @@ export default function MentorshipQueuePage() {
           sort,
           category === "all" ? undefined : category
         );
-        setQueue(res.queue);
-        setTotalCount(res.pagination.total);
-        setTotalPages(Math.max(1, Math.ceil(res.pagination.total / pageSize)));
+        if (active) {
+          setQueue(res.queue);
+          setTotalPages(Math.max(1, Math.ceil(res.pagination.total / pageSize)));
+        }
       } catch {
-        toast.error("Failed to load mentorship queue.");
+        if (active) toast.error("Failed to load mentorship queue.");
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     }
     load();
-  }, [page, debouncedQ, status, apcReadiness, location, sort, category]);
+    return () => { active = false; };
+  }, [page, pageSize, debouncedQ, status, apcReadiness, location, sort, category]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-8 animate-fade-in">
@@ -389,21 +390,7 @@ export default function MentorshipQueuePage() {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2 py-3">
-          <p className="text-sm text-muted-foreground">
-            Page {page} of {totalPages} · {totalCount} total
-          </p>
-          <div className="flex items-center gap-2">
-            <Button size="icon" variant="outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button size="icon" variant="outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <PaginationBar page={page} totalPages={totalPages} onChange={setPage} pageSize={pageSize} onPageSizeChange={setPageSize} />
     </div>
   );
 }

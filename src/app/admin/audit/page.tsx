@@ -335,11 +335,11 @@ function AuditDrawer({ log, onClose }: { log: AuditLogEntry | null; onClose: () 
 
 export default function Audit() {
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(15);
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["adminAuditLogs", page],
+    queryKey: ["adminAuditLogs", page, pageSize],
     queryFn: () => getAuditLogs(page, pageSize),
   });
 
@@ -422,9 +422,7 @@ export default function Audit() {
             </CardContent>
           </Card>
 
-          {totalPages > 1 && (
-            <PaginationBar page={page} totalPages={totalPages} onChange={setPage} />
-          )}
+          <PaginationBar page={page} totalPages={totalPages} onChange={setPage} pageSize={pageSize} onPageSizeChange={setPageSize} />
         </>
       )}
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { publicServices } from "@/services/public.services";
+import { publicServices, type PublicMember } from "@/services/public.services";
 import { queryKeys } from "@/services/queryKeys";
 import { PublicHeader, PublicFooter } from "@/components/PublicHeader";
 import { Input } from "@/components/ui/input";
@@ -11,16 +11,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Search, Download, Mail, Phone, MapPin, BadgeCheck, LayoutGrid, List,
+  Search, Download, Mail, Phone, BadgeCheck, LayoutGrid, List,
   ArrowUpDown, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Users, Star, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RIQS_CONTACT } from "@/lib/riqs-contact";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { exportFilename, exportCsv as serializeCsv } from "@/lib/export/smartExport";
+import { toast } from "sonner";
 
 type SortKey = "name" | "id" | "category";
 type View = "cards" | "table";
 
-// One tab per compliant-member list — mirrors the segmented "Compliant Professional
+// All Members is the default, followed by one tab per compliant-member list.
+// The category tabs mirror the segmented "Compliant Professional
 // Engineers / Technologists / Technicians / Firms" pattern other institutes use, in place of
 // the old category dropdown. `title` drives the page heading so it always names exactly the
 // list currently shown. Graduate intentionally has no separate "Technologist route" tab: both
@@ -30,6 +34,7 @@ type View = "cards" | "table";
 // `noun` drives the "N compliant ___" line under the title — firms shouldn't be called
 // "members".
 const CATEGORY_TABS: { id: string; label: string; title: string; noun: string; exportName: string }[] = [
+  { id: "all", label: "All Members", title: "All Members", noun: "members", exportName: "All Members" },
   { id: "Professional", label: "Compliant Professional QS", title: "Compliant Professional Quantity Surveyors", noun: "members", exportName: "Professional Members" },
   { id: "Technologist", label: "Compliant QS Technologist", title: "Compliant Quantity Surveying Technologists", noun: "members", exportName: "QS Technologist Members" },
   { id: "Graduate", label: "Compliant Graduates", title: "Compliant Graduate Members", noun: "members", exportName: "Graduate Members" },
@@ -43,10 +48,12 @@ export default function MembersPage() {
   const [activeTab, setActiveTab] = useState<string>(CATEGORY_TABS[0].id);
   const [view, setView] = useState<View>("cards");
   const [page, setPage] = useState(1);
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const pageSize = 10;
 
   // Debounce search input
-  useMemo(() => {
+  useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedQ(q);
       setPage(1); // Reset page on new search
@@ -58,9 +65,9 @@ export default function MembersPage() {
   const activeTabConfig = CATEGORY_TABS.find(t => t.id === activeTab) || CATEGORY_TABS[0];
   const currentYear = new Date().getFullYear();
 
-  const { data, isLoading } = useQuery({
-    queryKey: queryKeys.public.members({ search: debouncedQ, category: activeCat, page, limit: pageSize }),
-    queryFn: () => publicServices.getPublicMembers({ search: debouncedQ, category: activeCat, page, limit: pageSize }),
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.public.members({ search: debouncedQ, category: activeCat, page, limit: pageSize, sortKey, sortDir }),
+    queryFn: () => publicServices.getPublicMembers({ search: debouncedQ, category: activeCat, page, limit: pageSize, sortKey, sortDir }),
   });
 
   const members = data?.members || [];
@@ -74,10 +81,11 @@ export default function MembersPage() {
   // This list changes over time (new approvals, lapsed renewals, etc.) — a plain "riqs-members.csv"
   // gives no way to tell how stale a downloaded copy is, so both the file itself and its name
   // carry a generated-on stamp.
-  const rowsToCsv = (rows: any[], reportTitle: string) => {
+  const rowsToCsv = (rows: PublicMember[], reportTitle: string, search: string) => {
     const csvRows: string[][] = [
       [`${reportTitle}`],
-      [`Generated: ${new Date().toLocaleString()}`],
+      [`Generated: ${new Date().toLocaleString("en-GB", { timeZone: "Africa/Kigali" })} (Kigali)`],
+      [`Search: ${search || "None"}`],
       [],
       ["Membership ID", "Full Name", "Category", "Phone", "Email"]
     ];
@@ -90,16 +98,17 @@ export default function MembersPage() {
         ? `${baseCategory}, ${honorsArray.join(", ")}`
         : baseCategory;
 
-      csvRows.push([m.membership_id || m.id, m.full_name, fullCategory, m.phone_number ? m.phone_number.replace(/^\+/, '') : "", m.email]);
+      csvRows.push([m.membership_id || m.id, m.full_name, fullCategory, m.phone_number || "", m.email]);
     });
-    return csvRows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+    return serializeCsv(csvRows);
   };
 
   const downloadCsv = (csv: string, filename: string) => {
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
+    const a = document.createElement("a"); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   // Previously this only ever exported whatever page of results happened to be on screen (10
@@ -108,26 +117,32 @@ export default function MembersPage() {
   const exportCsv = async (scope: "active" | "all") => {
     setExporting(scope);
     try {
-      const res = await publicServices.getPublicMembers({
-        search: scope === "active" ? debouncedQ : undefined,
-        category: scope === "active" ? activeCat : "all",
-        page: 1,
-        limit: 100000,
-      });
-      const reportTitle = scope === "active" ? `RIQS Compliant ${activeTabConfig.exportName}` : "RIQS All Compliant Members";
-      const dateStamp = new Date().toISOString().split("T")[0];
-      downloadCsv(rowsToCsv(res?.members || [], reportTitle), `${reportTitle} - ${dateStamp}.csv`);
+      const rows: PublicMember[] = [];
+      for (let exportPage = 1; ; exportPage++) {
+        const res = await publicServices.getPublicMembers({
+          search: scope === "active" ? debouncedQ : undefined,
+          category: scope === "active" ? activeCat : "all",
+          page: exportPage,
+          limit: 500,
+          sortKey,
+          sortDir,
+        });
+        rows.push(...res.members);
+        if (rows.length >= res.pagination.totalCount) break;
+        if (res.members.length === 0) throw new Error("The directory changed during export. Please try again.");
+      }
+      const exportName = scope === "active" ? activeTabConfig.exportName : "All Members";
+      downloadCsv(rowsToCsv(rows, `RIQS ${exportName}`, scope === "active" ? debouncedQ : ""), exportFilename(exportName, "csv"));
     } catch (err) {
       console.error("Export failed", err);
+      toast.error("Unable to export the directory. Please try again.");
     } finally {
       setExporting(null);
     }
   };
 
-  // Category is now a mandatory tab selection rather than an optional filter, so only the
-  // search box counts as a dismissable "filter" here.
-  const reset = () => { setQ(""); setPage(1); };
-  const activeFilters = debouncedQ ? 1 : 0;
+  const reset = () => { setQ(""); setActiveTab("all"); setSortKey("name"); setSortDir("asc"); setPage(1); };
+  const activeFilters = (debouncedQ ? 1 : 0) + (activeTab !== "all" ? 1 : 0);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -164,6 +179,8 @@ export default function MembersPage() {
                 <button
                   key={tab.id}
                   onClick={() => { setActiveTab(tab.id); setPage(1); }}
+                  aria-pressed={activeTab === tab.id}
+                  disabled={exporting !== null}
                   className={cn(
                     // Deliberately no transition on background/color/border here: .brand-gradient
                     // sets the `background` shorthand (a gradient) while the inactive state is a
@@ -192,6 +209,7 @@ export default function MembersPage() {
                 <div className="relative flex-1">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
+                    aria-label="Search members"
                     placeholder="Search by name, membership ID or email…"
                     value={q}
                     onChange={e => { setQ(e.target.value); setPage(1); }}
@@ -205,16 +223,32 @@ export default function MembersPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2 items-center">
-                  <Button
+                  <Select value={`${sortKey}-${sortDir}`} onValueChange={value => {
+                    const [key, direction] = value.split("-") as [SortKey, "asc" | "desc"];
+                    setSortKey(key); setSortDir(direction); setPage(1);
+                  }} disabled={exporting !== null}>
+                    <SelectTrigger aria-label="Sort members" className="h-11 w-[210px] border-zinc-200 dark:border-zinc-800">
+                      <ArrowUpDown className="mr-2 h-4 w-4 text-gold" /><SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name-asc">Name (A–Z)</SelectItem>
+                      <SelectItem value="name-desc">Name (Z–A)</SelectItem>
+                      <SelectItem value="id-asc">Membership ID (Ascending)</SelectItem>
+                      <SelectItem value="id-desc">Membership ID (Descending)</SelectItem>
+                      <SelectItem value="category-asc">Membership class (A–Z)</SelectItem>
+                      <SelectItem value="category-desc">Membership class (Z–A)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {activeTab !== "all" && <Button
                     onClick={() => exportCsv("active")}
-                    disabled={exporting !== null}
+                    disabled={exporting !== null || isLoading || isError || q !== debouncedQ || totalCount === 0}
                     variant="outline"
                     className="h-11 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300"
                     title={`Export ${activeTabConfig.label}`}
                   >
                     {exporting === "active" ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-gold" /> : <Download className="mr-2 h-4 w-4 text-gold" />}
                     Export List
-                  </Button>
+                  </Button>}
                   <Button
                     onClick={() => exportCsv("all")}
                     disabled={exporting !== null}
@@ -304,6 +338,11 @@ export default function MembersPage() {
                 </div>
               </Card>
             )
+          ) : isError ? (
+            <Card className="mt-6"><CardContent className="py-16 text-center">
+              <p className="text-muted-foreground">Unable to load the members directory.</p>
+              <Button variant="outline" className="mt-4" onClick={() => refetch()}>Try again</Button>
+            </CardContent></Card>
           ) : members.length === 0 ? (
             <Card className="mt-6 border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50/20 dark:bg-zinc-950/10">
               <CardContent className="py-16 text-center">
@@ -317,7 +356,7 @@ export default function MembersPage() {
             </Card>
           ) : view === "cards" ? (
             <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 stagger">
-              {members.map((m: any) => (
+              {members.map((m) => (
                 <MemberCard key={m.id} m={m} />
               ))}
             </div>
@@ -333,11 +372,11 @@ export default function MembersPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {members.map((m: any, i: number) => (
+                    {members.map((m, i) => (
                       <tr key={m.id} className={cn("border-b border-zinc-100 dark:border-zinc-800/80 transition-colors hover:bg-gold/5", i % 2 === 1 && "bg-zinc-50/20 dark:bg-zinc-950/10")}>
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            <Avatar name={m.full_name} url={m.profile_photo_url} />
+                            <Avatar name={m.full_name} url={m.profile_photo_url || undefined} />
                             <div>
                               <div className="font-semibold text-zinc-900 dark:text-zinc-100">{m.full_name}</div>
                               <div className="text-xs text-muted-foreground">{m.email}</div>
@@ -449,14 +488,14 @@ function formatMembershipClass(cls: string) {
   return map[cls] || cls.replace(/_/g, " ");
 }
 
-function MemberCard({ m }: { m: any }) {
+function MemberCard({ m }: { m: PublicMember }) {
   return (
     <Card className="group hover-lift overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 shadow-sm">
       <div className="relative h-20 brand-gradient">
         <div className="absolute -bottom-7 left-5">
           <Avatar 
             name={m.full_name} 
-            url={m.profile_photo_url} 
+            url={m.profile_photo_url || undefined}
             className="h-14 w-14 text-sm ring-4 ring-white dark:ring-zinc-900" 
           />
         </div>

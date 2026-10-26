@@ -21,6 +21,8 @@ export interface PublicMember {
   membership_id: string;
   full_name: string;
   membership_class: string;
+  category_name?: string | null;
+  profile_photo_url?: string | null;
   phone_number: string;
   email: string;
   isFellow?: boolean;
@@ -69,6 +71,8 @@ export const publicServices = {
     page?: number;
     limit?: number;
     mentorsOnly?: boolean;
+    sortKey?: "name" | "id" | "category";
+    sortDir?: "asc" | "desc";
   }): Promise<PublicMembersResponse> => {
     const response = await axiosClient.get('/members/directory', { params });
     return response.data;

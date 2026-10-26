@@ -49,6 +49,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatPracticeLocation } from "@/lib/utils";
+import { FirmApplicationDetails, mapFirmApplicationDetails } from "@/components/FirmApplicationDetails";
 
 function formatMonthYear(val?: string) {
   if (!val) return "";
@@ -270,9 +271,9 @@ export default function Review({ params }: PageProps) {
           phone: res.application.phone_number || "Not provided",
           national_id_or_passport: res.application.national_id_or_passport || "Not provided",
           category: res.application.category_name,
-          entityType: res.application.cat_entity_type || "Individual",
-          firmName: res.application.firm_name,
-          firmAddress: res.application.firm_address,
+          entityType: res.application.entityType || res.application.cat_entity_type || "Individual",
+          firmDetails: mapFirmApplicationDetails(res.application),
+          declarationsAccepted: res.application.agreedToDeclarations,
           practiceLocation: res.application.location,
           residencyAddress: res.application.residency_address,
           workAddress: res.application.work_address,
@@ -318,7 +319,7 @@ export default function Review({ params }: PageProps) {
               mentorRecommendationUrl: mAssignment.mentorRecommendationUrl
             };
           })() : null,
-          shareholders: res.shareholders || [],
+          shareholders: res.shareholders ?? res.application.firmShareholders ?? [],
           documents,
           categoryDocuments: res.categoryDocuments || [],
           apcAssessments: apcRes.assessments || [],
@@ -573,7 +574,7 @@ export default function Review({ params }: PageProps) {
             </Button>
           </Link>
           <div>
-            <h1 className="text-xl font-bold text-navy">{app.applicantName}</h1>
+            <h1 className="text-xl font-bold text-navy">{app.entityType === "Firm" ? app.firmDetails.firmName || app.applicantName : app.applicantName}</h1>
             <div className="text-xs text-muted-foreground">
               {app.id} · Submitted {app.submittedAt}
             </div>
@@ -878,13 +879,13 @@ export default function Review({ params }: PageProps) {
             <Card className="border-zinc-100 dark:border-zinc-800">
               <CardHeader className="py-3 px-4 border-b border-zinc-100 dark:border-zinc-800">
                 <CardTitle className="text-sm font-bold text-navy">
-                  Personal Details
+                  {app.entityType === "Firm" ? "Representative Details" : "Personal Details"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 space-y-2.5 text-sm">
-                <Row k="Full name" v={app.applicantName} />
-                <Row k="Email" v={app.email} />
-                <Row k="Phone" v={app.phone} />
+                <Row k={app.entityType === "Firm" ? "Representative Name" : "Full name"} v={app.applicantName} />
+                <Row k={app.entityType === "Firm" ? "Representative Email" : "Email"} v={app.email} />
+                <Row k={app.entityType === "Firm" ? "Representative Phone" : "Phone"} v={app.phone} />
                 <Row k="Category" v={app.category} highlight />
                 <Row k="Entity" v={app.entityType} />
                 {app.entityType !== "Firm" && (
@@ -897,14 +898,14 @@ export default function Review({ params }: PageProps) {
                     {app.countryOfOrigin && <Row k="Country of Origin" v={app.countryOfOrigin} />}
                   </>
                 )}
-                {app.entityType === "Firm" && app.firmName && <Row k="Firm Name" v={app.firmName} />}
-                {app.entityType === "Firm" && app.firmAddress && <Row k="Firm Address" v={app.firmAddress} />}
                 {app.residencyAddress && [app.residencyAddress.district, app.residencyAddress.sector, app.residencyAddress.cell, app.residencyAddress.village].filter(Boolean).join(", ").length > 0 && <Row k="Residency Address" v={[app.residencyAddress.district, app.residencyAddress.sector, app.residencyAddress.cell, app.residencyAddress.village].filter(Boolean).join(", ")} />}
                 {app.workAddress && [app.workAddress.district, app.workAddress.sector, app.workAddress.cell, app.workAddress.village].filter(Boolean).join(", ").length > 0 && <Row k="Work Address" v={[app.workAddress.district, app.workAddress.sector, app.workAddress.cell, app.workAddress.village].filter(Boolean).join(", ")} />}
                 <Row k="Practice location" v={formatPracticeLocation(app.practiceLocation)} />
               </CardContent>
             </Card>
           </motion.div>
+
+          {app.entityType === "Firm" && <FirmApplicationDetails details={app.firmDetails} shareholders={app.shareholders} declarationsAccepted={app.declarationsAccepted} />}
 
           {app.studentAssociation && (
             <motion.div

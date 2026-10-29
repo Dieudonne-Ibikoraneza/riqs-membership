@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { RotateCw, Globe, Mail, Phone, Loader2 } from "lucide-react";
-import { applicantServices } from "@/services/applicant.services";
+import { RotateCw, Globe, Mail, Phone, Loader2, Printer } from "lucide-react";
+import { type ApplicantProfileResponse, applicantServices } from "@/services/applicant.services";
 import { generateVerificationQrDataUrl } from "@/lib/verificationQr";
 import { RIQS_CONTACT } from "@/lib/riqs-contact";
+import { MEMBERSHIP_CARD_ASPECT_RATIO, prepareMembershipCardPrint } from "@/lib/printMembershipCard";
+import { toast } from "sonner";
+import { axiosClient } from "@/lib/axiosClient";
 
 type MemberData = {
   name: string;
@@ -17,6 +20,8 @@ type MemberData = {
   issueDate: string;
   expiryDate: string;
   membershipNo: string;
+  email?: string;
+  phone?: string;
   photoUrl?: string;
   // Branded QR encoding this member's own /verify/{membershipId} page — generated once a
   // real membershipId exists (see the useEffect in MembershipCard below). Undefined while
@@ -37,25 +42,52 @@ const defaults: MemberData = {
 };
 
 const mark = "/riqs-logo.png";
-const defaultPhoto = "/cert-photo.png"; // Fallback, doesn't really exist but we will handle loading state
 
 const NAVY = "#0b3363";
 const GOLD = "#f1a500";
 
-export function MembershipCard({ profileData }: { profileData?: any }) {
+type CardProfile = Omit<ApplicantProfileResponse, "profile" | "application"> & {
+  application: (NonNullable<ApplicantProfileResponse["application"]> & { updatedAt?: string | null }) | null;
+  profile: ApplicantProfileResponse["profile"] & {
+    isFellow?: boolean;
+    membershipExpiresAt?: string | null;
+  };
+};
+
+export function MembershipCard({ profileData }: { profileData?: CardProfile }) {
   const [flipped, setFlipped] = useState(false);
-  const [passportUrl, setPassportUrl] = useState<string | null>(null);
-  const [passportLoading, setPassportLoading] = useState(true);
-  const [qrDataUrl, setQrDataUrl] = useState<string | undefined>(undefined);
-  const [qrLoading, setQrLoading] = useState(true);
+  const [printing, setPrinting] = useState(false);
+  const printSource = useRef<HTMLDivElement>(null);
+  const disposePrint = useRef<(() => void) | null>(null);
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      disposePrint.current?.();
+    };
+  }, []);
+  const [photoResult, setPhotoResult] = useState<{ key: string; url: string | null } | null>(null);
+  const [qrResult, setQrResult] = useState<{ id: string; url?: string } | null>(null);
+  const passportDoc = profileData?.documents?.find((document) =>
+    ["PassportPhoto", "Passport_Photo", "photo", "PassportSize", "passport_size_photo"].includes(document.documentType)
+  );
+  const profilePhoto = profileData?.profile.profilePhotoUrl;
+  const photoKey = profilePhoto || passportDoc?.id || "";
+  const passportUrl = photoResult?.key === photoKey ? photoResult.url : null;
+  const passportLoading = !!photoKey && photoResult?.key !== photoKey;
+  const clearPhoto = () => setPhotoResult({ key: photoKey, url: null });
 
   // Map profileData to MemberData
   const m: MemberData = { ...defaults };
   if (profileData) {
     m.name = profileData?.profile?.fullName || defaults.name;
+    m.email = profileData?.profile?.email?.trim() || undefined;
+    m.phone = profileData?.profile?.phoneNumber?.trim() || undefined;
     m.membershipNo = profileData?.profile?.membershipId || "RIQS/M/00000";
     
-    let rawClass = profileData?.profile?.membershipClass || profileData?.application?.category_name || "";
+    const rawClass = profileData?.profile?.membershipClass || profileData?.application?.category_name || "";
     let formattedClass = rawClass.replace(/_/g, " ");
     
     // Add Fellow suffix if applicable
@@ -72,8 +104,8 @@ export function MembershipCard({ profileData }: { profileData?: any }) {
     m.status = profileData?.application?.status === "Approved" ? "ACTIVE" : "PENDING";
     
     let validUntilDate: Date | null = null;
-    if ((profileData?.profile as any)?.membershipExpiresAt) {
-      validUntilDate = new Date((profileData?.profile as any).membershipExpiresAt);
+    if (profileData?.profile.membershipExpiresAt) {
+      validUntilDate = new Date(profileData.profile.membershipExpiresAt);
     }
 
     let approvedDate: Date | null = null;
@@ -94,72 +126,75 @@ export function MembershipCard({ profileData }: { profileData?: any }) {
 
   const isFirm = profileData?.application?.entityType === "Firm" || m.membershipGrade.includes("Firm");
   const realMembershipId: string | undefined = profileData?.profile?.membershipId || undefined;
+  const qrDataUrl = qrResult?.id === realMembershipId ? qrResult?.url : undefined;
+  const qrLoading = !!realMembershipId && qrResult?.id !== realMembershipId;
   m.qrDataUrl = qrDataUrl;
 
   // Generate this member's branded verification QR once — a pending applicant has no real
   // membershipId yet (m.membershipNo falls back to the "RIQS/M/00000" placeholder), so there's
   // nothing genuine to encode until one is assigned.
   useEffect(() => {
-    if (!realMembershipId) {
-      setQrDataUrl(undefined);
-      setQrLoading(false);
-      return;
-    }
+    if (!realMembershipId) return;
     let cancelled = false;
-    setQrLoading(true);
-    generateVerificationQrDataUrl(realMembershipId)
-      .then((url) => { if (!cancelled) setQrDataUrl(url); })
-      .catch((err) => console.error("Failed to generate membership card QR code:", err))
-      .finally(() => { if (!cancelled) setQrLoading(false); });
+    generateVerificationQrDataUrl(realMembershipId, 512)
+      .then((url) => { if (!cancelled) setQrResult({ id: realMembershipId, url }); })
+      .catch((error) => {
+        console.error("Failed to generate membership card QR code:", error);
+        if (!cancelled) setQrResult({ id: realMembershipId });
+      });
     return () => { cancelled = true; };
   }, [realMembershipId]);
 
   useEffect(() => {
-    if (profileData?.profile?.profilePhotoUrl) {
-      setPassportUrl(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/files/downloadByUrl?url=${encodeURIComponent(profileData.profile.profilePhotoUrl)}&token=${typeof window !== 'undefined' ? localStorage.getItem('riqs.auth.token') : ''}`);
-      setPassportLoading(false);
-      return;
-    }
-
-    if (!profileData?.documents) {
-      setPassportLoading(false);
-      return;
-    }
-
-    const passportDoc = profileData.documents.find(
-      (d: any) =>
-        d.documentType === "PassportPhoto" ||
-        d.documentType === "Passport_Photo" ||
-        d.documentType === "photo" ||
-        d.documentType === "PassportSize" ||
-        d.documentType === "passport_size_photo"
-    );
-
+    if (!photoKey) return;
     let active = true;
-
-    if (passportDoc) {
-      setPassportLoading(true);
-      applicantServices
-        .downloadDocument(passportDoc.id)
-        .then((blob) => {
-          if (!active) return;
-          setPassportUrl(URL.createObjectURL(blob));
-          setPassportLoading(false);
-        })
-        .catch(() => {
-          if (active) setPassportLoading(false);
-        });
-    } else {
-      setPassportLoading(false);
-    }
-
+    let objectUrl: string | undefined;
+    const loadPhoto = profilePhoto
+      ? axiosClient.get<Blob>("/files/downloadByUrl", { params: { url: profilePhoto }, responseType: "blob" }).then((response) => response.data)
+      : applicantServices.downloadDocument(photoKey);
+    loadPhoto
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPhotoResult({ key: photoKey, url: objectUrl });
+      })
+      .catch(() => { if (active) setPhotoResult({ key: photoKey, url: null }); });
     return () => {
       active = false;
-      if (passportUrl && passportUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(passportUrl);
-      }
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [profileData]);
+  }, [photoKey, profilePhoto]);
+
+  const handlePrint = async () => {
+    if (!printSource.current || passportLoading || qrLoading || !qrDataUrl || printing) return;
+    setPrinting(true);
+    disposePrint.current?.();
+    try {
+      const frame = await prepareMembershipCardPrint(printSource.current, `RIQS Membership Card ${m.name}`);
+      if (!mounted.current) {
+        frame.remove();
+        return;
+      }
+      const printWindow = frame.contentWindow;
+      if (!printWindow) {
+        frame.remove();
+        throw new Error("Unable to open the print dialog.");
+      }
+      const dispose = () => {
+        frame.remove();
+        if (disposePrint.current === dispose) disposePrint.current = null;
+      };
+      disposePrint.current = dispose;
+      printWindow.addEventListener("afterprint", dispose, { once: true });
+      printWindow.focus();
+      printWindow.print();
+    } catch (error) {
+      disposePrint.current?.();
+      toast.error(error instanceof Error ? error.message : "Unable to print your membership card. Please try again.");
+    } finally {
+      if (mounted.current) setPrinting(false);
+    }
+  };
 
   if (isFirm) {
     return null; // Don't show ID card for firms for now, they get Certificates.
@@ -170,15 +205,22 @@ export function MembershipCard({ profileData }: { profileData?: any }) {
   return (
     <div className="space-y-3 mb-6">
       <div
-        className="mx-auto w-full max-w-[640px] cursor-pointer select-none"
-        style={{ aspectRatio: "1586 / 992", containerType: "inline-size", overflow: "visible", perspective: "1500px" }}
+        className="mx-auto w-full max-w-[760px] cursor-pointer select-none focus:outline-none focus-visible:outline-none"
+        style={{ aspectRatio: MEMBERSHIP_CARD_ASPECT_RATIO, containerType: "inline-size", overflow: "visible", perspective: "1500px" }}
         onClick={() => setFlipped((f) => !f)}
         role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setFlipped((f) => !f);
+          }
+        }}
         aria-label="Flip membership card"
       >
         <div className={`relative w-full h-full transition-transform duration-700`} style={{ transformStyle: "preserve-3d", transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)" }}>
           <div className="absolute w-full h-full backface-hidden" style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}>
-            <CardFront m={m} isLoading={passportLoading} qrLoading={qrLoading} />
+            <CardFront m={m} isLoading={passportLoading} qrLoading={qrLoading} onPhotoError={clearPhoto} />
           </div>
           <div className="absolute w-full h-full backface-hidden" style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
             <CardBack m={m} qrLoading={qrLoading} />
@@ -186,12 +228,30 @@ export function MembershipCard({ profileData }: { profileData?: any }) {
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
         <Button size="sm" variant="outline" onClick={() => setFlipped((f) => !f)}>
           <RotateCw className="mr-1.5 h-3.5 w-3.5" />
           Flip card · {flipped ? "Back" : "Front"}
         </Button>
-        <span>Tap the card to flip</span>
+        <Button size="sm" variant="outline" onClick={handlePrint} disabled={printing || passportLoading || qrLoading || !qrDataUrl}>
+          {printing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Printer className="mr-1.5 h-3.5 w-3.5" />}
+          {printing ? "Preparing card…" : "Print card"}
+        </Button>
+        <span>Tap the card to flip · Prints both sides</span>
+      </div>
+      {!qrLoading && !qrDataUrl && (
+        <p className="text-center text-xs text-muted-foreground" role="status">
+          The verification QR code is unavailable. Refresh the page before printing.
+        </p>
+      )}
+      {/* Separate flat faces: printing must not depend on the current flip state. */}
+      <div ref={printSource} aria-hidden="true" style={{ position: "fixed", left: "-10000px", top: 0, width: 760, pointerEvents: "none" }}>
+        <div data-card-face="front" style={{ aspectRatio: MEMBERSHIP_CARD_ASPECT_RATIO, containerType: "inline-size" }}>
+          <CardFront m={m} isLoading={passportLoading} qrLoading={qrLoading} onPhotoError={clearPhoto} />
+        </div>
+        <div data-card-face="back" style={{ aspectRatio: MEMBERSHIP_CARD_ASPECT_RATIO, containerType: "inline-size" }}>
+          <CardBack m={m} qrLoading={qrLoading} />
+        </div>
       </div>
     </div>
   );
@@ -213,7 +273,7 @@ function CardShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CardFront({ m, isLoading, qrLoading }: { m: MemberData, isLoading: boolean, qrLoading: boolean }) {
+function CardFront({ m, isLoading, qrLoading, onPhotoError }: { m: MemberData, isLoading: boolean, qrLoading: boolean, onPhotoError: () => void }) {
   const photoSrc = m.photoUrl;
 
   return (
@@ -283,14 +343,14 @@ function CardFront({ m, isLoading, qrLoading }: { m: MemberData, isLoading: bool
         className="absolute object-contain"
         style={{ left: "10.9%", top: "6.2%", width: "13.6%", height: "18.8%" }}
       />
-      <div className="absolute" style={{ left: "25.5%", top: "10%", lineHeight: .98, whiteSpace: "nowrap" }}>
-        <div style={{ color: GOLD, fontWeight: 800, fontSize: "4.45cqw" }}>Rwanda Institute of</div>
-        <div style={{ color: NAVY, fontWeight: 800, fontSize: "4.55cqw" }}>Quantity Surveyors</div>
+      <div className="absolute" style={{ left: "25%", top: "9%", lineHeight: .98, whiteSpace: "nowrap" }}>
+        <div style={{ color: GOLD, fontWeight: 800, fontSize: "3.8cqw" }}>Rwanda Institute of</div>
+        <div style={{ color: NAVY, fontWeight: 800, fontSize: "3.9cqw" }}>Quantity Surveyors</div>
       </div>
 
       {/* QR */}
-      <div className="absolute flex flex-col items-center" style={{ right: "5.4%", top: "7.5%", width: "13.1%" }}>
-        <div className="bg-white p-[0.55cqw] aspect-square flex items-center justify-center" style={{ border: `.35cqw solid ${NAVY}`, borderRadius: "1cqw" }}>
+      <div className="absolute flex flex-col items-center" style={{ right: "4.5%", top: "5%", width: "15.5%" }}>
+        <div className="bg-white p-[0.75cqw] aspect-square w-full flex items-center justify-center" style={{ border: `.35cqw solid ${NAVY}`, borderRadius: "1cqw" }}>
           {qrLoading ? (
             <Loader2 className="w-[40%] h-[40%] animate-spin text-navy/40" />
           ) : m.qrDataUrl ? (
@@ -299,52 +359,41 @@ function CardFront({ m, isLoading, qrLoading }: { m: MemberData, isLoading: bool
             <div className="w-full aspect-square" />
           )}
         </div>
-        <div style={{ color: NAVY, fontWeight: 800, fontSize: "1.18cqw", marginTop: ".72cqw", letterSpacing: ".03em" }}>
+        <div style={{ color: NAVY, fontWeight: 800, fontSize: "1.35cqw", marginTop: ".72cqw", letterSpacing: ".03em" }}>
           SCAN TO VERIFY
         </div>
       </div>
 
-      {/* Passport photo */}
-      <div
-        className="absolute overflow-hidden"
-        style={{
-          left: "8.05%",
-          top: "33.6%",
-          width: "20.05%",
-          height: "38.4%",
-          border: `.42cqw solid ${GOLD}`,
-          borderRadius: "2.05cqw",
-          background: "#f2f2f2",
-        }}
-      >
-        {isLoading ? (
-          <div className="w-full h-full flex items-center justify-center">
-            <Loader2 className="w-8 h-8 animate-spin text-gold" />
+      {/* Flow keeps long names, contact details and dates from colliding. */}
+      <div className="absolute grid items-start" style={{ left: "8%", right: "5%", top: "32%", gridTemplateColumns: "20cqw minmax(0, 1fr)", gap: "3cqw" }}>
+        <div className="overflow-hidden" style={{ width: "20cqw", height: "24cqw", border: `.35cqw solid ${GOLD}`, borderRadius: "1.8cqw", background: "#f2f2f2" }}>
+          {isLoading ? (
+            <div className="w-full h-full flex items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-gold" />
+            </div>
+          ) : photoSrc ? (
+            <img src={photoSrc} alt={m.name} onError={onPhotoError} className="h-full w-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-zinc-400" style={{ fontSize: "1.8cqw" }}>No Photo</div>
+          )}
+        </div>
+        <div className="min-w-0" data-member-details>
+          <div style={{ color: NAVY, fontWeight: 800, fontSize: "2.5cqw", lineHeight: 1.15, overflowWrap: "anywhere" }}>
+            {m.name}
           </div>
-        ) : photoSrc ? (
-          <img src={photoSrc} alt={m.name} className="h-full w-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-zinc-400 text-sm">No Photo</div>
-        )}
-      </div>
-
-      {/* Name + fields */}
-      <div className="absolute" style={{ left: "32%", top: "32.6%", right: "26%" }}>
-        <div style={{ color: NAVY, fontWeight: 800, fontSize: "3.35cqw", lineHeight: 1.08, whiteSpace: "nowrap" }}>
-          {m.name}
+          <div style={{ color: "#6b84a6", fontWeight: 500, fontSize: "1.9cqw", lineHeight: 1.3, marginTop: ".4cqw", overflowWrap: "anywhere" }}>
+            {m.designations}
+          </div>
+          <div style={{ height: ".22cqw", background: GOLD, marginTop: "1cqw", marginBottom: "1cqw", width: "40%" }} />
+          <Row label="MEMBERSHIP GRADE" value={m.membershipGrade} />
+          <Row label="PRACTICE GRADE" value={m.practiceGrade} valueColor={GOLD} />
+          <Row label="REGISTRATION NUMBER" value={m.membershipNo} />
+          <Row label="REGISTRATION STATUS" value={m.status} valueColor="#16a34a" />
+          {m.email && <Row label="EMAIL" value={m.email} fontSize="1.6cqw" />}
+          {m.phone && <Row label="PHONE" value={m.phone} fontSize="1.6cqw" />}
+          <Row label="ISSUE DATE" value={m.issueDate} />
+          <Row label="EXPIRY DATE" value={m.expiryDate} />
         </div>
-        <div style={{ color: "#6b84a6", fontWeight: 500, fontSize: "1.92cqw", marginTop: ".35cqw" }}>
-          {m.designations}
-        </div>
-        <div style={{ height: ".22cqw", background: GOLD, marginTop: "1.25cqw", width: "47%" }} />
-      </div>
-      <div className="absolute" style={{ left: "32%", top: "48.2%", right: "16.4%" }}>
-        <Row label="MEMBERSHIP GRADE" value={m.membershipGrade} />
-        <Row label="PRACTICE GRADE" value={m.practiceGrade} valueColor={GOLD} />
-        <Row label="REGISTRATION NUMBER" value={m.membershipNo} />
-        <Row label="REGISTRATION STATUS" value={m.status} valueColor="#16a34a" />
-        <Row label="ISSUE DATE" value={m.issueDate} />
-        <Row label="EXPIRY DATE" value={m.expiryDate} />
       </div>
 
       {/* Bottom strip */}
@@ -378,21 +427,23 @@ function Row({
   label,
   value,
   valueColor = NAVY,
+  fontSize = "1.45cqw",
 }: {
   label: string;
   value: string;
   valueColor?: string;
+  fontSize?: string;
 }) {
   return (
     <div
       className="grid items-baseline"
-      style={{ gridTemplateColumns: "39% 4% 57%", marginBottom: ".72cqw" }}
+      style={{ gridTemplateColumns: "36% 3% minmax(0, 1fr)", columnGap: ".3cqw", marginBottom: ".2cqw", lineHeight: 1.2 }}
     >
-      <div style={{ color: NAVY, fontWeight: 700, fontSize: "1.38cqw", letterSpacing: "0" }}>
+      <div style={{ color: NAVY, fontWeight: 700, fontSize, letterSpacing: "0" }}>
         {label}
       </div>
-      <div style={{ color: NAVY, fontSize: "1.38cqw", fontWeight: 700 }}>:</div>
-      <div style={{ color: valueColor, fontWeight: 800, fontSize: "1.38cqw", lineHeight: 1.05 }}>{value}</div>
+      <div style={{ color: NAVY, fontSize, fontWeight: 700 }}>:</div>
+      <div style={{ color: valueColor, fontWeight: 800, fontSize, lineHeight: 1.25, overflowWrap: "anywhere", minWidth: 0 }}>{value}</div>
     </div>
   );
 }
@@ -440,11 +491,11 @@ function CardBack({ m, qrLoading }: { m: MemberData, qrLoading: boolean }) {
       </svg>
 
       {/* Header logo + title */}
-      <div className="absolute flex items-center" style={{ left: "8.5%", top: "6%", gap: "2.4cqw" }}>
-        <img src={mark} alt="RIQS mark" style={{ width: "14.9cqw", height: "14.2cqw", objectFit: "contain" }} />
+      <div className="absolute flex items-center" style={{ left: "7%", top: "6%", gap: "1.8cqw" }}>
+        <img src={mark} alt="RIQS mark" style={{ width: "12cqw", height: "12cqw", objectFit: "contain" }} />
         <div style={{ lineHeight: .98, marginTop: "1cqw", whiteSpace: "nowrap" }}>
-          <div style={{ color: GOLD, fontWeight: 800, fontSize: "3.18cqw" }}>Rwanda Institute of</div>
-          <div style={{ color: NAVY, fontWeight: 800, fontSize: "3.75cqw" }}>Quantity Surveyors</div>
+          <div style={{ color: GOLD, fontWeight: 800, fontSize: "2.8cqw" }}>Rwanda Institute of</div>
+          <div style={{ color: NAVY, fontWeight: 800, fontSize: "3cqw" }}>Quantity Surveyors</div>
         </div>
       </div>
 
@@ -515,18 +566,18 @@ function CardBack({ m, qrLoading }: { m: MemberData, qrLoading: boolean }) {
       {/* Bottom-right QR */}
       <div
         className="absolute flex items-center gap-[0.8cqw]"
-        style={{ right: "5.6%", bottom: "4.2%" }}
+        style={{ right: "3%", bottom: "1.5%" }}
       >
         <div style={{ color: NAVY, fontWeight: 800, fontSize: "1.62cqw", letterSpacing: "0", textAlign: "right", lineHeight: 1.08 }}>
           SCAN<br />TO VERIFY <span style={{ color: "#fff" }}>▶</span>
         </div>
-        <div className="bg-white p-[0.3cqw] flex items-center justify-center" style={{ width: "9.8cqw", height: "9.8cqw" }}>
+        <div className="bg-white p-[0.75cqw] flex items-center justify-center" style={{ width: "11.8cqw", height: "11.8cqw", border: `.35cqw solid ${NAVY}`, borderRadius: "1cqw" }}>
           {qrLoading ? (
             <Loader2 className="w-[40%] h-[40%] animate-spin text-navy/40" />
           ) : m.qrDataUrl ? (
-            <img src={m.qrDataUrl} alt="Scan to verify membership" style={{ width: "9.2cqw", height: "9.2cqw", display: "block" }} />
+            <img src={m.qrDataUrl} alt="Scan to verify membership" style={{ width: "100%", height: "100%", display: "block" }} />
           ) : (
-            <div style={{ width: "9.2cqw", height: "9.2cqw" }} />
+            <div style={{ width: "100%", height: "100%" }} />
           )}
         </div>
       </div>
